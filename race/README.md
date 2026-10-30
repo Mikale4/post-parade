@@ -513,6 +513,16 @@ running style, every distance, and dirt. Three of them are not among the eleven
 hand-authored racers, so exhibition offers any racer the account owns and runs her
 against those eleven (`fieldFor` in index.html), keeping the field at eleven.
 
+**Stamina** works like the real game's TP (`STAMINA` in stable.js): a bar of 100 that
+refills a point every four minutes, or all at once for carrots.
+- **A career run costs 30.** It's paid once, when the run starts, so a run is never
+  stranded halfway.
+- **An exhibition race costs 5,** charged as each one starts: "To the gate", "Race
+  again", or Restart from the pause menu (`startExhibition` in index.html). The price is
+  on the button, so it asks no confirmation. Without enough stamina the race doesn't start
+  and a note says so.
+- The tutorial race and the races inside a career cost nothing.
+
 ### Her career is her own
 
 Career mode runs the **real URA Finale calendar** (`careerdata.js`): all 404 races of the

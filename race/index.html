@@ -579,6 +579,24 @@ function showStable(){
   $("stableHint").textContent = Racers.PERSONALITIES[r.personality].blurb;
 }
 
+/* An exhibition costs stamina, the way the real game's races cost TP: charged as each one
+   starts -- To the gate, Race again, or Restart from the pause menu. The tutorial race
+   and career races are not charged here: a career run is paid for once, when it begins
+   (ui-career.js). The price is on the button, so no confirmation is asked. */
+const exhibitionPrice = () => window.Stable && Stable.STAMINA ? Stable.STAMINA.exhibition : 0;
+const exhibitionCost = () => exhibitionPrice() ? ` &middot; ${exhibitionPrice()} stamina` : "";
+function startExhibition(){
+  const cost = exhibitionPrice();
+  if (cost && !Stable.spendStamina(cost)) {
+    const have = Stable.stamina().cur;
+    const msg = `An exhibition race costs ${cost} stamina and you have ${have}. ` +
+      `It refills on its own, or you can buy a refill with carrots.`;
+    if (window.UIMeta) UIMeta.notify(msg, { title: "Not enough stamina" }); else alert(msg);
+    return;
+  }
+  start();
+}
+
 // ---------- screen: deck builder ----------
 /* The cards this account actually holds. Everything on the deck screen goes through here:
    the screen was written before the stable existed and drew on Cards.CARDS, so a brand
@@ -641,7 +659,7 @@ function showDeck(){
     <div class="courses">${COURSES.map(c => `<button class="course ${c.surface}${c.id===pickCourse?" sel":""}"
       data-course="${c.id}"><b>${c.name}</b><span>${c.distance}m &middot; ${c.surface}</span></button>`).join("")}</div>
     <div class="row">
-      <button class="btn gold" id="toRace">To the gate</button>
+      <button class="btn gold" id="toRace">To the gate${exhibitionCost()}</button>
       <button class="btn ghost sm" id="toDecks">Manage decks</button>
       <span class="spacer"></span><button class="btn ghost sm" id="back">Back to stable</button>
     </div>`;
@@ -668,7 +686,7 @@ function showDeck(){
     Shell.go("scr-decks", UIDecks.listBuild);
   };
   $("back").onclick = () => { workingDeck = null; showStable(); };
-  $("toRace").onclick = () => start();
+  $("toRace").onclick = startExhibition;
 }
 
 // ---------- race ----------
@@ -1346,12 +1364,12 @@ function showResults(order, rank){
           <td class="cards">${names||"&mdash;"}</td></tr>`;}).join("")}
     </tbody></table>
     <div class="row">
-      <button class="btn gold" id="again">Race again</button>
+      <button class="btn gold" id="again">Race again${exhibitionCost()}</button>
       <button class="btn ghost sm" id="reDeck">Change deck</button>
       <button class="btn ghost sm" id="toStable">Stable</button>
       <button class="btn ghost sm" id="toMenu">Main menu</button>
     </div>`;
-  $("again").onclick = start;
+  $("again").onclick = startExhibition;
   $("reDeck").onclick = showDeck;
   $("toStable").onclick = () => { workingDeck = null; showStable(); };
   $("toMenu").onclick = () => Game.toMenu();
@@ -1680,7 +1698,7 @@ window.Game = {
     return G.paused;
   },
   isPaused: () => !!(G && G.paused),
-  restartRace(){ if (G && G.tutorial) return; start(); },
+  restartRace(){ if (G && G.tutorial) return; if (G && G.career) return start(); startExhibition(); },
   quitRace(){ if (G) { G.paused = false; G.done = true; } $("modal").style.display = "none"; },
 };
 
