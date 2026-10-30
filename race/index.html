@@ -1,0 +1,1691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Post Parade</title>
+<!-- The interface's three faces (see theme.css). Offline they fall back to system fonts. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script>
+  /* theme.css owns the palette and the race/front-of-house look; theme-meta.css styles
+     the scout, stable, quests and career screens in the same language. Both are
+     cache-busted, because a stale stylesheet during iteration looks like a broken layout. */
+  var cssV = Date.now();
+  document.write('<link rel="stylesheet" href="theme.css?v='+cssV+'">');
+  document.write('<link rel="stylesheet" href="theme-meta.css?v='+cssV+'">');
+</script>
+<style>
+  /* The race HUD and its sheet (deck, exhibition setup, results), in the race-day
+     language of theme.css. Everything here is scoped to #scr-game and #modal: the first
+     version set bare `button`, `table` and `.coach` rules page-wide, which turned every
+     hovered tile on every other screen navy and restyled the tutorial coach. */
+  #scr-game,#modal{
+    --panel:var(--paper); --panel2:var(--paper-2); --dim:var(--ink-3);
+    --good:var(--turf); --warn:#d9822a; --bad:var(--red); --accent:var(--sky);
+  }
+  *{box-sizing:border-box}
+  #scr-game .wrap{color:var(--ink);font:500 14px/1.45 var(--font-ui);display:flex;flex-direction:column;height:100vh;max-width:1600px;margin:0 auto}
+  /* A bare button here is a small paper key. :where() keeps this at zero specificity, so
+     .btn, .pick and the HUD's own buttons restyle it without fighting it. */
+  :where(#scr-game,#modal) button:where(:not(.btn)){font:inherit;color:var(--ink);background:var(--paper-2);border:0;
+    border-radius:var(--r-sm);padding:6px 11px;cursor:pointer;box-shadow:inset 0 0 0 1px var(--rule-2),0 2px 0 var(--rule-2)}
+  :where(#scr-game,#modal) button:where(:not(.btn):hover:not(:disabled)){background:#fff}
+  :where(#scr-game,#modal) button:where(:not(.btn):active:not(:disabled)){transform:translateY(2px);box-shadow:inset 0 0 0 1px var(--rule-2)}
+  :where(#scr-game,#modal) button:where(:disabled){opacity:.45;cursor:default}
+  :is(#scr-game,#modal) .spacer{flex:1}
+  :is(#scr-game,#modal) .meta{color:var(--ink-3);font-size:13px}
+  :is(#scr-game,#modal) .meta b{color:var(--ink);font-weight:800}
+
+  /* ---- the top bar: the tote board ---- */
+  #scr-game .top{display:flex;align-items:center;gap:12px;padding:8px 14px;flex:none;
+       background:var(--board);border-bottom:3px solid var(--gold);z-index:5;color:#e8efe6}
+  #scr-game .top h1{font:400 15px/1 var(--font-display);margin:0;color:#fff;letter-spacing:.02em}
+  #scr-game .top .meta{color:#a8b8ac}
+  #scr-game .top .meta b{color:#fff}
+  #scr-game .gradetag{background:var(--gold);color:#3a2800;border-radius:var(--r-sm);padding:1px 7px;font:800 italic 14px var(--font-num)}
+  #scr-game .phase{padding:5px 11px 4px;border-radius:var(--r-sm);font:800 12px/1 var(--font-ui);color:var(--led);
+         background:#0c140f;box-shadow:inset 0 0 0 1px #3a4a3e;letter-spacing:.04em}
+  #scr-game .phase.final{background:var(--gold);color:#3a2800;box-shadow:none}
+  #scr-game #clock{font:800 italic 22px/1 var(--font-num);color:var(--led);min-width:68px;text-align:right;
+         text-shadow:0 0 8px rgba(255,178,30,.35)}
+  #scr-game .rate{display:inline-flex;gap:3px;padding:3px;background:#0c140f;border-radius:var(--r);box-shadow:inset 0 0 0 1px #3a4a3e}
+  #scr-game .rate button{background:transparent;color:#a8b8ac;box-shadow:none;padding:5px 10px;
+    font:800 italic 15px/1 var(--font-num)}
+  #scr-game .rate button:hover:not(:disabled){background:#223127;color:#fff}
+  #scr-game .rate button.sel{background:var(--turf);color:#fff;box-shadow:0 2px 0 var(--turf-deep)}
+  #scr-game .top > button{background:#223127;color:#e8efe6;box-shadow:inset 0 0 0 1px #3a4a3e,0 2px 0 #0c140f;font-weight:800}
+  #scr-game .top > button:hover:not(:disabled){background:#2c4033}
+
+  /* ---- start to finish ---- */
+  #scr-game .strip{position:relative;height:30px;flex:none;background:#14281a;border-bottom:1px solid #0c140f}
+  #scr-game .strip .track{position:absolute;left:58px;right:62px;top:14px;height:2px;background:rgba(255,255,255,.35)}
+  #scr-game .strip::before,#scr-game .strip::after{position:absolute;top:8px;font:800 italic 13px/1 var(--font-num);color:#fff;letter-spacing:.04em}
+  #scr-game .strip::before{content:"START";left:8px;color:#8fd06a}
+  #scr-game .strip::after{content:"FINISH";right:10px;color:var(--led)}
+  #scr-game .pip{position:absolute;top:8px;width:8px;height:14px;border-radius:2px;transform:translateX(-50%);
+       transition:left .05s linear;box-shadow:0 0 0 1px rgba(0,0,0,.55)}
+  #scr-game .pip.me{width:12px;height:20px;top:5px;box-shadow:0 0 0 2px var(--gold),0 0 0 3px #000;z-index:5}
+
+  #scr-game .stage{position:relative;flex:1;min-height:0;background:#0e1016}
+  #scr-game canvas{display:block;width:100%;height:100%}
+  #scr-game .stage canvas{position:absolute;inset:0}
+  #cv{pointer-events:none}
+  #btnCam{min-width:118px}
+  #btnCam[hidden]{display:none}
+  /* the real game's placing: big, gold, italic, over the race */
+  #rankBig{position:absolute;left:18px;top:12px;z-index:4;pointer-events:none;display:flex;align-items:baseline;gap:2px;
+    font:800 italic 64px/1 var(--font-num);color:var(--gold);-webkit-text-stroke:5px #3a2400;paint-order:stroke fill;
+    text-shadow:0 4px 0 #3a2400,0 8px 18px rgba(0,0,0,.4)}
+  #rankBig small{font-size:28px;color:#fff;-webkit-text-stroke:4px #1e2a22}
+  #rankBig[hidden]{display:none}
+  #togo{position:absolute;right:16px;top:14px;z-index:4;pointer-events:none;
+    font:800 italic 26px/1 var(--font-num);color:#fff;-webkit-text-stroke:4px #1e2a22;paint-order:stroke fill}
+  #togo small{font-size:15px}
+  /* the race caller's line (caller.js): a broadcast caption under the action, names in gold */
+  #scr-game #callerCap{position:absolute;left:50%;bottom:18px;transform:translate(-50%,6px);z-index:4;pointer-events:none;
+    width:max-content;max-width:min(80%,620px);padding:7px 16px 8px;background:rgba(10,18,12,.8);border-left:4px solid var(--gold);
+    font:700 17px/1.3 var(--font-ui);color:#fff;text-align:center;opacity:0;transition:opacity .2s,transform .2s}
+  #scr-game #callerCap.on{opacity:1;transform:translate(-50%,0)}
+  #scr-game #callerCap b{color:var(--gold);font-weight:800}
+  #scr-game .stage:has(.firsttip) #callerCap{bottom:auto;top:60px}
+  @media (max-width:600px){ #scr-game #callerCap{font-size:14px;max-width:92%;bottom:10px;padding:6px 12px 7px} }
+  #scr-game .introskip{position:absolute;right:16px;bottom:14px;padding:6px 12px;border-radius:var(--r-sm);
+             font:800 12px var(--font-ui);color:#fff;background:rgba(14,30,18,.75);pointer-events:none;
+             animation:introskip 1.6s ease-in-out infinite alternate}
+  @keyframes introskip{from{opacity:.55}to{opacity:1}}
+  #scr-game .banner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #scr-game .banner .big{font:800 italic 96px/1 var(--font-num);-webkit-text-stroke:7px #3a2400;paint-order:stroke fill;
+    text-shadow:0 6px 0 #3a2400,0 12px 30px rgba(0,0,0,.6)}
+
+  /* unique-skill cutscene: the racer's own moment, so it takes the whole stage
+     briefly without ever pausing the simulation underneath */
+  #scr-game .cut{position:absolute;inset:0;pointer-events:none;overflow:hidden;display:none}
+  #scr-game .cut.on{display:block}
+  #scr-game .cut .sweep{position:absolute;inset:0;
+    background:linear-gradient(105deg,transparent 28%,rgba(242,183,5,.18) 46%,
+      rgba(255,255,255,.28) 50%,rgba(242,183,5,.18) 54%,transparent 72%);
+    transform:translateX(-100%);animation:sweep 1.5s cubic-bezier(.2,.7,.2,1) forwards}
+  @keyframes sweep{to{transform:translateX(100%)}}
+  /* the 3D cutscene's title: the skill's name lands over the hero shot */
+  #scr-game .cut.vox .flash{position:absolute;inset:0;background:#fff;opacity:0;animation:cutflash var(--len) linear forwards}
+  @keyframes cutflash{0%{opacity:.85}7%{opacity:0}95%{opacity:0}100%{opacity:.6}}
+  #scr-game .cut.vox .splash{position:absolute;left:0;bottom:12%;opacity:0;padding:12px 90px 14px 6%;
+    background:linear-gradient(90deg,rgba(10,18,12,.82) 55%,rgba(10,18,12,0));
+    animation:cutsplash calc(var(--len) - var(--hero)) cubic-bezier(.2,.8,.2,1) var(--hero) forwards}
+  #scr-game .cut.vox .splash .nm{font:400 46px/1.05 var(--font-display);color:var(--gold);
+    -webkit-text-stroke:6px #2a1a00;paint-order:stroke fill;text-shadow:0 5px 0 #2a1a00}
+  #scr-game .cut.vox .splash .wh{font:800 15px var(--font-ui);color:#fff;margin-top:8px;letter-spacing:.04em}
+  #scr-game .cut.vox.short .splash .nm{font-size:32px}
+  @keyframes cutsplash{0%{opacity:0;transform:translateX(-70px) skewX(-10deg)}
+    20%{opacity:1;transform:translateX(0) skewX(-10deg)}85%{opacity:1;transform:translateX(8px) skewX(-10deg)}
+    100%{opacity:0;transform:translateX(24px) skewX(-10deg)}}
+  /* a rivalry (runRival3D): each piece shows at its beat (--at) for its time (--dur) */
+  #scr-game .cut.rival > div{position:absolute;opacity:0;animation:rvshow var(--dur) ease-out var(--at) forwards}
+  @keyframes rvshow{0%{opacity:0;transform:translateY(10px)}12%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+  #scr-game .cut.rival .rv-title{left:0;right:0;top:8%;display:flex;justify-content:center;align-items:center;gap:22px}
+  #scr-game .cut.rival .rv-title span{font:400 30px/1 var(--font-display);color:#fff;-webkit-text-stroke:5px #10140e;paint-order:stroke fill}
+  #scr-game .cut.rival .rv-title i{font:400 54px/1 var(--font-display);font-style:italic;color:var(--gold);
+    -webkit-text-stroke:6px #2a1a00;paint-order:stroke fill;text-shadow:0 5px 0 #2a1a00}
+  #scr-game .cut.rival .rv-say{bottom:13%;max-width:44%;padding:10px 16px 12px;background:rgba(10,18,12,.78)}
+  #scr-game .cut.rival .rv-say.l{left:4%;border-left:4px solid var(--gold)}
+  #scr-game .cut.rival .rv-say.r{right:4%;text-align:right;border-right:4px solid var(--gold)}
+  #scr-game .cut.rival.short .rv-say{bottom:6%}
+  #scr-game .cut.rival .rv-say b{display:block;font:800 12px var(--font-ui);color:var(--gold);letter-spacing:.06em;margin-bottom:3px}
+  #scr-game .cut.rival .rv-say span{font:700 19px/1.3 var(--font-ui);color:#fff}
+  #scr-game .cut.rival .rv-skill{top:20%;font:400 34px/1.05 var(--font-display);color:var(--gold);max-width:45%;
+    -webkit-text-stroke:6px #2a1a00;paint-order:stroke fill;text-shadow:0 5px 0 #2a1a00}
+  #scr-game .cut.rival .rv-skill.l{left:4%;transform:skewX(-10deg)}
+  #scr-game .cut.rival .rv-skill.r{right:4%;text-align:right;transform:skewX(-10deg)}
+  #scr-game .cut.rival .rv-flash{inset:0;background:#fff;animation:rvflash .5s ease-out var(--at) forwards}
+  @keyframes rvflash{0%{opacity:.9}100%{opacity:0}}
+  #scr-game .cut.rival .rv-numbers{inset:0}
+  #scr-game .cut.rival .rv-numbers i{position:absolute;font:700 15px/1 ui-monospace,Consolas,monospace;font-style:normal;color:#9af0ff;
+    text-shadow:0 0 8px #3ad0ff;opacity:0;animation:rvnum 1.6s ease-out forwards}
+  @keyframes rvnum{0%{opacity:0;transform:translateX(30px)}20%{opacity:.95}100%{opacity:0;transform:translateX(-60px)}}
+  #scr-game .cut .band{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+    background:linear-gradient(90deg,rgba(10,18,12,0),rgba(10,18,12,.92) 18%,rgba(10,18,12,.92) 82%,rgba(10,18,12,0));
+    padding:16px 0;display:flex;align-items:center;gap:20px;justify-content:center;
+    animation:band 2.6s ease-out forwards}
+  @keyframes band{0%{opacity:0;transform:translateY(-50%) scaleY(.4)}
+                  12%{opacity:1;transform:translateY(-50%) scaleY(1)}
+                  78%{opacity:1}100%{opacity:0}}
+  #scr-game .cut img{height:158px;filter:drop-shadow(0 6px 22px rgba(0,0,0,.75));
+    animation:slidein 2.6s cubic-bezier(.15,.8,.25,1) forwards}
+  @keyframes slidein{0%{opacity:0;transform:translateX(-46px) scale(.9)}
+                     16%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+  #scr-game .cut .txt{max-width:430px}
+  #scr-game .cut .nm{font:400 30px/1.1 var(--font-display);color:var(--gold);
+    animation:slidein 2.6s cubic-bezier(.15,.8,.25,1) .08s backwards}
+  #scr-game .cut .wh{font-size:12px;color:#cfd8d0;margin-top:3px;font-weight:800}
+  #scr-game .cut .ds{font-size:13px;color:#a8b8ac;margin-top:7px;line-height:1.45}
+
+  /* ---- the bottom: a paper panel ---- */
+  #scr-game .bottom{flex:none;padding:10px 14px 12px;display:flex;gap:16px;align-items:center;
+          background:var(--paper);border-top:3px solid var(--turf);box-shadow:0 -4px 14px rgba(0,0,0,.18)}
+  #scr-game .status{width:280px;flex:none}
+  #scr-game .status .who{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+  #scr-game .status .who b{font:400 17px/1.15 var(--font-display)}
+  #scr-game .bar{height:16px;border-radius:3px;background:var(--paper-3);overflow:hidden;position:relative;
+       margin-bottom:5px;box-shadow:inset 0 0 0 1px var(--rule-2),inset 0 2px 0 rgba(0,0,0,.08)}
+  #scr-game .bar i{display:block;height:100%;transition:width .12s linear}
+  #scr-game .bar em{position:absolute;inset:0;font-style:normal;font:800 11px var(--font-ui);color:#fff;
+          display:flex;align-items:center;justify-content:space-between;padding:0 7px;
+          text-shadow:0 1px 0 rgba(0,0,0,.55),0 0 3px rgba(0,0,0,.5)}
+  #spBar{background:var(--gold)}
+  #scr-game #posTxt{font-weight:700}
+  #scr-game #posTxt b{font:800 italic 16px var(--font-num)}
+  /* The Callout is the player's only in-race lever, so the UI has to answer two
+     questions on its own: what does it do, and is now the moment. The button carries
+     the first; the urgent state and the hint line carry the second. */
+  #scr-game .callout{flex:none;text-align:center;width:170px}
+  #scr-game .callout button{width:100%;padding:10px 10px 9px;display:flex;flex-direction:column;
+    gap:2px;align-items:center;line-height:1.15;transition:filter .12s,transform .08s;
+    background:var(--red);color:#fff;font-weight:800;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 4px 0 var(--red-lo)}
+  #scr-game .callout button:hover:not(:disabled){background:#e23a47}
+  /* spent or nothing left to draw: a flat grey key, not a faded red one */
+  #scr-game .callout button:disabled{opacity:1;background:var(--paper-3);color:var(--ink-3);
+    box-shadow:inset 0 0 0 1px var(--rule-2)}
+  #scr-game .callout button:disabled .cokey{background:rgba(0,0,0,.08)}
+  #scr-game .callout button:active:not(:disabled){transform:translateY(4px);box-shadow:0 0 0 var(--red-lo)}
+  #scr-game .colabel{font:400 16px/1 var(--font-display);display:flex;align-items:center;gap:6px}
+  #scr-game .colabel .ico{width:20px;height:20px}
+  #scr-game .cokey{background:rgba(0,0,0,.25);border-radius:3px;font:800 10px/1 var(--font-ui);padding:2px 4px;color:inherit}
+  #scr-game .cosub{font-size:10.5px;opacity:.9;font-weight:700}
+  #scr-game .copips{display:flex;gap:4px;justify-content:center;margin-top:7px}
+  #scr-game .copips i{width:18px;height:6px;border-radius:2px;background:var(--red)}
+  #scr-game .copips i.used{background:var(--paper-3);box-shadow:inset 0 0 0 1px var(--rule-2)}
+  #scr-game .cohint{font-size:11px;margin-top:4px;min-height:26px;line-height:1.25;color:var(--ink-3);font-weight:700}
+  /* urgent: the hand cannot be played and a Callout is sitting unused */
+  #scr-game .callout.urgent button:not(:disabled){animation:pulse 1.05s ease-out infinite}
+  #scr-game .callout.urgent .cohint{color:var(--red)}
+  #scr-game .callout.warm button:not(:disabled){animation:pulse 2.6s ease-out infinite}
+  #scr-game .callout.spent .cohint{color:var(--ink-3)}
+  @keyframes pulse{0%{outline:0 solid rgba(242,183,5,.8)}70%{outline:8px solid rgba(242,183,5,0)}100%{outline:0 solid rgba(242,183,5,0)}}
+  #scr-game .played.stuck{outline:2px solid var(--gold);outline-offset:3px;border-radius:var(--r)}
+  /* The tip sits in .stage, which is short once the HUD bars take their share. Anchored
+     to the bottom with no ceiling it grew upward straight over the top bar, so it is
+     bounded by its container on both axes and scrolls if it still does not fit.
+     Centred with left/right + auto margins rather than left:50% + translate: a
+     shrink-to-fit absolute box measures its available width from the offset, so at
+     left:50% it could never be wider than half the stage. */
+  #scr-game .firsttip{position:absolute;left:12px;right:12px;bottom:18px;margin:0 auto;
+    max-width:520px;max-height:calc(100% - 36px);display:flex;flex-direction:column;
+    background:var(--paper);border:1px solid var(--rule-2);border-top:4px solid var(--gold);border-radius:var(--r-lg);
+    padding:13px 16px;font-size:13.5px;line-height:1.55;z-index:8;color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  #scr-game .firsttip b{color:var(--gold-lo)}
+  /* Only the prose scrolls. The dismiss button stays put -- on a short stage it was the
+     part that fell below the fold, which is the one thing that must never happen to it. */
+  #scr-game .ft-text{overflow-y:auto;min-height:0}
+  #scr-game .firsttip button{margin-top:10px;align-self:flex-start;background:var(--gold);color:#3a2800;
+    font-weight:800;padding:7px 16px;box-shadow:0 3px 0 var(--gold-lo)}
+  #scr-game .played{flex:1;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;min-width:0;
+          align-content:flex-start;max-height:84px;overflow-y:auto}
+  /* The two HUD bars are fixed-width flex rows tuned for a wide window. Below this they
+     stop fitting: the Stable button walked entirely off the right edge and the Callout --
+     the one control the whole game is about -- was clipped. Let them wrap and let the
+     fixed-width blocks become full-width rows instead. */
+  @media (max-width:660px){
+    #scr-game .top{flex-wrap:wrap;gap:8px 10px;padding:8px 10px}
+    #scr-game .top h1{font-size:13px}
+    #scr-game .top .spacer{flex:1 0 0}
+    #scr-game .bottom{flex-wrap:wrap;gap:10px;padding:8px 10px 10px}
+    #scr-game .status{width:auto;flex:1 1 100%;min-width:0}
+    #scr-game .callout{width:auto;flex:1 1 100%}
+    #scr-game .callout button{flex-direction:row;justify-content:center;gap:8px;padding:8px 10px}
+    #scr-game .played{flex:1 1 100%;max-height:62px}
+    #rankBig{font-size:44px}
+  }
+  #scr-game .bottom .chip{display:flex;align-items:center;gap:7px;background:var(--paper-2);border:0;
+        border-radius:var(--r);padding:4px 10px 4px 4px;font-size:12.5px;font-weight:800;
+        box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule-2)}
+  #scr-game .bottom .chip.dead{opacity:.5;box-shadow:inset 0 0 0 1px var(--rule)}
+  #scr-game .bottom .chip small{color:var(--ink-3);font-size:11px;font-weight:700}
+  #scr-game .bottom .chip img{width:26px;height:26px;object-fit:cover;object-position:top;border-radius:var(--r-sm)}
+  #scr-game .bottom .chip.spent{opacity:.42}
+  #scr-game .bottom .chip.ready{box-shadow:inset 0 0 0 2px var(--turf),0 2px 0 var(--turf-lo)}
+  #scr-game .bottom .chip b{font-weight:800}
+
+  /* ---- the sheet: deck, exhibition setup, results ---- */
+  /* hidden until a screen asks for it -- the shell owns what is on screen at boot */
+  .modal{position:fixed;inset:0;background:rgba(10,22,12,.82);display:none;align-items:center;
+         justify-content:center;z-index:20;padding:18px;overflow:auto}
+  .modal.open{display:flex}
+  #modal .sheet{background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r-lg);padding:0 0 6px;
+         max-width:1080px;width:100%;max-height:94vh;overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+  #modal .sheet>h2:first-child{margin:0;padding:13px 22px 12px;
+    background:repeating-linear-gradient(90deg,#2d8a3c 0 28px,#33933f 28px 56px);color:#fff;
+    font:400 17px/1.2 var(--font-display);border-bottom:3px solid var(--gold);position:sticky;top:0;z-index:2}
+  #modal .sheet>*:not(h2:first-child){margin-left:22px;margin-right:22px}
+  /* a table sizes its border box to 100%, so the gutters have to come out of it */
+  #modal .sheet>table{width:calc(100% - 44px)}
+  /* top and bottom only: a margin shorthand here would zero the sheet's side gutter */
+  #modal .sheet h2{margin-top:16px;margin-bottom:4px;font:400 18px var(--font-display);color:var(--ink)}
+  #modal .sheet h3{margin-top:20px;margin-bottom:8px;font:400 14px var(--font-display);color:var(--ink);
+    display:flex;align-items:center;gap:8px}
+  #modal .sheet h3::after{content:"";flex:1;height:2px;background:var(--rule)}
+  #modal .sheet h3 .meta{font:700 12.5px/1.3 var(--font-ui);color:var(--ink-3)}
+  #modal .sheet h3 .meta b{font-weight:800;color:var(--ink)}
+  #modal .sheet p.sub{margin-top:12px;margin-bottom:16px;color:var(--ink-2);font-size:13px;line-height:1.55}
+  #modal .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px}
+  #modal .pick{background:var(--paper-2);border-radius:var(--r);padding:10px 12px;
+        cursor:pointer;text-align:left;position:relative;box-shadow:inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2)}
+  #modal .pick:hover{background:#fff}
+  #modal .pick.sel{background:var(--gold-pale);box-shadow:inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
+  #modal .pick b{display:block;font:400 14px/1.2 var(--font-display)}
+  #modal .pick .lv{position:absolute;top:9px;right:10px;font:800 italic 15px var(--font-num);color:var(--gold-lo)}
+  #modal .pick .pers{font-size:11.5px;color:var(--sky-lo);font-weight:800;margin:2px 0 3px}
+  #modal .pick span.d{font-size:11.5px;color:var(--ink-3);display:block;line-height:1.4}
+  #modal .stat5{display:flex;gap:3px;margin-top:7px}
+  #modal .stat5 i{flex:1;height:5px;border-radius:1px;background:var(--paper-3)}
+  #modal .xpbar{height:4px;background:var(--paper-3);border-radius:1px;margin-top:6px;overflow:hidden}
+  #modal .xpbar i{display:block;height:100%;background:var(--sky)}
+
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px}
+  .dcard{background:var(--paper);border:2px solid var(--rule);border-radius:var(--r);overflow:hidden;
+         cursor:pointer;position:relative;transition:transform .08s,border-color .1s;box-shadow:0 3px 0 var(--rule-2)}
+  .dcard:hover{border-color:var(--rule-2)}
+  .dcard:active{transform:translateY(2px)}
+  .dcard.in{border-color:var(--gold);box-shadow:0 3px 0 var(--gold-lo)}
+  .dcard.in .tick{display:block}
+  .tick{display:none;position:absolute;top:6px;left:6px;background:var(--gold);color:#3a2800;
+        font:800 10px/1 var(--font-ui);padding:3px 6px;border-radius:var(--r-sm)}
+  .dcard img{width:100%;height:104px;object-fit:cover;object-position:top;display:block;background:var(--board)}
+  .dcard .ci{padding:6px 8px 20px}
+  .dcard .cn{font-size:12.5px;font-weight:800}
+  .dcard .cb{font-size:11px;color:var(--ink-3);line-height:1.35;margin-top:2px}
+  .dcard .cost{position:absolute;top:6px;right:6px;min-width:24px;height:24px;border-radius:var(--r-sm);
+        background:var(--gold);color:#3a2800;font:800 italic 15px/24px var(--font-num);text-align:center;box-shadow:0 2px 0 var(--gold-lo)}
+  .dcard .kind{font-size:10.5px;color:var(--sky-lo);font-weight:800}
+  .fit{position:absolute;bottom:0;left:0;right:0;font-size:10px;font-weight:800;text-align:center;padding:3px;color:#fff}
+  .fit.good{background:var(--turf)} .fit.bad{background:var(--red)}
+
+  #modal .passrow{display:flex;gap:8px;flex-wrap:wrap}
+  /* a block of running text, not a flex row: as flex the name and its description became
+     two columns, and on a phone the name wrapped a word per line */
+  #modal .pass{background:var(--turf-pale);border:1px solid #a8d29a;border-radius:var(--r-sm);padding:5px 9px;font-size:12px;
+        display:inline-block;line-height:1.45}
+  #modal .pass .ico{margin-right:5px}
+  #modal .pass b{color:var(--turf-lo);font-weight:800}
+  #modal .pass.locked{background:var(--paper-2);border-color:var(--rule);color:var(--ink-3)}
+  #modal .pass.locked b{color:var(--ink-2)}
+  #modal .sheet>h2:first-child .meta{color:#d7ecd0;font:800 italic 15px var(--font-num);margin-left:6px}
+  /* the course to run: a ticket each, with the surface down its edge */
+  #modal .courses{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
+  #modal .course{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:9px 12px 9px 16px;
+    text-align:left;background:var(--paper-2);border-radius:var(--r);
+    box-shadow:inset 5px 0 0 var(--turf),inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2)}
+  #modal .course.dirt{box-shadow:inset 5px 0 0 #a8743a,inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2)}
+  #modal .course b{font:400 14px/1.2 var(--font-display)}
+  #modal .course span{font:800 italic 15px/1 var(--font-num);color:var(--ink-3)}
+  #modal .course:hover{background:#fff}
+  #modal .course.sel{background:var(--gold-pale);box-shadow:inset 5px 0 0 var(--turf),inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
+  #modal .course.dirt.sel{box-shadow:inset 5px 0 0 #a8743a,inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
+  #modal .course.sel span{color:var(--gold-lo)}
+  #modal table,#scr-game table{width:100%;border-collapse:collapse;font-size:13px}
+  #modal th,#modal td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--rule)}
+  #modal th{color:var(--ink-3);font-weight:800;font-size:11.5px}
+  #modal tr.me td{background:var(--gold-pale);font-weight:800;box-shadow:inset 3px 0 0 var(--gold)}
+  #modal .coach{position:static;display:block;background:var(--gold-pale);border:1px solid #e6c95a;border-radius:var(--r);
+    padding:11px 14px;margin-top:12px;margin-bottom:12px;font-size:13px;line-height:1.55}
+  #modal .coach b{color:var(--gold-lo)}
+  #modal .coach.good{background:var(--turf-pale);border-color:#a8d29a}
+  #modal .coach.good b{color:var(--turf-lo)}
+  #modal .lvup{background:var(--turf-pale);border:1px solid #a8d29a;border-radius:var(--r);padding:11px 14px;margin:12px 0}
+  #modal .lvup b{color:var(--turf-lo)}
+  #modal .row{display:flex;gap:12px;align-items:center;margin-top:18px;margin-bottom:16px;flex-wrap:wrap}
+  /* the result: her placing on the board, then the whole field as the tote shows it */
+  #modal .rb{display:flex;align-items:center;gap:20px;margin-top:16px;padding:12px 20px;background:var(--board);
+      border-radius:var(--r-lg);color:#e8efe6;box-shadow:inset 0 0 0 1px #3a4a3e,0 4px 0 #0c140f}
+  #modal .rb-place{font:800 italic 66px/.9 var(--font-num);color:#fff}
+  #modal .rb-place small{font-size:26px;color:#a8b8ac}
+  #modal .rb-place.win{color:var(--gold);text-shadow:0 0 22px rgba(242,183,5,.35)}
+  #modal .rb-who{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+  #modal .rb-who b{font:400 20px/1.15 var(--font-display);color:#fff}
+  #modal .rb-who span{font-size:13px;color:#a8b8ac;font-weight:700}
+  #modal .rb-xp{font:800 italic 34px/1 var(--font-num);color:var(--led);text-align:right;text-shadow:0 0 10px rgba(255,178,30,.3)}
+  #modal .rb-xp small{display:block;font:800 11px var(--font-ui);color:#a8b8ac}
+  #modal table.tote{border-collapse:separate;border-spacing:0;background:var(--board);color:#e8efe6;
+      border-radius:var(--r-lg);overflow:hidden;margin-top:14px;box-shadow:0 4px 0 #0c140f}
+  #modal .tote th{color:var(--led);background:#0c140f;border-bottom:1px solid #3a4a3e;padding:8px 9px 7px}
+  #modal .tote td{border-bottom:1px solid #243329;padding:7px 9px}
+  #modal .tote tbody tr:last-child td{border-bottom:0}
+  #modal .tote tr:nth-child(even) td{background:rgba(255,255,255,.03)}
+  #modal .tote td.n{font:800 italic 21px/1 var(--font-num);color:#fff;width:44px;text-align:center}
+  #modal .tote td.t{font:700 italic 16px/1 var(--font-num);color:var(--led);white-space:nowrap}
+  #modal .tote td.m{font:700 italic 15px/1 var(--font-num);color:#a8b8ac;white-space:nowrap}
+  #modal .tote td.nm{font-weight:800;white-space:nowrap}
+  #modal .tote td.cards{color:#8fa094;font-size:12px}
+  #modal .tote tr.me td{background:rgba(242,183,5,.17);box-shadow:none}
+  #modal .tote tr.me td.n{box-shadow:inset 4px 0 0 var(--gold);color:var(--gold)}
+  #modal .sw{display:inline-block;width:9px;height:15px;border-radius:2px;margin-right:9px;vertical-align:-3px;
+      box-shadow:0 0 0 1px rgba(0,0,0,.45)}
+  #modal .tote .empty{color:#ff8a80;font-weight:800}
+  @media (max-width:900px){ #scr-game .status{width:200px} #scr-game .top{gap:9px;padding:8px 10px} }
+  /* A phone cannot hold eight columns: the cards column wrapped every row three lines
+     tall and the sheet scrolled sideways. The board keeps what a result is read for --
+     place, name, time, margin -- and the sheet gives back some of its gutter. */
+  @media (max-width:600px){
+    #modal .sheet>*:not(h2:first-child){margin-left:14px;margin-right:14px}
+    #modal .sheet>table{width:calc(100% - 28px)}
+    #modal .tote th:nth-child(3),#modal .tote td:nth-child(3),
+    #modal .tote th:nth-child(4),#modal .tote td:nth-child(4),
+    #modal .tote th:nth-child(7),#modal .tote td:nth-child(7),
+    #modal .tote th:nth-child(8),#modal .tote td:nth-child(8){display:none}
+    #modal .rb{gap:12px;padding:10px 14px}
+    #modal .rb-place{font-size:50px}
+    #modal .rb-xp{font-size:26px}
+    #modal .courses{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div id="wipe"></div>
+
+<div class="screen" id="scr-title"></div>
+<div class="screen" id="scr-login"></div>
+<div class="screen" id="scr-intro"></div>
+<div class="screen" id="scr-menu"></div>
+<div class="screen" id="scr-howto"></div>
+<div class="screen" id="scr-settings"></div>
+<div class="screen" id="scr-trainer"></div>
+<div class="screen" id="scr-starter"></div>
+<div class="screen" id="scr-scout"></div>
+<div class="screen" id="scr-stable"></div>
+<div class="screen" id="scr-racer"></div>
+<div class="screen" id="scr-quests"></div>
+<div class="screen" id="scr-careerpick"></div>
+<div class="screen" id="scr-career"></div>
+<div class="screen" id="scr-skills"></div>
+<div class="screen" id="scr-parents"></div>
+<div class="screen" id="scr-legacy"></div>
+<div class="screen" id="scr-schedule"></div>
+<div class="screen" id="scr-decks"></div>
+<div class="screen" id="scr-deckedit"></div>
+<div class="screen" id="scr-tutorials"></div>
+
+<div class="screen" id="scr-game"><div class="wrap shakeable">
+  <div class="top">
+    <h1>Post Parade</h1>
+    <span class="meta" id="courseInfo"></span>
+    <span class="phase" id="phaseTag">—</span>
+    <span class="meta" id="clock">0.0s</span>
+    <span class="spacer"></span>
+    <span class="rate">
+      <button data-rate="1" class="sel">1×</button><button data-rate="2">2×</button><button data-rate="4">4×</button>
+    </span>
+    <button id="btnCam" title="Camera (V): Auto directs the race; or hold one view" hidden>View: Auto</button>
+    <button id="btnPause" title="Pause (Esc)">II</button>
+    <button id="btnStable">Stable</button>
+  </div>
+  <div class="strip"><div class="track"></div><div id="pips"></div></div>
+  <div class="stage"><canvas id="cv"></canvas><div class="banner" id="banner"></div>
+    <div id="rankBig" hidden></div><div id="togo" hidden></div>
+    <div class="cut" id="cut"></div></div>
+  <div class="bottom">
+    <div class="status">
+      <div class="who"><b id="myName">—</b></div>
+      <div class="meta" id="myStyle" style="margin-bottom:6px"></div>
+      <div class="bar"><i id="hpBar" style="width:100%"></i><em><span>Stamina</span><span id="hpTxt">100%</span></em></div>
+      <div class="bar"><i id="spBar" style="width:0%"></i>
+        <em><span>Spirit</span><span id="spTxt">0</span></em></div>
+      <div class="meta" id="posTxt">—</div>
+    </div>
+    <div class="callout">
+      <button id="btnCallout">
+        <span class="colabel">Callout <kbd class="cokey">C</kbd></span>
+        <span class="cosub">bin these, draw 5 more</span>
+      </button>
+      <div class="copips" id="copips"></div>
+      <div class="cohint" id="cohint"></div>
+    </div>
+    <div class="played" id="played"></div>
+  </div>
+</div>
+</div></div>
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<!-- The voxel race view (voxel.js) draws with three.js, the same r128 build the other voxel
+     games use. Offline it fails to load, Voxel.ok is false, and the race falls back to the
+     flat 2D view instead of breaking. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+/* Load the modules with a cache-busting stamp. Plain <script src> tags let the browser
+   hold a stale copy after an edit, and the failure is silent and baffling: the page runs
+   old code, a newly added function is simply undefined, and the handler that calls it
+   dies without a trace. document.write keeps the load strictly ordered, which these
+   modules require -- carddata before cards, sim before everything. */
+(function () {
+  /* rosterdata must load before stable (it is the catalogue stable reads), and stable
+     before quests (quests pays out through it). shell stays last: it drives everything. */
+  var mods = ["icons", "sim", "roster", "rosterdata", "carddata", "cards", "ai", "progression",
+              "uniques", "rivals", "skills", "careerdata", "career", "legacy", "stable", "quests", "bgdata", "bg",
+              "audiodata", "sound", "caller", "ambience",
+              "fx", "reactions", "voxel", "attract", "trainer", "lines", "lobby", "settings", "auth",
+              "glossary", "intros", "ui-meta", "ui-decks", "ui-career", "tutorials", "shell"];
+  var v = Date.now();
+  for (var i = 0; i < mods.length; i++) {
+    document.write('<script src="' + mods[i] + '.js?v=' + v + '"><\/script>');
+  }
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const { ROSTER, COURSES } = Roster;
+/* Everyone, with her real numbers (rosterdata.js). Exhibition offers whoever this account
+   owns -- a starter need not be one of the eleven hand-authored racers above -- and runs
+   her against those eleven, so the field stays the size it always was. */
+const EVERYONE = (window.RosterData && RosterData.ROSTER) || ROSTER;
+const defOf = id => EVERYONE.find(r => r.id === id) || null;
+const fieldFor = id => [defOf(id)].concat(ROSTER.filter(r => r.id !== id))
+                                  .filter(Boolean).slice(0, ROSTER.length);
+const $ = id => document.getElementById(id);
+/* Deck names are typed by the player, so anything that renders one escapes it. */
+const esc = s => String(s).replace(/[&<>"]/g,
+  c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cv = $("cv"), ctx = cv.getContext("2d");
+/* Each account owns its stable. Previously this was one global key, so every trainer
+   shared the same racers -- signing in as someone else changed nothing. */
+const SAVE_KEY = () => (window.Auth ? Auth.saveKey() : "postparade.save.guest");
+
+let G = null;
+/* True when this race is drawn by voxel.js. False offline (no three.js) or without WebGL,
+   in which case the original flat view in draw2D() carries on doing the job. */
+let use3D = false;
+let rate =(window.Settings ? Settings.get("raceSpeed") : 1) || 1;
+/* Keyed by sprite URL, not by racer id. A career field is not the hand-authored ROSTER:
+   the player runs as "trainee" and her rivals as "riv0".."riv6", so an id-keyed cache
+   built from ROSTER at load time missed every single racer in a career race and the
+   whole field drew as bare nameplates. Filenames carry spaces, hence encodeURI. */
+const sprites = Object.create(null);
+function spriteFor(src){
+  if (!src) return null;
+  let im = sprites[src];
+  if (!im) { im = new Image(); im.src = encodeURI(src); sprites[src] = im; }
+  return im;
+}
+for (const r of EVERYONE) spriteFor(r.sprite);   // warm the ones we know at boot
+
+// ---------- persistence ----------
+const loadSaves = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY())) || {}; } catch(e){ return {}; } };
+const writeSaves = s => { try { localStorage.setItem(SAVE_KEY(), JSON.stringify(s)); } catch(e){} };
+const saveFor = id => loadSaves()[id] || { level:1, xp:0, deck:null };
+function putSave(id, data){ const s = loadSaves(); s[id] = Object.assign(saveFor(id), data); writeSaves(s); }
+
+let pickRacer = "specialweek", pickCourse = "classic", workingDeck = null;
+
+/* Exhibition offers only the racers this account has actually recruited. Without this the
+   stable listed all eleven and `pickRacer` defaulted to Special Week, so a new trainer who
+   chose another starter was shown someone else's deck and could race with a racer they
+   did not own. Any of the 26 counts -- three of the five starters are not among the
+   eleven hand-authored ones. */
+function ownedRoster(){
+  if (!window.Stable) return ROSTER;
+  const mine = EVERYONE.filter(r => Stable.owns(r.id));
+  return mine.length ? mine : ROSTER;      // never leave the screen with nothing on it
+}
+/** Keep `pickRacer` on someone this account holds. */
+function ensurePick(){
+  const mine = ownedRoster();
+  if (!mine.some(r => r.id === pickRacer)) { pickRacer = mine[0].id; workingDeck = null; }
+  return mine;
+}
+
+const STAT_COL = {speed:"#e0575f",stamina:"#5fc98a",power:"#e2a34a",guts:"#c86a86",wit:"#6fa8dc"};
+const statBars = s => `<span class="stat5">` + ["speed","stamina","power","guts","wit"].map(k => {
+  const pc = Math.min(100, s[k]/14);
+  return `<i style="background:linear-gradient(90deg,${STAT_COL[k]} ${pc}%,var(--paper-3) ${pc}%)" title="${k} ${s[k]}"></i>`;
+}).join("") + `</span>`;
+const ordinal = n => { const s=["th","st","nd","rd"], v=n%100; return s[(v-20)%10] || s[v] || s[0]; };
+
+// ---------- screen: stable ----------
+function showStable(){
+  $("modal").style.display = "flex";
+  const mine = ensurePick();
+  const saves = loadSaves();
+  $("sheet").innerHTML = `
+    <h2>Your stable</h2>
+    <p class="sub">You do not ride the race. You choose the racer, build the deck, and find out whether
+       the preparation was right. Each racer spends their own cards by temperament, and <b>wit</b>
+       decides how well they judge the moment.</p>
+    <div class="grid">${mine.map(r => {
+      const sv = saves[r.id] || {level:1,xp:0};
+      const b = Progress.build(r, sv);
+      const need = Progress.xpToNext(b.level);
+      return `<button class="pick ${r.id===pickRacer?"sel":""}" data-racer="${r.id}">
+        <span class="lv">Lv ${b.level}</span><b>${r.name}</b>
+        <div class="pers">${Racers.PERSONALITIES[r.personality].name} &middot; ${Sim.STYLES[r.style].name}</div>
+        <span class="d">${r.blurb}</span>${statBars(b.stats)}
+        <div class="xpbar"><i style="width:${Math.min(100,(sv.xp||0)/need*100)}%"></i></div>
+      </button>`;}).join("")}</div>
+    <div class="row">
+      <button class="btn gold" id="toDeck">Build deck</button>
+      <span class="meta" id="stableHint"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost sm" id="menuBack">Main menu</button>
+      <button class="btn ghost sm" id="wipeSave">Reset all progress</button>
+    </div>`;
+  $("sheet").querySelectorAll("[data-racer]").forEach(b =>
+    b.onclick = () => { pickRacer = b.dataset.racer; workingDeck = null; showStable(); });
+  $("toDeck").onclick = showDeck;
+  $("menuBack").onclick = () => Game.toMenu();
+  $("wipeSave").onclick = async () => {
+    if (await UIMeta.ask({ title: "Erase saves", danger: true,
+      message: "Erase every racer's level and deck?", confirm: "Erase" })) { writeSaves({}); showStable(); }
+  };
+  const r = defOf(pickRacer);
+  $("stableHint").textContent = Racers.PERSONALITIES[r.personality].blurb;
+}
+
+// ---------- screen: deck builder ----------
+/* The cards this account actually holds. Everything on the deck screen goes through here:
+   the screen was written before the stable existed and drew on Cards.CARDS, so a brand
+   new account was handed a full fifteen built from cards it had never recruited. */
+function ownedPool(){
+  if (!window.Stable) return Cards.CARDS;      // standalone: nothing owns anything
+  const own = Stable.ownedCards();
+  return own.length ? own : Cards.CARDS.slice(0, 1);
+}
+
+function defaultDeck(){
+  // seed with the racer's own cards, then fill on cost so the starting deck is playable
+  const def = defOf(pickRacer);
+  const pool = ownedPool();
+  const own = pool.filter(c => c.name === def.name);
+  const rest = pool.filter(c => c.name !== def.name)
+                   .sort((a,b) => a.cost - b.cost || a.id.localeCompare(b.id));
+  const out = own.slice(0, 4).map(c => c.id);
+  for (const c of rest) { if (out.length >= Racers.DECK_SIZE) break; out.push(c.id); }
+  return out;
+}
+function showDeck(){
+  ensurePick();
+  const def = defOf(pickRacer);
+  const sv = saveFor(pickRacer);
+  const b = Progress.build(def, sv);
+  const p = Racers.PERSONALITIES[def.personality];
+  /* The deck comes from whatever named deck is equipped to her -- this sheet is the
+     pre-race setup, not a builder. Building lives on its own screen (ui-decks.js), so a
+     trainer keeps several decks and gives one to whoever is racing. */
+  const equipped = window.Stable ? Stable.deckForRacer(pickRacer) : null;
+  workingDeck = equipped ? equipped.cards.slice() : defaultDeck();
+
+  const passives = (def.passives||[]).map((k,i) => {
+    /* Passives come from duplicate scout pulls now, not levels -- so what a locked one
+       shows is how many more copies of her it needs, never a level threshold. */
+    const P = Progress.PASSIVES[k];
+    const have = window.Stable ? Stable.passivesOf(def.id) : 0;
+    const need = window.Stable ? (Stable.thresholdsFor(def.id)[i] || 0) : 0;
+    const on = i < have;
+    return `<span class="pass ${on?"":"locked"}">${on ? "" : Icon("lock")}<b>${P.name}</b>` +
+           `${on?"":` (${need} copies)`} &mdash; ${P.text}</span>`;
+  }).join("");
+
+  $("modal").style.display = "flex";
+  $("sheet").innerHTML = `
+    <h2>${def.name} &mdash; deck <span class="meta" style="font-size:13px">Lv ${b.level}</span></h2>
+    <p class="sub"><b>${p.name}.</b> ${p.blurb} Choose <b>${Racers.DECK_SIZE}</b> cards. At the gate, <b>${Racers.ACTIVE_SIZE}</b> are drawn at random &mdash; all your racer can reach. You hold <b>${Racers.CALLOUTS} Callouts</b>: shout at any moment to <b>bin the cards she is holding</b> and draw ${Racers.ACTIVE_SIZE} more. Binned cards are gone for the race, and ${Racers.DECK_SIZE} is exactly three hands &mdash; both Callouts empty the deck, so calling one on a good hand throws it away. Spirit (${Racers.SPIRIT_BUDGET} across the race) pays for what gets used, so a cheap deck can outplay an expensive one <em>if</em> you spend Callouts to open more slots. Stamina cards only repay you when stamina is what runs out.</p>
+    <h3>Passives</h3><div class="passrow">${passives || '<span class="meta">none</span>'}</div>
+    <h3>Deck <span id="deckCount" class="meta"></span></h3>
+    ${equipped ? `
+      <div class="pre-deck">${equipped.cards.map(id => {
+        const c = Cards.byId[id];
+        return `<span class="de-chip static" title="${c.ability} · cost ${c.cost}">
+          <img src="assets/cards/${c.id}.png" alt=""><span class="de-cost">${c.cost}</span></span>`;
+      }).join("")}</div>`
+    : `<p class="sub" style="margin-top:0;margin-bottom:10px">She has <b>no deck equipped</b>, so she will
+        race with whatever you own. Build one in <b>Decks</b> and equip it to her.</p>`}
+    <h3>Course</h3>
+    <div class="courses">${COURSES.map(c => `<button class="course ${c.surface}${c.id===pickCourse?" sel":""}"
+      data-course="${c.id}"><b>${c.name}</b><span>${c.distance}m &middot; ${c.surface}</span></button>`).join("")}</div>
+    <div class="row">
+      <button class="btn gold" id="toRace">To the gate</button>
+      <button class="btn ghost sm" id="toDecks">Manage decks</button>
+      <span class="spacer"></span><button class="btn ghost sm" id="back">Back to stable</button>
+    </div>`;
+
+  const cards = workingDeck.map(id => Cards.byId[id]).filter(Boolean);
+  const cost = cards.reduce((a,c) => a + c.cost, 0);
+  const avg = cards.length ? (cost/cards.length).toFixed(1) : "0";
+  const mix = {};
+  for (const c of cards) mix[c.kind] = (mix[c.kind]||0) + 1;
+  const shape = Object.entries(mix).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${n} ${k}`).join(", ");
+  $("deckCount").innerHTML = equipped
+    ? `<b>${esc(equipped.name)}</b> &nbsp;·&nbsp; ${cards.length} card${cards.length===1?"":"s"}` +
+      (cards.length ? ` &nbsp;·&nbsp; avg cost ${avg} &nbsp;·&nbsp; ${shape}` : "")
+    : `no deck equipped &nbsp;·&nbsp; ${cards.length} card${cards.length===1?"":"s"} available`;
+  /* She races with what she has. Requiring a full fifteen would lock a new account out of
+     the race screen entirely -- it starts with five cards -- and career mode already runs
+     short decks, so this is the same rule in both places. */
+  $("toRace").disabled = workingDeck.length === 0;
+
+  $("sheet").querySelectorAll("[data-course]").forEach(el =>
+    el.onclick = () => { pickCourse = el.dataset.course; showDeck(); });
+  $("toDecks").onclick = () => {
+    $("modal").style.display = "none";
+    Shell.go("scr-decks", UIDecks.listBuild);
+  };
+  $("back").onclick = () => { workingDeck = null; showStable(); };
+  $("toRace").onclick = () => start();
+}
+
+// ---------- race ----------
+/* When set, the race is a career race: the field, course and deck all come from career
+   mode and the result goes back to it instead of to the normal results sheet. */
+let careerCfg = null;
+
+function start(opts){
+  opts = opts || {};
+  $("modal").style.display = "none";
+  const seed = (Math.random()*1e9)|0;
+  const saves = loadSaves();
+
+  const career = careerCfg;
+  const course = career ? career.course : COURSES.find(c => c.id === pickCourse);
+  const meId   = career ? "trainee" : pickRacer;
+
+  // everyone enters at their saved level, carrying whatever deck they last raced with
+  const defs = career
+    ? career.field.map(d => Progress.build(d, { level: d.level || 1, passives: d.passives || 0 }))
+    : fieldFor(pickRacer).map(r => Progress.build(r, saves[r.id] || {level:1,xp:0}));
+  const S = Sim.createRace(defs, course, seed);
+
+  const personalities = {}, decks = {};
+  for (const d of defs) {
+    personalities[d.id] = d.personality;
+    if (career) {
+      // the trainee races the player's deck; the field shares it so nobody runs empty
+      decks[d.id] = career.deck;
+      continue;
+    }
+    if (d.id === pickRacer) decks[d.id] = workingDeck.map(id => Cards.byId[id]);
+    else {
+      const sv = saves[d.id];
+      if (sv && sv.deck && sv.deck.length) decks[d.id] = sv.deck.map(id => Cards.byId[id]);
+    }
+  }
+  Uniques.arm(S, defs);
+  if (window.Skills) Skills.arm(S, defs);
+  const ctrls = Racers.createField(S, personalities, seed, decks);
+  const me = S.racers.find(r => r.id === meId);
+  const def = defs.find(r => r.id === meId) || defOf(meId);
+
+  S.events.length = 0;
+  cutQueue = []; cutBusy = false; $("cut").className = "cut"; $("cut").innerHTML = "";
+  if (window.Voxel && Voxel.endCut) Voxel.endCut();
+  G = { S, me, course, ctrls, myCtrl: ctrls.find(c => c.racer === me),
+        floats: [], startWall: performance.now(), done: false, paused: false, pauseFrom: 0,
+        stuck: 0, stuckTotal: 0, emptyTotal: 0, thinTotal: 0, career,
+        tutorial: !!opts.tutorial };
+  $("courseInfo").innerHTML = `<b>${course.name}</b>` +
+    (career ? ` &middot; <span class="gradetag">${career.label}</span>` : "") +
+    ` &middot; ${course.distance}m ${course.surface}`;
+  $("myName").textContent = me.name;
+  const coLabel = document.querySelector("#btnCallout .colabel");
+  if (window.Icon && !coLabel.querySelector("svg")) coLabel.insertAdjacentHTML("afterbegin", Icon("megaphone"));
+  $("myStyle").textContent = `Lv ${me.level} · ${me.style.name} · ${Racers.PERSONALITIES[def.personality].name}`;
+  rate = (window.Settings ? Settings.get("raceSpeed") : rate) || rate;
+  document.querySelectorAll(".rate button").forEach(x =>
+    x.classList.toggle("sel", +x.dataset.rate === rate));
+  $("pips").innerHTML = S.racers.map(r =>
+    `<div class="pip ${r===me?"me":""}" id="pip-${r.id}" style="background:${r.color}"></div>`).join("");
+  renderPlayed();
+  /* The tutorial explains the Callout itself, so the one-off tip would be the same
+     lesson twice -- and it sits over the stage while Tazuna is pointing at it. */
+  if (!opts.tutorial) maybeFirstRunTip();
+  /* The voxel course is dressed for this race (gate at the right start, this field in the
+     stalls) before the gate card clears, so it is already standing there when it does. */
+  use3D = !!(window.Voxel && Voxel.ok) && Voxel.setupRace(document.querySelector("#scr-game .stage"), G);
+  $("btnCam").hidden = !use3D;
+  if (use3D) $("btnCam").textContent = "View: " + Voxel.cameraName();
+  /* The race is a cue list rather than one track: paddock before the gate, then the
+     music follows the phase, then a sting at the line. See sound.js. */
+  if (window.Sound) Sound.racePaddock({ grade: career ? career.label : null });
+  // the field, the crowd and the voices under it (ambience.js)
+  if (window.Ambience) Ambience.raceStart(G);
+  /* The walk out to the track. The paddock music was already playing over nothing --
+     this is the moment it was written for. */
+  if (opts.noGate) {
+    // the tutorial is a scripted lesson; the gate card is two seconds of nothing there
+    runLoop();
+  } else {
+    G.atGate = true;
+    gateIn(career, () => {
+      runLoop();
+      preRace(career, () => {
+        // the clock starts when the race does, not when the gate card appeared
+        G.atGate = false;
+        G.startWall = performance.now();
+      });
+    });
+  }
+}
+
+/* The moment before the off, as the real game stages it: the grade's own fanfare while
+   the camera takes in the field standing in the gate, then the doors open. The clock is
+   still held (G.atGate), so nothing is run without the player watching. It lasts as long
+   as the fanfare, and a click or a key skips it -- that, or the setting, keeps it from
+   ever being in the way. Without three.js or a fanfare it is skipped outright. */
+function preRace(career, done){
+  const want = !window.Settings || Settings.get("raceIntro") !== false;
+  if (!want || !use3D || !G || G.tutorial) return done();
+  const me = G;
+  let over = false;
+  const stage = document.querySelector("#scr-game .stage");
+  const hint = document.createElement("div");
+  hint.className = "introskip";
+  hint.textContent = "Click to skip ▸";
+  stage.appendChild(hint);
+  const finish = () => {
+    if (over) return;
+    over = true;
+    clearTimeout(cap);
+    stage.removeEventListener("pointerdown", finish);
+    removeEventListener("keydown", onKey, true);
+    hint.remove();
+    Voxel.endIntro();
+    if (G === me) done();
+  };
+  const onKey = e => {
+    if (e.key === "Enter" || e.key === " " || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(); }
+  };
+  stage.addEventListener("pointerdown", finish);
+  addEventListener("keydown", onKey, true);
+  Voxel.startIntro(G);
+  const fanfare = window.Sound && Sound.raceFanfare({ grade: career ? career.label : null }, finish);
+  // the fanfare ends it; with no fanfare a short sweep, and never longer than 30s
+  const cap = setTimeout(finish, fanfare ? 30000 : 7000);
+}
+
+/* One animation loop for the life of the page. loop() never stops by itself -- it keeps
+   drawing after the finish -- so starting another one per race stacked them: from the
+   second race on, the previous loop was already running the new race under the gate
+   card that says "click to start", and every race added another full redraw per frame. */
+let looping = false;
+function runLoop(){
+  if (looping) return;
+  looping = true;
+  requestAnimationFrame(loop);
+}
+
+/* Shown once, ever. The Callout has no analogue in a normal racing game, so the first
+   race gets one sentence rather than leaving the player to infer it from a button. */
+/**
+ * A short pre-race beat on the `prerace` scene: the tunnel out to the track, the course,
+ * and who is running. Skippable with a click, and it never holds the simulation -- the
+ * race clock is started by the callback when the card begins to clear.
+ */
+function gateIn(career, then){
+  const stage = document.querySelector("#scr-game .stage");
+  const file = window.Bg ? Bg.fileFor("prerace") : null;
+  if (!stage || !file) return then();
+
+  const el = document.createElement("div");
+  el.className = "gate";
+  const grade = career ? career.label : "Exhibition";
+  /* The image is assigned as a property rather than built into the markup: an inline
+     style needs quotes inside quotes, and that is a needless place to get it wrong. */
+  el.innerHTML =
+    '<div class="gate-bg"></div>' +
+    '<div class="gate-scrim"></div>' +
+    '<div class="gate-info">' +
+      '<div class="gate-grade">' + grade + '</div>' +
+      '<div class="gate-course">' + G.course.name + '</div>' +
+      '<div class="gate-sub">' + G.course.distance + 'm ' + G.course.surface + '</div>' +
+      '<div class="gate-racer">' + G.me.name + '</div>' +
+      (G.me.gate ? '<div class="gate-stall">Gate ' + G.me.gate + ' of ' + G.S.racers.length + '</div>' : '') +
+      '<div class="gate-skip">click to start</div>' +
+    '</div>';
+  el.querySelector(".gate-bg").style.backgroundImage = "url('" + Bg.url(file) + "')";
+  /* Only ever one gate card. A second start() while one is up would leave the first
+     hanging over a race that had already begun. */
+  stage.querySelectorAll(".gate").forEach(n => n.remove());
+  stage.appendChild(el);
+
+  let fired = false;
+  const begin = () => {
+    if (fired) return;
+    fired = true;
+    document.removeEventListener("keydown", onKey, true);
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 500);
+    then();
+  };
+  /* The card says "click to start", so a click is what starts it. There used to be a
+     2.1s timer here as well, which meant the race began on its own while the card was
+     still asking -- the label was a lie and the first seconds were run without the
+     player watching. Keys work too, so this is never a dead end. */
+  el.onclick = begin;
+  function onKey(e) {
+    if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      begin();
+    }
+  }
+  document.addEventListener("keydown", onKey, true);
+}
+
+function maybeFirstRunTip(){
+  let seen = false;
+  try { seen = localStorage.getItem("postparade.tip") === "1"; } catch(e){}
+  if (seen) return;
+  /* The tip is only marked seen when it is dismissed, so a player who ignores it gets
+     another one next race -- and they stack, all sharing #tipOk. `$` returns the FIRST
+     one, so every later panel's button was wired to a panel underneath it and clicking
+     the one actually on screen did nothing. Clear the old panels, and bind through the
+     element rather than by id. */
+  document.querySelectorAll(".firsttip").forEach(n => n.remove());
+  const el = document.createElement("div");
+  el.className = "firsttip";
+  el.innerHTML = `<div class="ft-text"><b>You do not play the cards.</b> ${G.me.name} decides when to use them.
+    Your job is the <b>Callout</b> &mdash; when she is stuck holding cards she cannot play,
+    hit it to bin them and draw ${Racers.ACTIVE_SIZE} more. The binned cards are gone, so time it for a dead hand. You get
+    ${Racers.CALLOUTS}, and they do not carry over.</div>
+    <button id="tipOk">Got it</button>`;
+  document.querySelector(".stage").appendChild(el);
+  el.querySelector("#tipOk").onclick = () => {
+    try { localStorage.setItem("postparade.tip", "1"); } catch(e){}
+    el.remove();
+  };
+}
+
+/* The active set is everything the racer can reach right now. Showing WHY a card is
+   unusable is the whole basis for deciding to spend a Callout. */
+function renderPlayed(){
+  if (!G) return;
+  const ct = G.myCtrl, me = G.me;
+  const sp = Racers.spiritOf(ct, G.course);
+  const ph = Sim.phaseOf(me.pos / G.course.distance);
+  const live = ct.active.filter(c => c && !Cards.playable(c, me, G.S, sp, ph)).length;
+  // would any of these be playable if spirit were no object? if so the hand is fine
+  // and the racer is simply saving up -- a redraw would not help.
+  const liveIfRich = ct.active.filter(c => c && !Cards.playable(c, me, G.S, 99, ph)).length;
+  const poorNotStuck = live === 0 && liveIfRich > 0;
+  $("played").innerHTML =
+    ct.active.filter(Boolean).map(c => {
+      const why = Cards.playable(c, me, G.S, sp, ph);
+      return `<div class="chip ${why?"dead":"ready"}"><img src="assets/cards/${c.id}.png" alt="">
+        <span><b>${c.ability}</b> <small>${c.cost}sp</small><br><small>${why||"ready"}</small></span></div>`;
+    }).join("") +
+    ct.played.slice(-3).map(id =>
+      `<div class="chip spent"><img src="assets/cards/${id}.png" alt=""><b>${Cards.byId[id].ability}</b> <small>used</small></div>`).join("") +
+    `<span class="meta">${ct.library.length} left in deck · ${live} of ${ct.active.length} usable now</span>`;
+  const total = ct.active.filter(Boolean).length;
+  const btn = $("btnCallout"), box = btn.parentElement;
+  const over = G.done || me.finished;
+  const deckEmpty = ct.library.length === 0;
+  btn.disabled = ct.callouts <= 0 || over || deckEmpty;
+
+  $("copips").innerHTML = Array.from({ length: Racers.CALLOUTS }, (_, i) =>
+    `<i class="${i < ct.callouts ? "" : "used"}"></i>`).join("");
+
+  /* Three states, chosen so the button only shouts when it has something to say. */
+  let state = "", hint;
+  if (over)                     hint = "&nbsp;";
+  else if (ct.callouts <= 0)  { state = "spent"; hint = "No Callouts left."; }
+  else if (deckEmpty)         { state = "spent"; hint = "Deck empty &mdash; nothing left to draw."; }
+  else if (live >= 3) {
+    /* Calling out now bins these cards for good, so the UI has to say what it would
+       cost. This is the whole reason the discard rule creates a decision. */
+    hint = `Would bin ${live} playable card${live === 1 ? "" : "s"}`;
+  }
+  else if (poorNotStuck) {
+    hint = `Saving spirit &mdash; a redraw would not help`;
+  } else if (live === 0 && total > 0) {
+    state = "urgent";
+    hint = `Nothing playable &mdash; ${G.stuck > 1 ? Math.floor(G.stuck) + "s wasted" : "redraw now"}`;
+  } else if (total === 0) {
+    state = "urgent";
+    hint = `<b>Out of cards.</b> Redraw${G.stuck > 2 ? " &mdash; " + Math.floor(G.stuck) + "s idle" : ""}`;
+  } else if (total <= 1) {
+    state = "urgent";
+    hint = `Down to 1 card &mdash; ` + (G.stuck > 1 ? Math.floor(G.stuck) + "s wasted" : "redraw");
+  }
+  else if (live < total)      { state = "warm";  hint = `${total - live} of ${total} unplayable`; }
+  else                          hint = `Would bin ${live} playable card${live === 1 ? "" : "s"}`;
+  box.className = "callout" + (state ? " " + state : "");
+  const wantHints = !window.Settings || Settings.get("showHints");
+  $("cohint").innerHTML = wantHints ? hint : "&nbsp;";
+  $("played").className = "played" + (live === 0 && !poorNotStuck && total > 0 && !over ? " stuck" : "");
+}
+
+function loop(now){
+  if (!G) { looping = false; return; }
+  /* Sim time is derived from the wall clock, so a pause cannot simply skip stepping --
+     the elapsed real time would still be there on resume and the race would jump
+     forward. Hold the clock still and hand the paused interval back to startWall.
+     The gate card holds it the same way, until it is clicked away. */
+  if (G.paused || G.atGate || G.cutHold) {
+    draw(); hud();
+    if (window.Ambience) Ambience.tick(G, rate);
+    return requestAnimationFrame(loop);
+  }
+  if (!G.done) {
+    const wantT = (now - G.startWall)/1000 * rate;
+    let steps = 0, mine = false;
+    while (G.S.t < wantT && steps++ < 900 && !G.S.over) {
+      const sdt = Math.min(0.02, wantT - G.S.t);
+      Sim.step(G.S, sdt);
+      for (const e of Racers.updateAll(G.ctrls, G.S, G.course, sdt)) {
+        G.floats.push({ id: e.racer.id, text: e.msg, t0: G.S.t });
+        if (e.racer === G.me) mine = true;
+      }
+      for (const e of G.S.events) {
+        if (e.type === "gambit") {
+          G.floats.push({ id: e.racer.id, t0: G.S.t, gambit: true, won: e.won,
+                          text: e.won ? "GOT THERE" : "WENT TOO EARLY" });
+        } else if (e.type === "invest") {
+          // the dividend lands far from where the card was played; say so
+          G.floats.push({ id: e.racer.id, t0: G.S.t, gambit: true, won: true,
+                          text: "SAVED IT +" + Math.round(e.gain * 100) + "%" });
+        }
+      }
+      G.S.events.length = 0;
+      for (const u of Uniques.check(G.S, G.course, Cards)) {
+        G.floats.push({ id: u.racer.id, text: u.unique.name, t0: G.S.t, unique: true });
+        if (!G.me.finished) cutscene(u.racer, u.unique);         // not once she is home: the run-in is hers
+        if (use3D) Voxel.signature(u.racer, u.unique, G);
+      }
+      /* Purchased career skills fire the same way a unique does, but without a cutscene
+         -- there can be several in a race and stopping the action each time would be
+         unbearable. A debuff floats over whoever it landed on. */
+      // two neck and neck long enough: a rivalry, and both their signatures go off
+      if (window.Rivals) for (const rv of Rivals.check(G.S, G.course, sdt)) rivalry(rv);
+      if (window.Skills) {
+        for (const k of Skills.check(G.S, G.course)) {
+          G.floats.push({ id: (k.target || k.racer).id, text: k.skill.name,
+                          t0: G.S.t, skill: true });
+        }
+      }
+    }
+    if (window.Sound && !G.done) {
+      const frac = G.me.pos / G.course.distance;
+      const lead = Math.max(...G.S.racers.map(r => r.pos)) / G.course.distance;
+      Sound.raceTick(Sim.phaseOf(frac), {
+        frac, leadFrac: lead, grade: G.career ? G.career.label : null });
+    }
+    if (steps >= 900) G.startWall = now - (G.S.t/rate)*1000;
+    if (G.floats.length) G.floats = G.floats.filter(f => G.S.t - f.t0 < 2.4);
+    if (mine) { renderPlayed(); if (window.Shell) Shell.notify("cardPlayed"); }
+    /* Her line decides her result, but the race goes on behind her (crossed): the results
+       come once the field is home and they have all had their moment (voxel.js's
+       reactions), or after nine seconds if some of them are still a long way back.
+       Counted in real seconds at this speed, on the race clock as it would have run, which
+       carries on even once the sim has nothing left to step. */
+    if (G.me.finished && G.crossT == null) crossed();
+    const after = G.crossT != null ? (wantT - G.crossT) / rate : 0;
+    if (G.crossT != null ? (G.S.over && after > 7) || after > 9 : G.S.over) finish();
+  }
+  draw(); hud();
+  // after the frame is drawn, so the strides it hears are the ones on screen
+  if (window.Ambience) Ambience.tick(G, rate);
+  if (!G.done && (G.S.t - (G._lastPanel||0)) > 0.25) {
+    /* Accumulate the time the racer spent unable to play anything while a Callout went
+       unspent. It drives the urgency copy live, and the post-race note afterwards. */
+    const dt = G.S.t - (G._lastPanel || 0);
+    G._lastPanel = G.S.t;
+    const ct = G.myCtrl;
+    if (!G.me.finished && ct.callouts > 0) {
+      const sp = Racers.spiritOf(ct, G.course);
+      const ph = Sim.phaseOf(G.me.pos / G.course.distance);
+      const total = ct.active.filter(Boolean).length;
+      const live = ct.active.filter(c => c && !Cards.playable(c, G.me, G.S, sp, ph)).length;
+      const liveIfRich = ct.active.filter(c => c && !Cards.playable(c, G.me, G.S, 99, ph)).length;
+      /* Only count time a Callout could actually have rescued: an empty or nearly empty
+         hand, or one whose cards are wrong for the moment. Waiting on spirit is not it --
+         a redraw gives you different cards, not more spirit. */
+      const starved = total === 0 || total <= 1 || (live === 0 && liveIfRich === 0);
+      if (starved) {
+        G.stuck += dt; G.stuckTotal += dt;
+        if (total === 0) G.emptyTotal += dt;
+        else if (total <= 1) G.thinTotal += dt;
+      } else G.stuck = 0;
+    }
+    renderPlayed();
+  }
+  requestAnimationFrame(loop);
+}
+
+/* Queued rather than interruptive: two racers can trigger within a second of each
+   other, and cutting one off mid-flight looks like a bug. */
+let cutQueue = [], cutBusy = false;
+function cutscene(racer, unique){
+  if (window.Settings && !Settings.get("cutscenes")) return;
+  // "only mine" leaves a rival's skill to her signature effect and the callout over her
+  if (window.Settings && Settings.get("cutsceneWho") === "mine" && racer !== G.me) return;
+  cutQueue.push({ racer, unique });
+  if (!cutBusy) runCut();
+}
+/* Two racers neck and neck long enough (rivals.js): a rivalry. Both their signature
+   skills fire now, whatever their conditions and even if they have already fired, and
+   without being used up (Uniques.force). The race holds for the cutscene: the full one
+   when your racer is one of the two (she is on the left), the short one for two others
+   when cutscenes are on for everyone. None once she is home. */
+function rivalry(rv){
+  for (const r of [rv.a, rv.b]) {
+    const u = Uniques.force(G.S, G.course, r);
+    G.floats.push({ id: r.id, text: u ? u.unique.name : "RIVALRY", t0: G.S.t, unique: true });
+    if (u && use3D) Voxel.signature(r, u.unique, G);
+  }
+  const mine = rv.a === G.me || rv.b === G.me;
+  // no cutscene to wait for: the stands and the caller have it now
+  const clashNow = () => { if (window.Ambience) Ambience.rival(rv.a, rv.b, 0, mine); };
+  if (G.me.finished) return clashNow();
+  if (window.Settings && !Settings.get("cutscenes")) {          // no cutscene; hers still gets its music
+    if (mine && window.Sound && Sound.raceRival) Sound.raceRival(rv.final);
+    return clashNow();
+  }
+  if (!mine && window.Settings && Settings.get("cutsceneWho") === "mine") return clashNow();
+  const [a, b] = rv.b === G.me ? [rv.b, rv.a] : [rv.a, rv.b];
+  cutQueue.push({ rival: { a, b, final: rv.final, mine, lines: Rivals.lines(a, b) } });
+  if (!cutBusy) runCut();
+}
+
+function runCut(){
+  const next = cutQueue.shift();
+  if (!next) { cutBusy = false; $("cut").className = "cut"; $("cut").innerHTML = ""; return; }
+  cutBusy = true;
+  if (next.rival) return use3D && G && !G.done ? runRival3D(next.rival) : runRival2D(next.rival);
+  const { racer, unique } = next;
+  const mine = racer === G.me;
+  if (use3D && G && !G.done) return runCut3D(racer, unique, mine);
+  $("cut").className = "cut on";
+  $("cut").innerHTML = `<div class="sweep"></div><div class="band">
+      <img src="${racer.sprite}" alt="">
+      <div class="txt">
+        <div class="nm" style="${mine?"":"color:#dfe3ee"}">${unique.name}</div>
+        <div class="wh">${racer.name}${mine?" &middot; your racer":""}</div>
+        <div class="ds">${unique.text}</div>
+      </div></div>`;
+  setTimeout(runCut, 2650);
+}
+
+/* The real thing: voxel.js cuts away to her own stage and plays the shots; this holds
+   the race clock for exactly that long -- the same hand-back a pause uses, so not a
+   metre is run while nobody can see it -- and lays the skill's name over the hero shot.
+   A click cuts it short. A rival's is the short version. */
+function runCut3D(racer, unique, mine){
+  const g = G, len = Voxel.playCut(racer, unique, { short: !mine });
+  if (!len) return runCut();
+  g.cutHold = true;
+  const from = g.cutFrom = performance.now(), el = $("cut");
+  el.className = "cut on vox" + (mine ? "" : " short");
+  el.style.setProperty("--len", len + "ms");
+  el.style.setProperty("--hero", (mine ? 2200 : 1100) + "ms");
+  // the stands rise with the skill's name
+  if (window.Ambience) Ambience.signature(racer, mine, unique, mine ? 2200 : 1100);
+  el.innerHTML = `<div class="flash"></div><div class="splash">
+      <div class="nm">${esc(unique.name)}</div>
+      <div class="wh">${esc(racer.name)}${mine ? " &middot; your racer" : ""}</div></div>`;
+  const stage = document.querySelector("#scr-game .stage");
+  let over = false;
+  const end = () => {
+    if (over) return;
+    over = true;
+    clearTimeout(timer);
+    stage.removeEventListener("pointerdown", end);
+    Voxel.endCut();
+    if (window.Ambience) Ambience.cutEnd();
+    if (G === g) { g.startWall += performance.now() - from; g.cutHold = false; }
+    runCut();
+  };
+  const timer = setTimeout(end, len);
+  stage.addEventListener("pointerdown", end);
+}
+
+/* Over the line. Her place is settled the moment she crosses -- the banner, the sound,
+   the shake come now -- but the race does not stop dead behind her: the rest of the
+   field comes home at its own pace and each pulls up past the post, as on the real
+   broadcast, while the camera stays on her (voxel.js). Running everyone home at once
+   here used to put the whole field level with her in a single frame. A click, Enter or
+   Space goes straight to the results. */
+function crossed(){
+  G.crossT = G.S.t;
+  announce(G.me.rank || Sim.standings(G.S).indexOf(G.me) + 1);
+  const stage = document.querySelector("#scr-game .stage"), g = G;
+  const skip = () => { stage.removeEventListener("pointerdown", skip); if (G === g && !g.done) finish(); };
+  stage.addEventListener("pointerdown", skip);
+}
+function announce(rank){
+  /* Undismissed, the tip would sit over the finish banner. It comes back next race. */
+  document.querySelectorAll(".firsttip").forEach(n => n.remove());
+  $("banner").innerHTML = `<div class="big" style="color:${rank===1?"var(--gold)":"#fff"}">${
+    rank===1 ? "WIN" : rank + ordinal(rank)}</div>`;
+  // up for a moment, then out of the way of her reaction (the corner keeps her place)
+  const big = $("banner").firstElementChild;
+  setTimeout(() => { big.style.transition = "opacity .6s"; big.style.opacity = "0"; }, 2400);
+  if (!G.tutorial && window.Shell) Shell.recordResult(rank === 1);
+  if (window.Sound) Sound.raceFinish(rank === 1);
+  if (window.FX) {
+    FX.shake(rank === 1 ? 480 : 260, rank === 1 ? 9 : 5);
+    if (rank === 1) FX.confetti({ count: 120 });
+  }
+}
+/* A rivalry's cutscene (voxel.js playRival), with the words over it: both names and VS
+   while they lock eyes; each one's thoughts while the camera is in close on her (both at
+   once in the short cut); both skills' names as they clash, with a white flash; Tachyon
+   brings her numbers. The music
+   drops away until the clash, and when the rivalry is hers a clash track of its own
+   comes in (Sound.raceRival). The race clock is held for it, as for a signature. */
+function runRival3D(rv){
+  const g = G, plan = Voxel.playRival(rv.a, rv.b, { short: !rv.mine, final: rv.final });
+  if (!plan) return runCut();
+  g.cutHold = true;
+  const from = g.cutFrom = performance.now(), el = $("cut"), B = plan.beats, len = plan.len;
+  const ua = rv.a.unique ? rv.a.unique.name : "", ub = rv.b.unique ? rv.b.unique.name : "";
+  const show = (at, dur, cls, html) => `<div class="${cls}" style="--at:${at}ms;--dur:${dur}ms">${html}</div>`;
+  const thought = (r, text) => `<b>${esc(r.name)}</b><span>${esc(text)}</span>`;
+  const think = rv.mine
+    ? show(B.glareA, B.glareB - B.glareA, "rv-say l", thought(rv.a, rv.lines.a)) + show(B.glareB, B.clash - B.glareB, "rv-say r", thought(rv.b, rv.lines.b))
+    : show(B.lock + 250, len - B.lock - 250, "rv-say l", thought(rv.a, rv.lines.a)) + show(B.lock + 450, len - B.lock - 450, "rv-say r", thought(rv.b, rv.lines.b));
+  el.className = "cut on vox rival" + (rv.final ? " final" : "") + (rv.mine ? "" : " short");
+  el.style.setProperty("--len", len + "ms");
+  el.innerHTML =
+    show(B.lock, (rv.mine ? B.glareA : B.clash) - B.lock, "rv-title", `<span>${esc(rv.a.name)}</span><i>VS</i><span>${esc(rv.b.name)}</span>`) +
+    think +
+    show(B.clash, len - B.clash, "rv-flash", "") +
+    show(B.clash + 120, len - B.clash - 120, "rv-skill l", esc(ua)) +
+    show(B.clash + 260, len - B.clash - 260, "rv-skill r", esc(ub)) +
+    (plan.styles.includes("numbers") ? show(B.clash, len - B.clash, "rv-numbers", numbersHTML(B.clash)) : "");
+  if (window.Sound && Sound.hush) Sound.hush(B.clash);
+  // the stands go quiet with it and come back at the clash
+  if (window.Ambience) Ambience.rival(rv.a, rv.b, B.clash, rv.mine);
+  // hers brings in a clash track of its own on the clash, or as soon as the cut is skipped
+  let musicOn = !rv.mine;
+  const music = () => { if (!musicOn) { musicOn = true; if (window.Sound && Sound.raceRival) Sound.raceRival(rv.final); } };
+  const musicT = setTimeout(music, B.clash);
+  const stage = document.querySelector("#scr-game .stage");
+  let over = false;
+  const end = () => {
+    if (over) return;
+    over = true;
+    clearTimeout(timer); clearTimeout(musicT); music();
+    stage.removeEventListener("pointerdown", end);
+    Voxel.endCut();
+    if (window.Ambience) Ambience.cutEnd();
+    if (G === g) { g.startWall += performance.now() - from; g.cutHold = false; }
+    runCut();
+  };
+  const timer = setTimeout(end, len);
+  stage.addEventListener("pointerdown", end);
+}
+/* Without the 3D view: both names, and what each is thinking, on a band. */
+function runRival2D(rv){
+  if (rv.mine && window.Sound && Sound.raceRival) Sound.raceRival(rv.final);
+  if (window.Ambience) Ambience.rival(rv.a, rv.b, 0, rv.mine);
+  $("cut").className = "cut on";
+  $("cut").innerHTML = `<div class="sweep"></div><div class="band"><div class="txt" style="text-align:center">
+      <div class="nm">${esc(rv.a.name)} <span style="color:#fff">VS</span> ${esc(rv.b.name)}</div>
+      <div class="ds">${esc(rv.a.name)}: ${esc(rv.lines.a)}<br>${esc(rv.b.name)}: ${esc(rv.lines.b)}</div></div></div>`;
+  setTimeout(runCut, 2650);
+}
+/* Tachyon at full speed: the figures of it, drifting past. */
+function numbersHTML(at){
+  const BITS = ["v = 17.8", "0.43s", "98.6%", "dv/dt", "x²", "Δt", "t = 2.41", "√2", "1.0007", "a > g", "∑", "37.2°", "4.1 m", "k = 0.9"];
+  return BITS.map((t, i) => `<i style="left:${(6 + Math.random() * 86).toFixed(1)}%;top:${(8 + Math.random() * 76).toFixed(1)}%;animation-delay:${at + i * 70}ms">${t}</i>`).join("");
+}
+
+function finish(){
+  if (G.done) return;
+  G.done = true;
+  /* Anyone still out on the course is run home now, for the times on the results -- the
+     sheet goes up at once over them. A race that ran out of time without her crossing
+     (S.over by the clock) is announced here instead. */
+  const stragglers = !G.S.over;
+  let guard = 0;
+  while (!G.S.over && guard++ < 20000) { Sim.step(G.S, 0.05); Racers.updateAll(G.ctrls, G.S, G.course, 0.05); }
+  const order = Sim.standings(G.S);
+  const rank = order.findIndex(r => r === G.me) + 1;
+  if (G.crossT == null) announce(rank);
+  setTimeout(() => showResults(order, rank), G.crossT == null ? 1300 : stragglers ? 0 : 400);
+}
+
+/* A plain-data copy of the finish order that survives the race being torn down.
+   `r.rank` is null for anyone who never crossed the line, so fall back to standings
+   position -- the sim already sorted them. */
+function boardFrom(order){
+  const t0 = order.length ? order[0].finishT : null;
+  return order.map((r, i) => ({
+    rank: r.rank == null ? i + 1 : r.rank,
+    name: r.name,
+    sprite: r.sprite || "",
+    color: r.color || "#9aa2b4",
+    style: r.style ? r.style.name : "",
+    time: r.finishT == null ? null : r.finishT,
+    margin: (i && r.finishT != null && t0 != null) ? r.finishT - t0 : null,
+    hp: r.maxHp ? Math.max(0, Math.min(1, r.hp / r.maxHp)) : 0,
+    exhausted: !!r.exhausted,
+    me: r === G.me,
+  }));
+}
+
+function showResults(order, rank){
+  $("banner").innerHTML = "";
+  if (G.tutorial) return;                     // the tutorial race is not a real result
+  /* A career race reports back to career mode, which owns the consequences. The normal
+     results sheet (XP, level-ups, Callout coaching) does not apply. */
+  if (G.career) {
+    const cb = G.career.onDone;
+    const n = order.length;
+    careerCfg = null;
+    G.done = true;
+    $("modal").style.display = "none";
+    /* Hand over the whole finish order, not just her own number. Career mode has no
+       access to the field once the race is torn down, and a result screen that says
+       "4th of 8" without naming the seven others is not a result. */
+    if (cb) cb(rank, n, boardFrom(order));
+    return;
+  }
+  const def = defOf(pickRacer);
+  const sv = saveFor(pickRacer);
+  const gained = Progress.xpForResult(rank, order.length, G.course);
+  const after = Progress.applyXp(sv, gained);
+  putSave(pickRacer, { level: after.level, xp: after.xp });
+
+  let lvNote = "";
+  if (after.levelsGained.length) {
+    const before = Progress.build(def, sv), now = Progress.build(def, after);
+    const diffs = ["speed","stamina","power","guts","wit"]
+      .map(k => ({k, d: now.stats[k]-before.stats[k]})).filter(x => x.d > 0)
+      .map(x => `${x.k} +${x.d}`).join(", ");
+    const gainedP = now.unlocked.filter(k => !before.unlocked.includes(k))
+      .map(k => `<b>${Progress.PASSIVES[k].name}</b> &mdash; ${Progress.PASSIVES[k].text}`);
+    lvNote = `<div class="lvup"><b>Level ${after.level}</b> &nbsp; ${diffs}` +
+             (gainedP.length ? `<br>Unlocked: ${gainedP.join("; ")}` : "") + `</div>`;
+  }
+  /* The measured trap is hoarding Callouts. Say so with this race's own numbers
+     rather than a tooltip nobody reads. */
+  const ct = G.myCtrl;
+  const unspent = ct.callouts, wasted = Math.round(G.stuckTotal);
+  let coach = "";
+  if (unspent > 0 && wasted >= 3) {
+    /* Name the cause that actually dominated, so the note reads as an observation
+       about this race rather than boilerplate. */
+    const empty = Math.round(G.emptyTotal), thin = Math.round(G.thinTotal);
+    const what = empty >= thin && empty >= 3
+      ? `finished the last <b>${empty}s</b> with no cards left at all`
+      : thin >= 3
+        ? `raced <b>${thin}s</b> down to a single card`
+        : `spent <b>${wasted}s</b> unable to play anything`;
+    coach = `<div class="coach"><b>${unspent} Callout${unspent > 1 ? "s" : ""} unspent.</b>
+      ${def.name} ${what}. A Callout bins the dead hand and draws ${Racers.ACTIVE_SIZE} more, and
+      they do not carry over to the next race.</div>`;
+  } else if (unspent === 0 && ct.played.length >= 6) {
+    coach = `<div class="coach good"><b>Both Callouts spent.</b> ${ct.played.length} cards played &mdash;
+      more than a hoarded hand could ever have reached.</div>`;
+  } else if (unspent > 0 && ct.played.length <= 3) {
+    coach = `<div class="coach"><b>${unspent} Callout${unspent > 1 ? "s" : ""} unspent</b> on only
+      ${ct.played.length} cards played. A cheaper deck plays more, but only if you redraw.</div>`;
+  }
+
+  const t0 = order[0].finishT;
+  $("modal").style.display = "flex";
+  $("sheet").innerHTML = `
+    <h2>${G.course.name} &mdash; result</h2>
+    <div class="rb">
+      <div class="rb-place${rank===1?" win":""}">${rank}<small>${ordinal(rank)}</small></div>
+      <div class="rb-who"><b>${def.name}</b>
+        <span>${G.course.distance}m ${G.course.surface} &middot; ${order.length} ran</span></div>
+      <div class="rb-xp"><small>XP</small>+${gained}</div>
+    </div>
+    ${coach}${lvNote}
+    <table class="tote"><thead><tr><th>#</th><th>Racer</th><th>Lv</th><th>Style</th><th>Time</th>
+      <th>Margin</th><th>Stamina</th><th>Cards played</th></tr></thead><tbody>
+      ${order.map((r,i) => {
+        const ct = G.ctrls.find(c => c.racer === r);
+        const names = ct ? ct.played.map(id => Cards.byId[id].ability).join(", ") : "";
+        return `<tr class="${r===G.me?"me":""}"><td class="n">${r.rank==null?"&mdash;":r.rank}</td>
+          <td class="nm"><i class="sw" style="background:${r.color||"#9aa2b4"}"></i>${r.name}</td>
+          <td>${r.level}</td><td>${r.style.name}</td>
+          <td class="t">${r.finishT!=null?r.finishT.toFixed(2)+"s":"&mdash;"}</td>
+          <td class="m">${r.finishT!=null&&i?"+"+(r.finishT-t0).toFixed(2):(i?"":"&mdash;")}</td>
+          <td>${(r.hp/r.maxHp*100).toFixed(0)}%${r.exhausted?' <span class="empty">empty</span>':""}</td>
+          <td class="cards">${names||"&mdash;"}</td></tr>`;}).join("")}
+    </tbody></table>
+    <div class="row">
+      <button class="btn gold" id="again">Race again</button>
+      <button class="btn ghost sm" id="reDeck">Change deck</button>
+      <button class="btn ghost sm" id="toStable">Stable</button>
+      <button class="btn ghost sm" id="toMenu">Main menu</button>
+    </div>`;
+  $("again").onclick = start;
+  $("reDeck").onclick = showDeck;
+  $("toStable").onclick = () => { workingDeck = null; showStable(); };
+  $("toMenu").onclick = () => Game.toMenu();
+}
+
+/* Changing speed mid-race must not move the race. Sim time is the wall clock since
+   startWall TIMES the rate, so a bare `rate = r` rescaled the whole race so far: 2x to
+   1x halved where the race should be, and the field stood frozen until the wall clock
+   caught up; 1x to 4x leapt it forward. Re-anchor startWall so the current sim time
+   maps to the moment the clock is standing at -- now, or the start of a pause or a
+   cutscene hold, since those hand their own interval back when they end. */
+function setRate(r){
+  if (!r || r === rate) return;
+  rate = r;
+  if (G && !G.done && !G.atGate) {
+    const at = G.paused ? G.pauseFrom : G.cutHold ? G.cutFrom : performance.now();
+    G.startWall = at - (G.S.t / rate) * 1000;
+  }
+}
+document.querySelectorAll(".rate button").forEach(b => b.onclick = () => {
+  setRate(+b.dataset.rate);
+  document.querySelectorAll(".rate button").forEach(x => x.classList.toggle("sel", x===b));
+});
+$("btnStable").onclick = () => { workingDeck = null; showStable(); };
+$("btnPause").onclick = () => { if (window.Shell) Shell.togglePause(); };
+addEventListener("keydown", e => {
+  if (e.repeat || getComputedStyle($("modal")).display !== "none") return;
+  // home, and the others running in: Enter or Space for the results
+  if (G && G.crossT != null && !G.done && (e.key === "Enter" || e.code === "Space")) { e.preventDefault(); finish(); return; }
+  if (e.key === "c" || e.key === "C" || e.code === "Space") { e.preventDefault(); $("btnCallout").click(); }
+  if ((e.key === "v" || e.key === "V") && use3D && G && !G.done &&
+      !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) $("btnCam").click();
+});
+$("btnCam").onclick = () => {
+  if (!use3D) return;
+  $("btnCam").textContent = "View: " + Voxel.cycleCamera();
+};
+$("btnCallout").onclick = () => {
+  // not before the off: Space skips the fanfare, and must not also spend a Callout
+  if (!G || G.done || G.me.finished || G.atGate) return;
+  if (!Racers.canCallout(G.myCtrl) || !Racers.callout(G.myCtrl)) return;
+  G.floats.push({ id: G.me.id, text: "CALLOUT", t0: G.S.t });
+  FX.sparkleOn($("btnCallout"), { count: 16, spread: 46 });
+  renderPlayed();
+  if (window.Shell) Shell.notify("callout");
+};
+
+// ---------- rendering ----------
+/* The voxel scene draws the race; this canvas, laid over it, keeps the nameplates,
+   stamina bars and callouts -- they are UI, and stay crisp text at any camera distance.
+   Without three.js the original flat view below draws everything, as it always did. */
+function draw(){
+  if (G && use3D && Voxel.render(G, performance.now())) return drawPlates();
+  draw2D();
+}
+
+function drawPlates(){
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w*dpr || cv.height !== h*dpr) { cv.width = w*dpr; cv.height = h*dpr; }
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  // a cutscene is hers alone: no plates, just the lines framing her
+  if (Voxel.inCut && Voxel.inCut()) return speedLines(w, h, 0.8);
+  speedLines(w, h, Voxel.speedFeel ? Voxel.speedFeel() : 0);
+  const live = new Set(G.floats.map(f => f.id));
+  // after the line, what each of them has to say about it (voxel.js's reactions)
+  const said = r => Voxel.sayingOf ? Voxel.sayingOf(r) : null;
+  /* Far first, so the nearer plates land on top. A rival only gets a plate near the
+     camera or while something is happening to her; twelve plates at once is noise. */
+  const plates = G.S.racers.map(r => ({ r, p: Voxel.project(r) }))
+    .filter(o => o.p && o.p.x > -90 && o.p.x < w + 90 && o.p.y > -60 && o.p.y < h + 60)
+    .filter(o => o.r === G.me || o.p.dist < 42 || live.has(o.r.id) || said(o.r))
+    .sort((a, b) => b.p.dist - a.p.dist);
+  for (const { r, p } of plates) {
+    const me = r === G.me, x = p.x, y = p.y;
+    ctx.save();
+    if (!me) ctx.globalAlpha = r.exhausted ? .55 : .9;
+    ctx.font = (me ? "700 " : "") + "11px Segoe UI"; ctx.textAlign = "center";
+    const label = r.name + (r.rank ? ` (${r.rank})` : "");
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = me ? "rgba(226,192,88,.94)" : "rgba(10,12,18,.72)";
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x-tw/2-6, y-24, tw+12, 15, 4); ctx.fill(); }
+    else ctx.fillRect(x-tw/2-6, y-24, tw+12, 15);
+    ctx.fillStyle = me ? "#20180a" : "#dfe2ea";
+    ctx.fillText(label, x, y-13);
+    const pw = 34, frac = Math.max(0, r.hp/r.maxHp);
+    ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(x-pw/2, y-7, pw, 4);
+    ctx.fillStyle = frac>.5?"#5fc98a":frac>.22?"#e2a34a":"#e0575f";
+    ctx.fillRect(x-pw/2, y-7, pw*frac, 4);
+    ctx.restore();
+    for (const f of G.floats) {
+      if (f.id !== r.id) continue;
+      const age = (G.S.t - f.t0)/2.4;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1-age*age);
+      const fy = y - 32 - age*26;
+      ctx.font = (f.unique || f.gambit ? "800 14px" : "700 12px") + " Segoe UI";
+      ctx.textAlign = "center";
+      const fw = ctx.measureText(f.text).width;
+      ctx.fillStyle = "rgba(14,16,24,.88)";
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x-fw/2-7, fy-14, fw+14, 19, 5); ctx.fill(); }
+      else ctx.fillRect(x-fw/2-7, fy-14, fw+14, 19);
+      ctx.strokeStyle = f.gambit
+        ? (f.won ? "rgba(95,201,138,.95)" : "rgba(224,87,95,.95)")
+        : (me ? "rgba(226,192,88,.95)" : "rgba(150,160,190,.55)");
+      ctx.lineWidth = f.gambit ? 2 : 1; ctx.stroke();
+      ctx.fillStyle = f.gambit ? (f.won ? "#8fe3b4" : "#ff9098")
+                    : f.unique ? "#ffe08a" : (me ? "#f0dc9a" : "#c8cede");
+      ctx.fillText(f.text, x, fy);
+      ctx.restore();
+    }
+    // her line after the race: a speech bubble over her plate, its tail to her, fading out
+    const sp = said(r);
+    if (sp) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, sp.age * 8, (1 - sp.age) * 5);
+      ctx.font = "700 12px Segoe UI"; ctx.textAlign = "center";
+      const bw = ctx.measureText(sp.text).width + 18, by = y - 50;
+      ctx.fillStyle = "rgba(255,253,246,.96)"; ctx.strokeStyle = me ? "rgba(226,192,88,.95)" : "rgba(30,42,34,.35)"; ctx.lineWidth = me ? 2 : 1;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x - bw / 2, by - 15, bw, 22, 8); else ctx.rect(x - bw / 2, by - 15, bw, 22);
+      ctx.moveTo(x - 6, by + 7); ctx.lineTo(x, by + 14); ctx.lineTo(x + 6, by + 7);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#1e2a22"; ctx.fillText(sp.text, x, by);
+      ctx.restore();
+    }
+  }
+}
+
+/* Anime speed lines round the edge of the screen, redrawn at random every frame so they
+   flicker the way hand-drawn ones do. `k` is voxel.js's sense of how fast it should feel
+   (top speed in the final phase, a spurt, a signature) and is zero on wide shots. The
+   middle of the screen is left alone: that is where she is. */
+function speedLines(w, h, k){
+  if (!G || G.paused || k < 0.03) return;
+  const cx = w / 2, cy = h * 0.5, R = Math.hypot(w, h) * 0.56, n = Math.round(18 + 46 * k);
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, wa = (0.004 + Math.random() * 0.012) * (0.6 + k);
+    const r0 = R * (0.62 + Math.random() * 0.22);
+    ctx.globalAlpha = (0.12 + 0.4 * k) * (0.35 + Math.random() * 0.65);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+    ctx.lineTo(cx + Math.cos(a - wa) * R, cy + Math.sin(a - wa) * R);
+    ctx.lineTo(cx + Math.cos(a + wa) * R, cy + Math.sin(a + wa) * R);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function draw2D(){
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w*dpr || cv.height !== h*dpr) { cv.width = w*dpr; cv.height = h*dpr; }
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  if (!G) return;
+
+  const rs = G.S.racers;
+  const minP = Math.min(...rs.map(r=>r.pos)), maxP = Math.max(...rs.map(r=>r.pos));
+  const ppm = Math.max(3.2, Math.min(24, (w*0.72)/Math.max(14, maxP-minP)));
+  let camX = (G.me.pos*0.6 + (minP+maxP)/2*0.4) - (w*0.42)/ppm;
+  const myX = (G.me.pos - camX)*ppm;
+  if (myX < w*0.18) camX = G.me.pos - (w*0.18)/ppm;
+  if (myX > w*0.72) camX = G.me.pos - (w*0.72)/ppm;
+
+  const groundY = h*0.30, laneH = Math.min(30, (h*0.60)/G.S.laneCount);
+  let g = ctx.createLinearGradient(0,0,0,groundY);
+  g.addColorStop(0,"#151a2a"); g.addColorStop(1,"#243049");
+  ctx.fillStyle = g; ctx.fillRect(0,0,w,groundY);
+  g = ctx.createLinearGradient(0,groundY,0,h);
+  g.addColorStop(0,"#2c4a30"); g.addColorStop(1,"#1d3221");
+  ctx.fillStyle = g; ctx.fillRect(0,groundY,w,h-groundY);
+
+  ctx.font = "11px Segoe UI"; ctx.textAlign = "center";
+  for (let m = Math.floor(camX/50)*50; m < camX + w/ppm + 50; m += 50) {
+    if (m < 0) continue;
+    const x = (m-camX)*ppm, major = m % 200 === 0;
+    ctx.strokeStyle = major ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.06)";
+    ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x,groundY); ctx.lineTo(x,h); ctx.stroke();
+    if (major) { ctx.fillStyle="rgba(255,255,255,.30)"; ctx.fillText((G.course.distance-m)+"m to go", x, groundY-8); }
+  }
+  const fx = (G.course.distance-camX)*ppm;
+  if (fx > -40 && fx < w+40) {
+    for (let i=0;i<Math.ceil((h-groundY)/12);i++){
+      ctx.fillStyle = i%2 ? "#f2f2f2" : "#1a1a1a"; ctx.fillRect(fx-5, groundY+i*12, 10, 12); }
+    ctx.fillStyle="#e2c058"; ctx.font="600 13px Segoe UI"; ctx.fillText("FINISH", fx, groundY-26);
+  }
+
+  const draws = rs.map(r => ({r, y: groundY + laneH*0.9 + r.lane*laneH})).sort((a,b)=>a.y-b.y);
+  for (const {r,y} of draws) {
+    const gate = Math.max(0, 1 - r.pos/26) * (r.lane % 4) * 9;
+    const x = (r.pos-camX)*ppm - gate;
+    if (x < -130 || x > w+130) continue;
+    const sp = spriteFor(r.sprite), hgt = Math.max(38, Math.min(104, laneH*2.25));
+    const bob = Math.sin(G.S.t*9 + r.lane) * (r.v>2?2.2:0);
+    ctx.fillStyle="rgba(0,0,0,.34)";
+    ctx.beginPath(); ctx.ellipse(x, y+2, hgt*0.20, hgt*0.055, 0,0,7); ctx.fill();
+    if (sp && sp.complete && sp.naturalWidth) {
+      const wd = hgt*(sp.naturalWidth/sp.naturalHeight);
+      ctx.save();
+      if (r===G.me) { ctx.shadowColor="#e2c058"; ctx.shadowBlur=18; }
+      else if (r.exhausted) ctx.globalAlpha=.62;
+      ctx.drawImage(sp, x-wd/2, y-hgt+bob, wd, hgt); ctx.restore();
+    }
+    ctx.font = (r===G.me?"700 ":"")+"11px Segoe UI"; ctx.textAlign="center";
+    const label = r.name + (r.rank?` (${r.rank})`:"");
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = r===G.me ? "rgba(226,192,88,.92)" : "rgba(10,12,18,.72)";
+    ctx.fillRect(x-tw/2-5, y+4, tw+10, 15);
+    ctx.fillStyle = r===G.me ? "#20180a" : "#dfe2ea";
+    ctx.fillText(label, x, y+15);
+    const pw = 34, frac = Math.max(0, r.hp/r.maxHp);
+    ctx.fillStyle="rgba(0,0,0,.55)"; ctx.fillRect(x-pw/2, y+21, pw, 4);
+    ctx.fillStyle = frac>.5?"#5fc98a":frac>.22?"#e2a34a":"#e0575f";
+    ctx.fillRect(x-pw/2, y+21, pw*frac, 4);
+
+    for (const f of G.floats) {
+      if (f.id !== r.id) continue;
+      const age = (G.S.t - f.t0)/2.4;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1-age*age);
+      const fy = y - hgt - 12 - age*26;
+      ctx.font = (f.unique || f.gambit ? "800 14px" : "700 12px") + " Segoe UI";
+      ctx.textAlign="center";
+      const fw = ctx.measureText(f.text).width;
+      ctx.fillStyle="rgba(14,16,24,.88)";
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x-fw/2-7, fy-14, fw+14, 19, 5); ctx.fill(); }
+      else ctx.fillRect(x-fw/2-7, fy-14, fw+14, 19);
+      ctx.strokeStyle = f.gambit
+        ? (f.won ? "rgba(95,201,138,.95)" : "rgba(224,87,95,.95)")
+        : (r===G.me ? "rgba(226,192,88,.95)" : "rgba(150,160,190,.55)");
+      ctx.lineWidth = f.gambit ? 2 : 1; ctx.stroke();
+      ctx.fillStyle = f.gambit ? (f.won ? "#8fe3b4" : "#ff9098")
+                    : f.unique ? "#ffe08a" : (r===G.me ? "#f0dc9a" : "#c8cede");
+      ctx.fillText(f.text, x, fy);
+      ctx.restore();
+    }
+    if (r.buffs.some(b => b.stat==="speed" && b.amount>0)) {
+      ctx.strokeStyle = "rgba(226,192,88,"+(0.32+0.3*Math.sin(G.S.t*12))+")";
+      ctx.lineWidth=2; ctx.beginPath();
+      ctx.ellipse(x, y-hgt*0.45, hgt*0.30, hgt*0.52, 0,0,7); ctx.stroke();
+    }
+  }
+}
+
+function hud(){
+  if (!G) return;
+  const me = G.me, S = G.S, ph = Sim.phaseOf(me.pos/G.course.distance);
+  const tag = $("phaseTag");
+  tag.textContent = ["Opening","Middle","Final"][ph];
+  tag.className = "phase" + (ph===2?" final":"");
+  $("clock").textContent = S.t.toFixed(1)+"s";
+  const hpF = Math.max(0, me.hp/me.maxHp);
+  $("hpBar").style.width = (hpF*100)+"%";
+  $("hpBar").style.background = hpF>.5 ? "var(--turf)" : hpF>.22 ? "var(--warn)" : "var(--red)";
+  $("hpTxt").textContent = me.exhausted ? "EMPTY" : (hpF*100).toFixed(0)+"%";
+  const spirit = Math.max(0, Math.min(8, 2 + (G.myCtrl.budget-2)*Math.min(1, me.pos/G.course.distance) - G.myCtrl.spent));
+  $("spBar").style.width = (spirit/8*100)+"%";
+  $("spTxt").textContent = spirit.toFixed(1);
+  const order = Sim.standings(S), rank = order.findIndex(r=>r===me)+1, ahead = order[rank-2];
+  $("posTxt").innerHTML = `<b>${rank}${ordinal(rank)}</b> of ${order.length}` +
+    (ahead ? ` &middot; ${(ahead.pos-me.pos).toFixed(1)}m to ${ahead.name}` : ` &middot; leading`) +
+    ` &middot; ${me.v.toFixed(1)} m/s`;
+  /* The placing and the distance left, over the race the way the real broadcast shows
+     them -- hidden while the gate card, the intro or a cutscene has the stage. */
+  const onStage = !G.atGate && !G.cutHold && !G.done;
+  $("rankBig").hidden = $("togo").hidden = !onStage;
+  if (onStage) {
+    $("rankBig").innerHTML = `${rank}<small>${ordinal(rank)}</small>`;
+    $("togo").innerHTML = `${Math.max(0, G.course.distance-me.pos).toFixed(0)}<small>m to go</small>`;
+  }
+  for (const r of S.racers) {
+    const el = document.getElementById("pip-"+r.id);
+    if (el) el.style.left = `calc(58px + (100% - 120px) * ${Math.max(0,Math.min(1,r.pos/G.course.distance)).toFixed(4)})`;
+  }
+}
+
+/* The front-of-house (title/login/menu/intro/tutorial) lives in shell.js and drives the
+   game through this surface. Keeping it this narrow means the shell never has to know
+   anything about the simulation. */
+window.Game = {
+  showStable, showDeck,
+  toMenu: () => { $("modal").style.display = "none"; Shell.toMenu(); },
+  /** A scripted race for the tutorial: fixed racer and course, no XP, no saving. */
+  startTutorialRace(){
+    pickRacer = "specialweek";
+    pickCourse = "classic";
+    /* A demonstration, like the career tutorial: an unowned racer with a full fifteen,
+       none of it kept. Built from every card rather than through defaultDeck(), which
+       now respects ownership -- a new account owns five and the lesson is about binning
+       a hand she cannot play, which needs a deck to bin. */
+    workingDeck = Cards.CARDS.slice()
+      .sort((a, b) => a.cost - b.cost || a.id.localeCompare(b.id))
+      .slice(0, Racers.DECK_SIZE).map(c => c.id);
+    start({ noGate: true, tutorial: true });
+    setRate(1);
+    document.querySelectorAll(".rate button").forEach(x =>
+      x.classList.toggle("sel", x.dataset.rate === "1"));
+  },
+  endTutorialRace(){ if (G) { G.done = true; G.tutorial = false; } $("modal").style.display = "none"; },
+
+  /**
+   * Run a race on career mode's behalf. `cfg` carries the field, course and deck, and
+   * `cfg.onDone(placing, fieldSize)` receives the result -- career mode decides what it
+   * means. The simulation is the same one every other race uses.
+   */
+  startCareerRace(cfg){
+    careerCfg = cfg;
+    Shell.show("scr-game");
+    start();
+  },
+
+  /** True while a race is live and not already finished. */
+  isRacing: () => !!(G && !G.done && !G.me.finished),
+  isTutorial: () => !!(G && G.tutorial),
+  setPaused(on){
+    if (!G || G.done) return false;
+    /* A cutscene already holds the clock; a pause on top would hand the same seconds
+       back twice. Esc during one does nothing -- a click skips it anyway. */
+    if (G.cutHold && on) return G.paused;
+    if (on && !G.paused) { G.paused = true; G.pauseFrom = performance.now(); }
+    else if (!on && G.paused) {
+      // hand the entire paused interval back, independent of how many frames ran
+      G.startWall += performance.now() - G.pauseFrom;
+      G.paused = false; G.pauseFrom = 0;
+    }
+    const w = document.querySelector("#scr-game .wrap");
+    if (w) w.classList.toggle("is-paused", G.paused);
+    return G.paused;
+  },
+  isPaused: () => !!(G && G.paused),
+  restartRace(){ if (G && G.tutorial) return; start(); },
+  quitRace(){ if (G) { G.paused = false; G.done = true; } $("modal").style.display = "none"; },
+};
+
+Shell.boot();
+})();
+</script>
+</body>
+</html>

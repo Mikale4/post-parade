@@ -1,0 +1,19 @@
+# Only the playable game goes in the repository: the game itself (race/), the music, and
+# the art it actually loads. Everything else stays local: the unused source art, the card
+# and roster generators, and the dev tools (tools/dev/ holds a local test account).
+/*
+!/README.md
+!/index.html
+!/.nojekyll
+!/.gitignore
+!/Play Post Parade.bat
+!/race/
+!/audio/
+# ...but not the test scripts and lab pages in race/: they run during development, not in the game
+/race/validate*.js
+/race/*-lab.html
+
+# Racers/ and backgrounds/ hold far more than the game uses, so only the files it loads
+# are tracked -- added by name. When the game starts loading a new one, add it with
+#   git add -f "Racers/<file>"
+# (it stays tracked from then on).

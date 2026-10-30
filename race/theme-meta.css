@@ -1,0 +1,1390 @@
+/* =========================================================================
+   Post Parade -- meta screens: starter, scout, stable, quests, career.
+
+   Same visual language as theme.css (white panels, hairline borders, a
+   coloured header strip per section), so these never read as a different
+   game bolted on beside the race.
+   ========================================================================= */
+
+/* ---------- shared shell ---------- */
+.scr-wrap{
+  position:relative;width:min(1080px,94vw);max-height:94vh;overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;gap:12px;padding:0 4px 24px;
+  /* No top padding: the sticky resbar anchors at top:0, and any padding above
+     that anchor is a gap scrolling rows show through, which reads as content
+     floating over the header. */
+}
+/* Flex items shrink by default. Without this the panel is squashed to fit the wrap and
+   its own `overflow:hidden` (which exists so the panel-hd strip clips its corners) hides
+   the overflow silently -- the wrap then has nothing taller than itself to scroll, so
+   long screens like the quest board simply cut off with no scrollbar. */
+.scr-wrap > *{flex-shrink:0}
+.scr-wrap::-webkit-scrollbar{width:10px}
+.scr-wrap::-webkit-scrollbar-thumb{background:rgba(0,0,0,.22);border-radius:6px}
+
+/* The top bar every meta screen shares: back on the left, what you hold as chips with
+   pixel icons, quests on the right. Sticky, over a dark strip so it reads on any scene. */
+.resbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:rgba(16,30,20,.78);border-radius:var(--r-lg);
+  padding:7px 8px;position:sticky;top:0;z-index:6;backdrop-filter:blur(3px);
+}
+.res{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px 0 8px;
+     background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r);
+     font:800 13px var(--font-ui);color:var(--ink)}
+.res .ico{width:20px;height:20px}
+.res b{font:800 italic 18px/1 var(--font-num)}
+.res i{font-style:normal;font:700 13px var(--font-num);color:var(--ink-3)}
+.res.stam.low b{color:var(--red)}
+.stbar{display:inline-block;width:56px;height:7px;border-radius:2px;background:var(--paper-3);overflow:hidden}
+.stbar>span{display:block;height:100%;background:var(--gold)}
+.res.stam.low .stbar>span{background:var(--red)}
+.resbar .btn{margin-left:auto}
+.resbar [data-res="back"]{margin-left:0;margin-right:auto}
+.btn.hasnew,.menu-btn,.tab{position:relative}
+
+.empty{padding:28px;text-align:center;color:var(--ink-2)}
+.empty p{margin:0 0 14px}
+.fine{color:var(--ink-3);font-size:12.5px;margin:8px 0 0}
+.good{color:var(--turf)}
+.bad{color:var(--red)}
+.stars{color:var(--gold);letter-spacing:1px;font-size:15px;
+  -webkit-text-stroke:1px var(--gold-lo);paint-order:stroke fill}
+.stars.big{font-size:20px}
+.gradetag{background:var(--gold);color:#3a2800;border-radius:var(--r-sm);padding:1px 7px;font:800 italic 14px var(--font-num)}
+
+/* Grades are LETTERS, coloured like the real game's: S gold down through G grey. The
+   label beside one is quiet; the letter is what you read. */
+.g{font:800 italic 1em/1 var(--font-num)}
+.gS{color:#d99a00}.gA{color:#e5652a}.gB{color:#d4487f}.gC{color:#2f9a4a}
+.gD{color:#2f7fd0}.gE{color:#7a5ab0}.gF,.gG{color:#9a9a92}
+
+/* Aptitude: a small grid -- Track (turf, dirt) and Distance (four trips) -- the way
+   the real game lays it out, instead of a line of "SPR S" pills. */
+.sc-apt{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.apt{display:inline-flex;align-items:baseline;gap:5px;padding:4px 8px 3px;border-radius:var(--r-sm);
+     background:var(--paper-2);border:1px solid var(--rule);font:700 11.5px/1 var(--font-ui);color:var(--ink-2)}
+.apt .g{font-size:16px}
+.apt.style,.apt.uni{color:var(--ink);font-weight:800}
+.apt.uni .ico{width:14px;height:14px;align-self:center}
+.aptgrid{display:grid;grid-template-columns:auto repeat(4,1fr);border:1px solid var(--rule);border-radius:var(--r);
+  overflow:hidden;margin:8px 0;background:var(--paper)}
+.aptgrid > *{padding:4px 6px 3px;border-bottom:1px solid var(--rule);display:flex;align-items:baseline;gap:5px;justify-content:space-between}
+.aptgrid > :nth-last-child(-n+5){border-bottom:0}
+.aptgrid .ak{background:var(--paper-2);font:800 11px/1.5 var(--font-ui);color:var(--ink-3);justify-content:flex-start}
+.aptgrid .ac{font:700 11.5px/1.4 var(--font-ui);color:var(--ink-2);border-left:1px solid var(--rule);cursor:help}
+.aptgrid .ac .g{font-size:18px}
+.aptgrid .blank{border-left:1px solid var(--rule)}
+
+/* Card kinds: one neutral tag, a coloured square for the kind. */
+.cchip{display:inline-flex;align-items:center;gap:5px;font:700 11.5px/1 var(--font-ui);padding:4px 8px 3px 6px;
+       border-radius:var(--r-sm);background:var(--paper);border:1px solid var(--rule);color:var(--ink);margin:3px 4px 0 0}
+.cchip::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--ink-3);flex:none}
+.cchip.kBurst::before{background:var(--w3)}
+.cchip.kGamble::before{background:var(--w8)}
+.cchip.kRecovery::before{background:var(--w6)}
+.cchip.kTempo::before{background:var(--w4)}
+.cchip.kCounter::before{background:var(--w7)}
+.cchip.kSupport::before{background:var(--w5)}
+
+/* ---------- starter picker: entries on a race card ----------
+   Each racer is an entry: her gate number in its colour down the left edge, her
+   portrait, then the facts -- style, signature, aptitude grid, the cards she brings.
+   Portrait boxes use cover + top: these sprites are full-body and much taller than
+   they are wide, so `contain` shrinks the character to a speck, and width-only
+   sizing overflows the box and clips to whatever `align-items` chose -- which showed
+   legs and no face. Constrain BOTH axes and anchor to the top. */
+.starter-wrap{position:relative;z-index:2;   /* every other screen's wrap is
+  positioned; this one was static and so sat UNDER the backdrop layers */
+  width:min(1180px,96vw);max-height:96vh;overflow-y:auto;padding:14px 6px}
+.starter-head{text-align:center;margin-bottom:16px}
+.starter-head .uma-title{font-size:32px;-webkit-text-stroke-width:5px}
+.starter-head p{display:inline-block;color:#fff;background:rgba(14,30,18,.7);padding:5px 12px;border-radius:var(--r-sm);
+  margin:12px auto 0;font-weight:700}
+.starter-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+.gatecell{display:grid;place-items:center;color:#fff;font:800 italic 22px/1 var(--font-num)}
+.starter-card{
+  display:flex;text-align:left;
+  background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r-lg);overflow:hidden;
+  box-shadow:var(--lift);
+}
+.starter-card > .gatecell{width:34px;flex:0 0 34px;align-self:stretch}
+.sc-art{width:118px;flex:0 0 118px;align-self:stretch;min-height:190px;overflow:hidden;
+        background:repeating-linear-gradient(90deg,#e3f1dc 0 18px,#d9ecd0 18px 36px);
+        display:flex;align-items:flex-end;border-right:1px solid var(--rule)}
+.sc-art img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.sc-body{flex:1;min-width:0;padding:11px 13px 13px}
+.sc-name{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.sc-name b{font:400 18px/1.15 var(--font-display);color:var(--ink)}
+.sc-apt{margin:7px 0 6px}
+.sc-blurb{color:var(--ink-2);font-size:12.5px;margin:0 0 2px;line-height:1.5}
+.sc-cards{margin-top:8px;font-size:12px}
+.sc-cards i{color:var(--ink-3);font-style:normal;font-weight:800;display:block;margin-bottom:2px;font-size:11.5px}
+.sc-pick{margin-top:12px}
+
+.got-panel{width:min(760px,94vw)}
+.got-body{display:flex;gap:16px;padding:16px}
+.got-art{width:200px;flex:0 0 200px;object-fit:contain;align-self:flex-end}
+.got-side{flex:1;min-width:0}
+.got-side h2{margin:0 0 6px;font-size:24px}
+.got-cards{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+.gc{width:78px;text-align:center;font-size:11px}
+.gc img{width:100%;border-radius:7px;border:1px solid var(--line);display:block}
+.gc b{display:block;margin-top:3px;font-size:11.5px}
+.gc i{color:var(--ink-3);font-style:normal}
+
+/* ---------- scout: a banner ---------- */
+.scout-panel .panel-hd{border-bottom:0}
+.scout-tabs{display:flex;gap:4px;padding:8px 10px 0;background:var(--turf-lo)}
+.tab{display:inline-flex;align-items:center;gap:7px;background:transparent;border:0;color:rgba(255,255,255,.82);
+     font:800 14px var(--font-ui);padding:9px 16px 8px;border-radius:var(--r) var(--r) 0 0;cursor:pointer}
+.tab .ico{width:18px;height:18px}
+.tab:hover{color:#fff;background:rgba(255,255,255,.08)}
+.tab.sel{background:var(--paper);color:var(--ink)}
+.tab small{color:var(--ink-3);font-weight:700;margin-left:4px}
+.scout-body{display:flex;gap:0;flex-wrap:wrap}
+/* the banner: what you are scouting for, as art, over turf */
+.scout-banner{position:relative;flex:1 1 340px;min-height:250px;overflow:hidden;
+  background:repeating-linear-gradient(90deg,#2d8a3c 0 40px,#33933f 40px 80px);border-right:1px solid var(--rule-2)}
+.scout-banner::after{content:"";position:absolute;inset:auto 0 0 0;height:42%;
+  background:linear-gradient(180deg,rgba(18,40,22,0),rgba(18,40,22,.75))}
+.sb-title{position:absolute;left:16px;bottom:13px;z-index:2;color:#fff;font:400 24px/1 var(--font-display);
+  -webkit-text-stroke:4px var(--turf-deep);paint-order:stroke fill}
+.sb-card{position:absolute;bottom:-14px;width:132px;border-radius:var(--r);border:3px solid var(--paper);
+  box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.sb-card.c0{left:calc(50% - 150px);transform:rotate(-12deg);bottom:-22px}
+.sb-card.c1{left:calc(50% - 66px);z-index:1;bottom:6px}
+.sb-card.c2{left:calc(50% + 18px);transform:rotate(12deg);bottom:-22px}
+.sb-racer{position:absolute;bottom:0;height:118%;object-fit:contain;object-position:bottom;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+.sb-racer.r0{left:50%;transform:translateX(-50%);z-index:1}
+.sb-racer.r1{left:2%;height:96%;opacity:.95}
+.sb-racer.r2{right:2%;height:96%;opacity:.95}
+.scout-info{flex:1 1 300px;min-width:260px;padding:16px 18px}
+.scout-info p{margin:0 0 8px;color:var(--ink-2);line-height:1.55}
+.rates{display:flex;gap:6px;margin:12px 0 8px;flex-wrap:wrap}
+.rate{display:inline-flex;align-items:baseline;gap:6px;font:800 italic 16px/1 var(--font-num);padding:6px 10px 5px;border-radius:var(--r-sm);
+      background:var(--paper-2);border:1px solid var(--rule);color:var(--ink)}
+.rate b{font-style:normal;font:800 12px var(--font-ui);color:var(--ink-2)}
+.rate.rR b{color:var(--sky)}.rate.rE b{color:#8a5ad0}
+.scout-actions{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.scout-actions .btn{justify-content:space-between;width:100%}
+.scout-actions .btn i{display:inline-flex;align-items:center;gap:5px;font:800 italic 17px var(--font-num);opacity:.95}
+.scout-actions .btn .ico{width:18px;height:18px}
+
+/* what came out of a scout */
+.scout-results{min-height:10px}
+.pull-grid{display:grid;gap:10px;padding:14px;grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.pull{
+  position:relative;text-align:center;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);padding:8px 8px 9px;
+  opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;box-shadow:0 3px 0 var(--rule-2);
+}
+.pull.in{opacity:1;transform:none}
+.pull img{width:100%;height:104px;object-fit:contain;display:block}
+.pull b{display:block;font-size:12.5px;margin-top:5px;line-height:1.25;font-weight:800}
+.pull i{display:block;font-style:normal;font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.pull i.good{color:var(--turf);font-weight:800}
+.pull.rR,.pull.s2{border-color:#9ec8f2;box-shadow:0 3px 0 #9ec8f2}
+.pull.rE,.pull.s3{border-color:var(--gold);box-shadow:0 3px 0 var(--gold-lo);background:var(--gold-pale)}
+.pull.big{outline:3px solid var(--gold);outline-offset:2px}
+.pull-note{padding:0 14px 14px;color:var(--ink-2)}
+
+/* ---------- stable ---------- */
+.stable-sum{display:flex;gap:14px;align-items:center;padding:12px 16px;
+            border-bottom:1px solid var(--rule);color:var(--ink-2);flex-wrap:wrap;font-weight:700}
+.stable-sum b{color:var(--ink);font:800 italic 18px var(--font-num)}
+.unlockbar{flex:1;min-width:120px;height:8px;border-radius:2px;background:var(--paper-3);overflow:hidden}
+.unlockbar i{display:block;height:100%;background:var(--turf)}
+.stable-grid{display:grid;gap:12px;padding:14px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+/* a racer as a card from the paddock: portrait over mown turf, a name plate under it */
+.rcard{
+  position:relative;background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r);padding:0;cursor:pointer;
+  text-align:left;overflow:hidden;box-shadow:0 3px 0 var(--rule-2);transition:transform .1s,box-shadow .1s;
+}
+.rcard:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--rule-2)}
+.rcard:active{transform:translateY(2px);box-shadow:0 1px 0 var(--rule-2)}
+.rc-art{height:150px;overflow:hidden;border-bottom:1px solid var(--rule);
+        background:repeating-linear-gradient(90deg,#e3f1dc 0 18px,#d9ecd0 18px 36px);display:flex;align-items:flex-end}
+.rc-art img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.rc-name{font:400 14px/1.2 var(--font-display);margin:8px 10px 0;color:var(--ink)}
+.rc-meta{display:flex;justify-content:flex-start;gap:7px;align-items:center;margin:4px 10px 0;font-size:12px}
+.rc-meta .lv{font:800 italic 15px/1 var(--font-num);color:var(--ink-2)}
+.rc-pass{display:flex;gap:3px;justify-content:flex-start;align-items:center;margin:6px 10px 9px}
+.rc-pass i{width:10px;height:10px;border-radius:2px;background:var(--paper-3);display:block;box-shadow:inset 0 0 0 1px var(--rule-2)}
+.rc-pass i.on{background:var(--gold);box-shadow:inset 0 0 0 1px var(--gold-lo)}
+.rc-pass small{color:var(--ink-3);font-size:11px;margin-left:4px;font-weight:700}
+.rc-unlock{font-size:11px;color:var(--ink-3);margin:0 10px 9px;font-weight:700}
+
+/* ---------- one racer ---------- */
+.racer-panel{width:100%}
+.racer-panel .panel-hd .gatecell{width:26px;height:26px;border-radius:var(--r-sm);font-size:17px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.racer-body{display:flex;gap:20px;padding:16px;flex-wrap:wrap}
+.racer-art{width:260px;flex:0 0 260px;border-radius:var(--r);align-self:flex-start;overflow:hidden;
+           background:repeating-linear-gradient(90deg,#e3f1dc 0 22px,#d9ecd0 22px 44px);display:flex;align-items:flex-end;
+           border:1px solid var(--rule)}
+.racer-art img{width:100%;object-fit:contain;object-position:bottom}
+.racer-info{flex:1;min-width:300px}
+.racer-info h4{margin:18px 0 7px;font:400 14px/1.1 var(--font-display);color:var(--ink);
+  display:flex;align-items:baseline;gap:8px;border-bottom:2px solid var(--turf);padding-bottom:5px}
+.racer-info h4 small{color:var(--ink-3);font:700 11.5px var(--font-ui)}
+.rrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.blurb{color:var(--ink-2);margin:10px 0 0;line-height:1.55}
+.statgrid{display:flex;flex-direction:column;gap:2px}
+.st{display:flex;align-items:center;gap:10px;font-size:13px;padding:3px 0;cursor:help}
+.st i{font-style:normal;width:64px;color:var(--ink-2);text-transform:capitalize;font-weight:800}
+.st .bar,.cst .bar{flex:1;height:10px;border-radius:2px;background:var(--paper-3);overflow:hidden;box-shadow:inset 0 1px 0 rgba(0,0,0,.08)}
+.st .bar b,.cst .bar b{display:block;height:100%;background:var(--turf)}
+.st em{font:800 italic 17px var(--font-num);width:44px;text-align:right}
+.st strong{width:26px;text-align:center;font-size:21px}
+
+.passives{display:flex;flex-direction:column;gap:6px}
+.pv{display:flex;gap:9px;align-items:baseline;padding:8px 10px;border-radius:var(--r);
+    background:var(--paper-2);border:1px solid var(--rule);color:var(--ink-3)}
+.pv.on{background:var(--gold-pale);border-color:#e6c95a;color:var(--ink)}
+.pv b{font-size:13px;font-weight:800}
+.pv i{font-style:normal;color:var(--ink-2);font-size:12px;flex:1}
+.pv span{font-size:11.5px;font-weight:800;color:var(--ink-3);white-space:nowrap}
+.pv.on span{color:var(--gold-lo)}
+
+.outfits{display:flex;gap:8px;flex-wrap:wrap}
+.of{width:76px;background:var(--paper-2);border:2px solid var(--rule);border-radius:var(--r);
+    padding:4px;cursor:pointer;transition:border-color .1s,transform .08s}
+.of img{width:100%;height:80px;object-fit:contain;object-position:bottom;display:block}
+.of i{display:block;font-style:normal;font-size:11px;color:var(--ink-3);text-align:center;margin-top:2px;font-weight:700}
+.of.sel{border-color:var(--turf);background:var(--turf-pale)}
+.of:active{transform:translateY(1px)}
+
+.unlocks{display:flex;gap:6px;flex-wrap:wrap}
+.ul{font:700 12px/1 var(--font-ui);padding:6px 9px;border-radius:var(--r-sm);
+    background:var(--paper-2);border:1px solid var(--rule);color:var(--ink-2)}
+.ul.done{background:var(--turf-pale);border-color:#a8d29a;color:var(--turf-lo)}
+.racer-actions{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap}
+
+/* ---------- quests and awards ----------
+   Quests are tickets with a progress bar; a finished one turns turf and waits to be
+   claimed. Awards are medals: bronze, silver and gold edges, locked ones on plain paper. */
+.quest-body{padding:14px 16px 18px}
+.qh{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font:400 15px var(--font-display);color:var(--ink)}
+.qh::after{content:"";flex:1;height:2px;background:var(--rule)}
+.qh:first-child{margin-top:4px}
+#claimAll+.qh{margin-top:14px}
+.quest-list{display:flex;flex-direction:column;gap:8px}
+.q{display:flex;gap:14px;align-items:center;padding:10px 14px;border-radius:var(--r);
+   background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule-2)}
+.q.done{background:var(--turf-pale);box-shadow:inset 0 0 0 1px #a8d29a,inset 4px 0 0 var(--turf),0 2px 0 #a8d29a}
+.q.claimed{opacity:.55;box-shadow:inset 0 0 0 1px var(--rule)}
+.q-main{flex:1;min-width:0}
+.q-main b{display:block;font-size:14px;font-weight:800}
+.q-main i{display:block;font-style:normal;color:var(--ink-2);font-size:12.5px;margin:2px 0 7px}
+.q-main small{font:800 italic 14px/1 var(--font-num);color:var(--ink-3)}
+.q-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:120px}
+.pbar{display:block;height:8px;border-radius:2px;background:var(--paper-3);overflow:hidden;margin-bottom:5px;
+      box-shadow:inset 0 1px 0 rgba(0,0,0,.08)}
+.pbar b{display:block;height:100%;background:var(--turf)}
+.rw{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end;
+    font:800 italic 17px/1.2 var(--font-num);color:var(--ink);text-align:right}
+.rw .ico{width:16px;height:16px}
+.done-tag{font:800 11.5px/1 var(--font-ui);color:var(--turf-lo)}
+
+.award-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.aw{padding:11px 13px;border-radius:var(--r);background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--rule);color:var(--ink-3)}
+.aw.on{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule),inset 4px 0 0 var(--aw,var(--gold)),0 2px 0 var(--rule-2)}
+.aw.tbronze{--aw:#c07a3e} .aw.tsilver{--aw:#9aa6b2} .aw.tgold{--aw:var(--gold)}
+.aw-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.aw-top b{font-size:13.5px;font-weight:800}
+.tier{font:800 10.5px/1 var(--font-ui);padding:3px 6px 4px;border-radius:3px;background:var(--paper-3);color:var(--ink-3)}
+.aw.on .tier{background:var(--aw);color:#fff}
+.aw.on.tgold .tier{color:#3a2800}
+.aw i{display:block;font-style:normal;color:var(--ink-2);font-size:12px;margin:4px 0 7px;line-height:1.4}
+.aw small{font:800 italic 13px var(--font-num);color:var(--ink-3)}
+.aw .rw{justify-content:flex-start;text-align:left;display:flex;margin-top:6px;font-size:15px}
+
+.awtoast{
+  position:fixed;right:18px;bottom:18px;z-index:960;min-width:220px;
+  background:#fff;border:1px solid #eed99a;border-left:5px solid var(--gold);border-radius:var(--r);
+  padding:10px 14px;box-shadow:0 10px 28px rgba(0,0,0,.3);
+  opacity:0;transform:translateX(26px);transition:opacity .35s,transform .35s;
+}
+.awtoast.in{opacity:1;transform:none}
+.awtoast b{display:block;font-size:11px;letter-spacing:.01em;color:var(--gold-dk)}
+.awtoast span{display:block;font-weight:900;font-size:15px;margin:2px 0}
+.awtoast i{font-style:normal;font-size:11.5px;color:var(--ink-2)}
+
+/* ---------- career: the turn screen ----------
+   A screen, not a stack of cards: resources and the date/goal across the top, the
+   trainee standing centre-left with her energy and mood, the turn's choices as tiles
+   on the right, the five stats graded along the bottom. */
+.cv{position:relative;z-index:2;width:min(1320px,97vw);height:100vh;display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(380px,470px);
+  grid-template-rows:auto auto minmax(0,1fr) auto auto;
+  grid-template-areas:"res res" "head head" "stage board" "stats stats" "log log";
+  gap:10px;padding:10px 0 12px}
+.cv-res{grid-area:res}
+.cv-res .resbar{position:static}
+.cv-head{grid-area:head;display:flex;align-items:stretch;gap:10px}
+/* the date: a tear-off calendar block */
+.cal{flex:none;width:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r);overflow:hidden;box-shadow:var(--lift);
+  padding:0 0 7px;position:relative}
+.cal-yr{align-self:stretch;text-align:center;background:var(--red);color:#fff;font:800 12px/1 var(--font-ui);padding:6px 0 5px;letter-spacing:.04em}
+.cal.camp .cal-yr{background:var(--sky)}
+.cal-day{font:400 22px/1.15 var(--font-display);color:var(--ink);margin-top:5px}
+.cal .cal-turn{font:700 12px var(--font-ui);color:var(--ink-3)}
+.cal .cal-turn b{font:800 italic 16px var(--font-num);color:var(--ink-2)}
+.cal-bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--paper-3)}
+.cal-bar i{display:block;height:100%;background:var(--turf)}
+/* the goal: a plate */
+.car-goal{flex:1;min-width:0;display:flex;align-items:center;gap:12px;background:var(--paper);border:1px solid var(--rule-2);
+  border-radius:var(--r);padding:8px 14px;box-shadow:var(--lift);font-size:13.5px}
+.gl-lab{flex:none;font:400 13px/1 var(--font-display);color:#fff;background:var(--turf-lo);padding:6px 9px 5px;border-radius:var(--r-sm)}
+.gl-txt{flex:1;min-width:0;font-weight:800;color:var(--ink);line-height:1.35}
+.gl-left{flex:none;display:flex;align-items:baseline;gap:6px;color:var(--ink-3);font:700 12px var(--font-ui);white-space:nowrap}
+.gl-left b{font:800 italic 22px/1 var(--font-num);color:var(--ink)}
+.gl-left em{font-style:normal;font:700 12.5px var(--font-ui);color:var(--ink-2);margin-right:8px}
+.car-goal.urgent .gl-lab{background:var(--red)}
+.car-goal.urgent .gl-left b{color:var(--red)}
+.car-goal.done .gl-lab{background:var(--gold);color:#3a2800}
+.car-tools{flex:none;display:flex;flex-direction:column;justify-content:center;gap:9px}
+.car-tools .btn{justify-content:flex-start}
+/* her */
+.cv-stage{grid-area:stage;position:relative;min-height:0;display:flex;align-items:flex-end;justify-content:center}
+.cv-hero{height:100%;max-height:100%;max-width:100%;object-fit:contain;object-position:bottom;
+  filter:drop-shadow(0 12px 26px rgba(0,0,0,.45));pointer-events:none}
+.cv-cloth{position:absolute;left:12px;top:6px;background:var(--paper);border:1px solid var(--rule-2);border-left:6px solid var(--turf);
+  border-radius:var(--r);padding:7px 13px 6px;box-shadow:var(--lift)}
+.cv-cloth b{display:block;font:400 17px/1.1 var(--font-display)}
+.cv-cloth i{font-style:normal;font:700 12px var(--font-ui);color:var(--ink-2);text-transform:capitalize}
+.cv-vitals{position:absolute;left:12px;bottom:10px;width:min(300px,46%);display:flex;flex-direction:column;gap:8px;
+  background:rgba(255,253,246,.96);border:1px solid var(--rule-2);border-radius:var(--r-lg);padding:11px 13px;box-shadow:var(--lift)}
+.vit{display:flex;align-items:center;gap:9px;min-width:0}
+.vit i{font-style:normal;font:800 12px var(--font-ui);color:var(--ink-3);width:62px;flex:none}
+.vit em{font-style:normal;font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px}
+.vit em.num{font:800 italic 19px/1 var(--font-num)}
+.vit-energy{flex-wrap:wrap}
+.vit-energy em{font:700 13px var(--font-num);color:var(--ink-3)}
+.vit-energy em b{font:800 italic 19px var(--font-num);color:var(--ink)}
+.ebar{flex:1;min-width:90px;height:12px;border-radius:3px;background:var(--paper-3);overflow:hidden;box-shadow:inset 0 1px 0 rgba(0,0,0,.1)}
+.ebar b{display:block;height:100%;background:repeating-linear-gradient(90deg,var(--turf) 0 10px,var(--turf-hi) 10px 12px)}
+.ebar.low b{background:repeating-linear-gradient(90deg,var(--red) 0 10px,#e85a64 10px 12px)}
+.moodm{display:inline-flex;gap:2px}
+.moodm i{width:9px;height:12px;border-radius:2px;background:var(--paper-3);box-shadow:inset 0 0 0 1px var(--rule-2)}
+.moodm.m0 i.on{background:#7a5ab0}.moodm.m1 i.on{background:var(--sky)}.moodm.m2 i.on{background:var(--ink-3)}
+.moodm.m3 i.on{background:var(--w7)}.moodm.m4 i.on{background:var(--w8)}
+.mood.m0{color:#5a3e8a}.mood.m1{color:var(--sky-lo)}.mood.m3{color:#b8601a}.mood.m4{color:#c43f78}
+.skillvit .btn{margin-left:auto;position:relative}
+.vit.conds em{color:var(--red);font-size:13px}
+/* the board */
+.cv-board{grid-area:board;min-height:0;overflow:auto;background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r-lg);
+  padding:14px;box-shadow:var(--lift)}
+.board-head{font:400 15px/1 var(--font-display);color:var(--ink);margin:2px 0 10px;
+  display:flex;align-items:center;gap:8px}
+.board-head::after{content:"";flex:1;height:2px;background:var(--rule)}
+.trainrow{display:grid;gap:7px;grid-template-columns:1fr}
+.trainbtn{
+  display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;padding:6px 12px 6px 7px;border:0;
+  border-radius:var(--r);background:var(--paper-2);color:var(--ink);font-family:var(--font-ui);
+  box-shadow:inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2);transition:transform .08s,box-shadow .08s,background .12s;
+}
+.trainbtn:hover{background:#fff}
+.trainbtn:active{transform:translateY(3px);box-shadow:inset 0 0 0 1px var(--rule),0 0 0 var(--rule-2)}
+.trainbtn.risky{background:#fdf1ec;box-shadow:inset 0 0 0 1px #efc6b6,0 3px 0 #e0a890}
+.tb-ic{flex:none;width:38px;height:38px;display:grid;place-items:center;background:var(--paper);border-radius:var(--r-sm);
+  box-shadow:inset 0 0 0 1px var(--rule)}
+.tb-ic .ico{width:26px;height:26px}
+.tb-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.tb-head{display:flex;align-items:center;gap:8px}
+.tb-head b{font:400 15px/1 var(--font-display)}
+.fac{font:800 italic 13px/1 var(--font-num);background:var(--turf);color:#fff;border-radius:var(--r-sm);padding:3px 6px 2px}
+.tb-gain{display:flex;gap:10px;flex-wrap:wrap;font:700 12px var(--font-ui);color:var(--ink-2)}
+.tb-gain span{display:inline-flex;align-items:baseline;gap:2px}
+.tb-gain b{font:800 italic 16px/1 var(--font-num);color:var(--turf-lo)}
+.tb-foot{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font:800 italic 15px/1 var(--font-num);color:var(--ink-2)}
+.tb-foot small{font:700 10.5px var(--font-ui);color:var(--ink-3);margin-left:3px;font-style:normal}
+.tb-foot .good{color:var(--turf)}
+.tb-foot .risk{color:var(--red)}
+.restrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:2px}
+.restrow .btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 8px 9px;text-align:center}
+.restrow .btn .ico{width:24px;height:24px}
+.restrow .btn span{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:14px}
+.restrow .btn i{font-style:normal;font-size:11px;font-weight:700;opacity:.85}
+/* the stats: the strip along the bottom */
+.cv-stats{grid-area:stats;display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:var(--paper);
+  border:1px solid var(--rule-2);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--lift)}
+.cst{display:flex;flex-direction:column;gap:5px;padding:9px 13px 11px;border-left:1px solid var(--rule)}
+.cst:first-child{border-left:0}
+.cst i{font-style:normal;display:flex;align-items:center;gap:6px;font:800 12.5px var(--font-ui);color:var(--ink-2)}
+.cst i .ico{width:18px;height:18px}
+.cst-v{display:flex;align-items:baseline;justify-content:space-between}
+.cst-v strong{font-size:28px;line-height:1}
+.cst-v em{font:800 italic 24px/1 var(--font-num);color:var(--ink)}
+.cst .bar{height:6px}
+.cst .bar b.soft{background:var(--gold)}
+
+.racelist{display:flex;flex-direction:column;gap:8px}
+.racecard{
+  display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;padding:10px 12px;border:0;
+  background:var(--paper-2);border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2);
+  font-family:var(--font-ui);color:var(--ink);transition:transform .08s,background .12s;
+}
+.racecard:hover:not(:disabled){background:#fff}
+.racecard:active:not(:disabled){transform:translateY(3px)}
+.racecard.locked{opacity:.55;cursor:default}
+.rc-grade{font:800 italic 17px/1 var(--font-num);min-width:48px;text-align:center;
+          padding:8px 6px 7px;border-radius:var(--r-sm);background:var(--paper-3);color:var(--ink-2)}
+/* the JRA's grade colours, as on the schedule */
+.racecard.gG1 .rc-grade{background:#1f5fbf;color:#fff}
+.racecard.gG2 .rc-grade{background:#d6303c;color:#fff}
+.racecard.gG3 .rc-grade{background:#2f8f3e;color:#fff}
+.racecard.gOP .rc-grade{background:#e0821a;color:#fff}
+.racecard.gDebut .rc-grade{background:#6b5a9a;color:#fff;font-size:13px}
+/* her goal race: the one she is here for */
+.racecard.goal{background:#fffbea;box-shadow:inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
+.racecard .cr-must{font-style:normal}
+.rc-info{flex:1;min-width:0}
+.rc-info b{display:block;font:400 14px/1.2 var(--font-display)}
+.rc-info i{font-style:normal;color:var(--ink-3);font-size:12px;font-weight:700}
+.rc-pay{text-align:right;font-size:12px;display:flex;flex-direction:column;gap:3px;white-space:nowrap}
+.rc-pay span{font-weight:800;color:var(--ink-2);display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
+.rc-pay .ico{width:14px;height:14px}
+/* Renamed from `.fit`: index.html styles a `.fit` badge as position:absolute for the
+   deck-card "suits her" tag, which yanked this label out of its row and printed it on
+   top of itself in the middle of the race card. */
+.rc-fit.f3{color:var(--turf)}
+.rc-fit.f2{color:var(--gold-lo)}
+.rc-fit.f1{color:var(--red)}
+.need{color:var(--ink-3) !important;font-weight:700 !important}
+
+.ura{text-align:center}
+.ura-steps{display:flex;gap:6px;justify-content:center;margin-bottom:12px}
+.ustep{font:800 12px/1 var(--font-ui);padding:7px 14px;border-radius:var(--r-sm);
+       background:var(--paper-2);border:1px solid var(--rule);color:var(--ink-3)}
+.ustep.won{background:var(--turf-pale);border-color:#a8d29a;color:var(--turf-lo)}
+.ustep.now{background:var(--gold);border-color:var(--gold-lo);color:#3a2800}
+.ura-card{background:var(--gold-pale);border:1px solid #e6c95a;border-radius:var(--r-lg);padding:18px}
+.ura-title{font:400 22px var(--font-display);color:#5a3e00}
+.ura-sub{color:var(--ink-2);font-size:12.5px;margin:4px 0 10px}
+.ura-card p{color:var(--ink-2);margin:0 0 14px}
+
+.car-log{grid-area:log;display:flex;gap:6px;flex-wrap:wrap;color:#fff;font-size:12px;font-weight:700;padding:0 2px}
+.car-log span{background:rgba(14,30,18,.68);border-radius:var(--r-sm);padding:4px 9px}
+
+@media (max-width:900px){
+  .cv{height:auto;min-height:100vh;overflow-y:auto;grid-template-columns:1fr;
+      grid-template-areas:"res" "head" "board" "stats" "stage" "log"}
+  .cv-head{flex-wrap:wrap}
+  .cv-stage{height:auto;min-height:0;flex-direction:column;gap:8px}
+  .cv-hero{display:none}
+  .cv-cloth,.cv-vitals{position:static;width:100%}
+  .cv-stats{grid-template-columns:repeat(3,1fr)}
+}
+#scr-career.on{overflow-y:auto}
+
+/* ---------- career: race result and ending ----------
+   The result is the tote board: her placing in gold, what it paid, then the field in the
+   order they crossed. The ending is a race card for the whole run -- the grade, her five
+   stats graded the way the training screen grades them, and what three years paid. */
+/* narrower than .scr-wrap, so they centre in it rather than hugging its left edge */
+.res-panel,.end-panel,.insp-panel{width:min(780px,94vw);align-self:center}
+.panel-hd .cr-grade{flex:none;font-size:13px;padding:4px 8px 3px}
+.res-body{padding:18px 20px 20px}
+.res-top{display:flex;align-items:center;gap:20px;padding:12px 20px;background:var(--board);border-radius:var(--r-lg);
+  color:#e8efe6;box-shadow:inset 0 0 0 1px #3a4a3e,0 4px 0 #0c140f}
+.res-place{font:800 italic 72px/.9 var(--font-num);color:#fff}
+.res-place small{font-size:28px;color:#a8b8ac}
+.res-place.win{color:var(--gold);text-shadow:0 0 24px rgba(242,183,5,.4)}
+.res-of{flex:1;min-width:0;font:700 13px/1.3 var(--font-ui);color:#a8b8ac}
+.res-of b{display:block;font:400 20px/1.15 var(--font-display);color:#fff;margin-bottom:3px}
+.res-gains{display:flex;gap:18px}
+.res-gains div{text-align:right}
+.res-gains i{display:block;font-style:normal;font:800 11px var(--font-ui);color:#a8b8ac;margin-bottom:3px}
+.res-gains b{font:800 italic 28px/1 var(--font-num);color:var(--led);text-shadow:0 0 10px rgba(255,178,30,.3)}
+.res-note{margin:14px 0 0;font-weight:800;text-align:center}
+.res-note.good{color:var(--turf)}
+.res-note.bad{color:var(--red)}
+.res-go{display:flex;justify-content:center;margin-top:18px}
+
+/* The finish order, as the board shows it. The rank column is the only centred thing. */
+.res-board{width:100%;border-collapse:separate;border-spacing:0;margin:14px 0 0;text-align:left;font-size:13px;
+  background:var(--board);color:#e8efe6;border-radius:var(--r-lg);overflow:hidden;box-shadow:0 4px 0 #0c140f}
+.res-board th{font:800 11px/1 var(--font-ui);color:var(--led);background:#0c140f;padding:8px 9px 7px;
+  border-bottom:1px solid #3a4a3e;white-space:nowrap}
+.res-board td{padding:6px 9px;border-bottom:1px solid #243329;white-space:nowrap;vertical-align:middle}
+.res-board tr:last-child td{border-bottom:0}
+.res-board tr:nth-child(even) td{background:rgba(255,255,255,.03)}
+.res-board th:first-child,.res-board td.rk{text-align:center;width:46px}
+.res-board td:nth-child(4){font:700 italic 16px/1 var(--font-num);color:var(--led)}
+.res-board td:nth-child(5){font:700 italic 15px/1 var(--font-num);color:#a8b8ac}
+.res-board tr.me td{background:rgba(242,183,5,.17);font-weight:800;color:#fff}
+.res-board tr.me td:first-child{box-shadow:inset 4px 0 0 var(--gold)}
+/* Gold, silver and bronze are the three that pay, so the top three numbers wear them. */
+.res-board .pl{display:inline-block;min-width:24px;font:800 italic 21px/1 var(--font-num);color:#fff}
+.res-board .pl.p1{color:var(--gold)}
+.res-board .pl.p2{color:#d6dde3}
+.res-board .pl.p3{color:#e8a070}
+.res-board td.nm{display:flex;align-items:center;gap:8px;white-space:normal;min-width:130px;font-weight:800}
+.res-board td.nm img,.res-board td.nm canvas.vbust{width:28px;height:28px;flex:0 0 28px;border-radius:var(--r-sm);object-fit:cover;
+  object-position:top center;background:#223127;box-shadow:0 0 0 1px #3a4a3e}
+.res-board .you{font-style:normal;font:800 10px/1 var(--font-ui);background:var(--gold);color:#3a2800;
+  padding:3px 5px;border-radius:3px}
+
+/* Below this the five columns stop fitting. Time goes first: the margin says the same
+   thing in the form the player is actually reading it for. */
+@media (max-width:520px){
+  .res-board th:nth-child(4),.res-board td:nth-child(4){display:none}
+  .res-top{flex-wrap:wrap;gap:12px}
+  .res-gains{width:100%;justify-content:flex-start}
+  .res-gains div{text-align:left}
+}
+
+.end-body{display:flex;gap:20px;padding:18px 20px 20px;flex-wrap:wrap}
+.end-art{width:220px;flex:0 0 220px;object-fit:contain;align-self:flex-end}
+.end-side{flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px}
+.end-id{display:flex;align-items:center;gap:14px}
+.end-grade{flex:none;display:grid;place-items:center;width:78px;height:78px;font:800 italic 54px/1 var(--font-num);
+  background:var(--board);color:#cfd8d0;border-radius:var(--r-lg);box-shadow:inset 0 0 0 2px #3a4a3e,0 4px 0 #0c140f}
+.end-grade.gSS,.end-grade.gS{color:var(--gold);text-shadow:0 0 20px rgba(242,183,5,.45)}
+.end-grade.gA{color:#ff8a4a}
+.end-grade.gB{color:#ff7ab0}
+.end-grade.gC{color:#6fd07a}
+.end-grade.gD{color:#6faee8}
+.end-side h2{margin:0;font:400 24px/1.1 var(--font-display);color:var(--ink)}
+.end-sub{display:block;margin-top:4px;font-size:12.5px;font-weight:700;color:var(--ink-3)}
+.end-side p{margin:0}
+.end-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.end-stats div{background:var(--paper-2);border-radius:var(--r);padding:8px 9px 7px;box-shadow:inset 0 0 0 1px var(--rule)}
+.end-stats i{display:flex;align-items:center;gap:4px;font-style:normal;font:800 11px var(--font-ui);color:var(--ink-3)}
+.end-stats b{display:flex;align-items:baseline;justify-content:space-between;gap:4px;margin-top:5px;
+  font:800 italic 22px/1 var(--font-num);color:var(--ink)}
+.end-stats b .g{font-size:19px}
+.end-lines{display:flex;background:var(--board);border-radius:var(--r);box-shadow:0 3px 0 #0c140f;overflow:hidden}
+.end-lines div{flex:1;min-width:0;padding:9px 12px;border-left:1px solid #243329}
+.end-lines div:first-child{border-left:0}
+.end-lines i{display:block;font-style:normal;font:800 11px var(--font-ui);color:#a8b8ac}
+.end-lines b{display:block;margin-top:3px;font:800 italic 22px/1.1 var(--font-num);color:var(--led)}
+.end-rewards{display:flex;gap:18px;flex-wrap:wrap;background:var(--gold-pale);border-radius:var(--r);padding:10px 14px;
+  box-shadow:inset 0 0 0 1px #e6c95a}
+.end-rewards i{display:block;font-style:normal;font:800 11px var(--font-ui);color:var(--gold-lo)}
+.end-rewards b{font:800 italic 22px/1.1 var(--font-num);color:var(--ink)}
+.end-unlocks{margin:0}
+.end-unlocks>b{display:block;font:400 13px var(--font-display);color:var(--ink);margin-bottom:7px}
+.ulist{display:flex;gap:8px;flex-wrap:wrap}
+.ulist .ul{display:flex;align-items:center;gap:6px;background:var(--turf-pale);border-color:#a8d29a;color:var(--turf-lo)}
+.ulist .ul img,.ulist .ul canvas.vbust{width:28px;height:28px;object-fit:contain;object-position:bottom;border-radius:var(--r-sm)}
+.end-side > .btn{align-self:flex-start;margin-top:4px}
+@media (max-width:560px){ .end-stats{grid-template-columns:repeat(3,1fr)} .end-lines{flex-wrap:wrap} }
+
+/* ---------- career picker ---------- */
+.pick-body{padding:14px 16px 18px}
+.resume-box{display:flex;align-items:center;gap:12px;background:var(--gold-pale);border:1px solid #eed99a;
+            border-radius:var(--r);padding:11px 14px;margin-bottom:12px;flex-wrap:wrap}
+.resume-box b{font-size:14px}
+.resume-box span{color:var(--ink-2);flex:1;font-size:12.5px}
+.pill.carrot{background:#fff6e2;border-color:#f0d79a}
+.pill.warn{background:#fdeaea;border-color:#f2b4b4;color:var(--red)}
+
+@media (max-width:720px){
+  .scout-body,.racer-body,.end-body,.got-body{flex-direction:column}
+  .racer-art,.end-art,.got-art{width:100%;flex:none;max-height:230px}
+  .car-top{flex-wrap:wrap}
+  .car-when{order:3;width:100%}
+}
+
+/* ---------- career: the skill shop ---------- */
+.skillvit{flex:0 0 auto;align-items:flex-start}
+.skillvit .btn{margin-top:2px;position:relative}
+.skill-list{display:flex;flex-direction:column;gap:7px;padding:13px 15px}
+/* Each skill is a plate: the type chip, what it does, and its price. Rarity shows on the
+   plate's edge (rare silver-blue, gold gold), the way the real shop frames them. */
+.sk{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 8px;border-radius:var(--r);
+    background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule)}
+.sk.rrare{background:linear-gradient(90deg,#eef4fb,var(--paper) 60%);box-shadow:inset 0 0 0 1px #aecaf0,inset 4px 0 0 #7aa6d8,0 2px 0 #aecaf0}
+.sk.rgold{background:linear-gradient(90deg,#fff1bf,var(--paper) 60%);box-shadow:inset 0 0 0 1px #e6c95a,inset 4px 0 0 var(--gold),0 2px 0 #e6c95a}
+/* can't afford it yet: the plate stays readable, the price says why */
+.sk.poor .sk-buy .sp{color:var(--red)}
+.sk.bad{background:#fdeef0;box-shadow:inset 0 0 0 1px #f0b9c2,inset 4px 0 0 var(--red),0 2px 0 #f0b9c2}
+.sk.known{background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--rule)}
+.sk-icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;color:#fff;
+         background:var(--sk,var(--ink-3));border-radius:var(--r-sm);
+         box-shadow:inset 0 -3px 0 rgba(0,0,0,.25),inset 0 0 0 1px rgba(0,0,0,.2)}
+.sk-icon .ico{width:22px;height:22px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.3))}
+.sk-main{flex:1;min-width:0}
+.sk-main b{display:block;font-size:14px;font-weight:800;display:flex;align-items:baseline;gap:8px}
+.sk-type{font:800 10.5px/1 var(--font-ui);color:var(--ink-3)}
+.sk-main i{display:block;font-style:normal;color:var(--ink-2);font-size:12.5px;margin-top:3px}
+.hintline{display:inline-block;color:var(--turf-lo);background:var(--turf-pale);font-weight:800;font-size:11px;
+          margin-top:4px;padding:2px 6px;border-radius:3px}
+.sk-buy{display:flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:84px}
+.sk-buy .sp{font:800 italic 17px/1 var(--font-num);color:var(--ink);white-space:nowrap}
+.sk-buy .sp.sp-cut{color:var(--turf)}   /* NOT .cut -- that is the race cutscene
+                                       overlay, which is display:none */
+
+/* ---------- legacy: sparks, parent picking, inspiration ----------
+   Sparks keep the real game's four factor colours -- blue for stats, pink for aptitude,
+   green for a unique, white for a skill -- as square tags with gold stars. A veteran is a
+   race-card ticket; the pairing preview is the board, since affinity is a number. */
+.spark{display:inline-flex;align-items:center;gap:5px;font:800 11px/1 var(--font-ui);
+       padding:4px 7px 4px 6px;border-radius:3px;background:var(--paper-2);color:var(--ink-2);margin:2px 3px 0 0;
+       box-shadow:inset 0 0 0 1px var(--rule),inset 4px 0 0 var(--sp,var(--rule-2))}
+.spark i{font-style:normal;font-size:10px;font-weight:700;opacity:.8}
+.spark em{font-style:normal;color:var(--gold);text-shadow:0 1px 0 var(--gold-lo);letter-spacing:-.04em}
+.spark.kblue{--sp:#2f6fd0;background:#eaf2fc;color:#1d4f96}
+.spark.kpink{--sp:#e0508a;background:#fdedf4;color:#a3245b}
+.spark.kgreen{--sp:var(--turf);background:var(--turf-pale);color:var(--turf-lo)}
+.spark.kwhite{--sp:#b8b4a8;background:#fbfaf6;color:var(--ink-2)}
+.sparks{display:flex;flex-wrap:wrap;gap:3px}
+.sparkbox{background:var(--paper-2);border-radius:var(--r);padding:10px 12px;box-shadow:inset 0 0 0 1px var(--rule)}
+
+.par-body{padding:14px 16px 18px}
+.par-preview{background:var(--board);color:#e8efe6;border-radius:var(--r-lg);padding:12px 16px;margin:12px 0;
+             box-shadow:inset 0 0 0 1px #3a4a3e,0 4px 0 #0c140f}
+.par-preview.empty-pre{text-align:center;color:#a8b8ac;font-weight:700}
+.par-preview.empty-pre p{margin:0}
+.par-aff{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.par-aff i{font-style:normal;font:800 11.5px var(--font-ui);color:#a8b8ac}
+.affbar{flex:1;min-width:120px;height:10px;border-radius:2px;background:#0c140f;overflow:hidden;box-shadow:inset 0 0 0 1px #3a4a3e}
+.affbar b{display:block;height:100%;background:var(--led)}
+.par-aff em{font-style:normal;font:800 italic 26px/1 var(--font-num);color:var(--led)}
+.par-aff small{color:#a8b8ac;width:100%;font-weight:700}
+.par-gains{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #243329}
+.pg{display:flex;gap:10px;align-items:baseline;font-size:13px}
+.pg i{font-style:normal;color:#a8b8ac;min-width:120px;font-size:11.5px;font-weight:800}
+.pg b{color:#fff;font-weight:800}
+
+.vet-grid{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));margin:12px 0}
+.vetcard{display:flex;gap:11px;text-align:left;cursor:pointer;padding:8px;border:0;
+         background:var(--paper);border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2);
+         transition:transform .08s}
+.vetcard:hover{background:#fff}
+.vetcard:active{transform:translateY(2px)}
+.vetcard.sel{background:var(--gold-pale);box-shadow:inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
+.vc-art{width:60px;flex:0 0 60px;height:76px;border-radius:var(--r-sm);overflow:hidden;
+        background:var(--turf-pale);display:flex;align-items:flex-end}
+.vc-art img,.vc-art canvas.vbust{display:block;width:100%;height:100%;object-fit:cover;object-position:top center}
+.vc-main{flex:1;min-width:0}
+.vc-main b{display:block;font:400 14px/1.2 var(--font-display);color:var(--ink)}
+.vc-meta{display:flex;align-items:baseline;gap:6px;font-size:11.5px;font-weight:700;color:var(--ink-3);margin:3px 0 5px}
+.vc-meta em{font-style:normal;font:800 italic 18px/1 var(--font-num)}
+.vc-sparks{display:flex;flex-wrap:wrap;gap:2px}
+.vc-sparks .spark{font-size:10px;padding:3px 5px 3px 6px;margin:1px 2px 0 0}
+.vc-line{display:block;color:var(--ink-3);font-size:11px;font-weight:700;margin-top:5px}
+.par-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px}
+
+.insp-panel{width:min(560px,94vw)}
+.insp-body{padding:18px;text-align:center}
+.insp-body p{color:var(--ink-2);margin:0 0 14px}
+.insp-gains{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0}
+.insp-gains div{min-width:84px;background:var(--board);border-radius:var(--r);padding:8px 10px;box-shadow:0 3px 0 #0c140f}
+.insp-gains i{display:block;font-style:normal;font:800 11px var(--font-ui);color:#a8b8ac;text-transform:capitalize}
+.insp-gains b{display:block;margin-top:3px;font:800 italic 24px/1 var(--font-num);color:var(--led)}
+
+/* ---------- tutorials ---------- */
+.tut-body{padding:14px 16px 18px}
+.tut-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+/* a lesson each, numbered like the course it is; a finished one gets a tick instead */
+.tut{display:flex;gap:14px;align-items:center;padding:10px 14px 10px 10px;border-radius:var(--r);
+     background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule-2)}
+.tut.done{background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--rule)}
+.tut-n{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:var(--r-sm);
+       background:var(--turf);color:#fff;font:800 italic 22px/1 var(--font-num);box-shadow:inset 0 -3px 0 rgba(0,0,0,.2)}
+.tut.done .tut-n{background:var(--paper-3);color:var(--turf);box-shadow:none}
+.tut-n .ico{width:20px;height:20px}
+.tut-main{flex:1;min-width:0}
+.tut-main b{display:block;font:400 15px/1.2 var(--font-display)}
+.tut-main i{display:block;font-style:normal;color:var(--ink-2);font-size:12.5px;margin-top:2px}
+.tut-side{display:flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:96px}
+.legacy-note{background:#faf6ff;border:1px solid #ddd6f0;border-radius:var(--r);
+             padding:9px 12px;margin:10px 0;font-size:12.5px}
+.legacy-note b{display:block}
+.legacy-note span{color:var(--ink-2)}
+
+/* ---------- scene backgrounds ----------
+   Real art replaces the generated stripe gradient. Every scene gets a scrim, because
+   these are detailed illustrations sitting behind body text: without one the panels
+   fight the artwork and nothing reads. The stripe gradient stays as the fallback for
+   any screen whose art has not been added yet. */
+.scene-bg{
+  /* pointer-events:none is not optional. These layers are position:absolute, so they
+     paint ABOVE any static sibling -- on the starter screen that put the backdrop over
+     the racer cards and swallowed every click. Decoration must never take input. */
+  position:absolute;inset:0;pointer-events:none;background-size:cover;background-position:center;
+  background-repeat:no-repeat;animation:bg-in .6s ease-out;   /* no `both` -- see theme.css */
+  /* Rests at scale(1) on purpose. A resting scale >1 makes the layer wider than the
+     screen, and although `.screen{overflow:hidden}` hides it, the box can still be
+     scrolled sideways by a horizontal gesture. The zoom belongs in the animation. */
+  transform:none;
+}
+@keyframes bg-in{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:none}}
+.scene-scrim{
+  position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(10,20,6,.42) 0%,rgba(10,20,6,.20) 34%,
+             rgba(10,20,6,.30) 70%,rgba(10,20,6,.52) 100%);
+}
+/* heavier wash where a lot of small text sits on top */
+.scene-scrim.deep{background:rgba(10,20,6,.55)}
+.scene-scrim.light{background:linear-gradient(180deg,rgba(10,20,6,.28),rgba(10,20,6,.34))}
+
+/* ---------- in-game dialogs (replacing confirm/alert) ---------- */
+#ask{position:fixed;inset:0;z-index:990;display:none;align-items:center;justify-content:center;
+     background:rgba(12,20,8,.55);backdrop-filter:blur(2px)}
+#ask.on{display:flex}
+.ask-card{width:min(430px,92vw);background:var(--white);border:1px solid var(--line);
+          border-radius:var(--r-lg);overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.ask-body{padding:18px}
+.ask-body p{margin:0 0 8px;font-size:14.5px;line-height:1.5}
+.ask-detail{color:var(--ink-2);font-size:12.5px !important}
+.ask-btns{display:flex;gap:9px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap}
+
+/* ---------- the starting gate ----------
+   A short beat on the `prerace` scene before the flag. It lives inside .stage and sits
+   above the canvas, which paints an opaque sky and ground -- a layer BEHIND the canvas
+   could never be seen, which is why this is an overlay rather than a backdrop. */
+.gate{position:absolute;inset:0;z-index:20;overflow:hidden;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      animation:gate-in .45s ease-out}
+.gate.out{animation:gate-out .5s ease-in forwards;pointer-events:none}
+@keyframes gate-in{from{opacity:0}to{opacity:1}}
+@keyframes gate-out{to{opacity:0}}
+.gate-bg{position:absolute;inset:0;background-size:cover;background-position:center;
+         animation:gate-push 2.6s ease-out both}
+@keyframes gate-push{from{transform:scale(1.10)}to{transform:scale(1)}}
+.gate-scrim{position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(6,12,4,.62),rgba(6,12,4,.34) 45%,rgba(6,12,4,.78))}
+.gate-info{position:relative;text-align:center;color:#fff;padding:0 24px}
+.gate-grade{display:inline-block;font:900 12px/1 var(--font-ui);letter-spacing:.14em;
+  padding:6px 14px;border-radius:99px;margin-bottom:12px;
+  background:var(--gold);color:#5c3f00;
+  box-shadow:0 3px 12px rgba(0,0,0,.45)}
+.gate-course{font:900 clamp(26px,4vw,46px)/1.05 var(--font-ui);
+  text-shadow:0 3px 0 rgba(0,0,0,.35),0 8px 30px rgba(0,0,0,.7)}
+.gate-sub{font-size:13.5px;letter-spacing:.1em;opacity:.9;
+  margin-top:8px;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.gate-racer{margin-top:18px;font:800 19px/1 var(--font-ui);
+  text-shadow:0 2px 10px rgba(0,0,0,.8)}
+/* the stall she drew (sim.js draws them at random each race; 1 is the rail) */
+.gate-stall{margin-top:8px;font:800 12px/1 var(--font-ui);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--gold);text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.gate-skip{margin-top:22px;font-size:11px;letter-spacing:.16em;
+  opacity:.6;animation:hint-bob 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){
+  .gate,.gate.out,.gate-bg,.gate-skip{animation:none !important}
+  .gate.out{opacity:0}
+}
+
+/* ---------- scout reveal ----------
+   Full-screen moment for a pull. The wind-up length and colour come from the best item
+   in the pull, so a long bright charge means something good is landing. */
+.reveal{position:fixed;inset:0;z-index:970;overflow:hidden;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 90% at 50% 45%,#1b2340 0%,#0a0d18 62%,#05070d 100%);
+  animation:rv-open .28s ease-out}
+@keyframes rv-open{from{opacity:0}to{opacity:1}}
+.reveal.gone{animation:rv-close .4s ease-in forwards}
+@keyframes rv-close{to{opacity:0}}
+.reveal.flash::after{content:"";position:absolute;inset:0;background:#fff;
+  animation:rv-flash .26s ease-out forwards;pointer-events:none}
+@keyframes rv-flash{from{opacity:.85}to{opacity:0}}
+
+/* rotating rays, brighter for a better pull */
+.rv-rays{position:absolute;width:180vmax;height:180vmax;opacity:.22;
+  background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.5) 0deg 3deg,
+    rgba(255,255,255,0) 3deg 12deg);
+  animation:rv-spin 14s linear infinite}
+@keyframes rv-spin{to{transform:rotate(360deg)}}
+.reveal.tr .rv-rays{opacity:.34}
+.reveal.te .rv-rays{opacity:.5}
+
+/* the charging orb -- it grows, then blows out when the pull resolves */
+.rv-orb{position:absolute;width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,#fff 0%,#cfe3ff 40%,rgba(120,170,255,0) 70%);
+  animation:rv-charge 1.9s cubic-bezier(.4,0,.7,1) infinite}
+.reveal.tr .rv-orb{background:radial-gradient(circle,#fff 0%,#9fd0ff 40%,rgba(80,150,255,0) 70%)}
+.reveal.te .rv-orb{background:radial-gradient(circle,#fff 0%,#ffe08a 38%,rgba(255,190,60,0) 70%)}
+@keyframes rv-charge{0%{transform:scale(.55);opacity:.55}
+                     70%{transform:scale(1.25);opacity:1}
+                     100%{transform:scale(.55);opacity:.55}}
+.reveal.burst .rv-orb{animation:rv-blow .5s cubic-bezier(.2,.9,.3,1) forwards}
+@keyframes rv-blow{to{transform:scale(9);opacity:0}}
+.reveal.burst .rv-rays{animation:rv-spin 5s linear infinite}
+
+/* the pulled items */
+.rv-items{position:relative;display:flex;flex-wrap:wrap;gap:14px;
+  justify-content:center;align-items:flex-end;max-width:min(1100px,92vw);padding:0 12px}
+.rv-card{width:132px;text-align:center;color:#fff;border-radius:var(--r-lg);padding:10px 8px 12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.05));
+  border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(3px);
+  opacity:0;transform:translateY(26px) scale(.86) rotateY(28deg);
+  transition:opacity .34s ease-out,transform .44s cubic-bezier(.2,1.3,.4,1)}
+.rv-card.in{opacity:1;transform:none}
+.rv-card img{width:100%;height:120px;object-fit:contain;display:block;
+  filter:drop-shadow(0 6px 16px rgba(0,0,0,.6))}
+.rv-card.racer img{height:150px;object-position:top center}
+.rv-card b{display:block;font-size:13px;margin-top:6px;line-height:1.2}
+.rv-card i{display:block;font-style:normal;font-size:10.5px;letter-spacing:.01em;
+  margin-top:4px;opacity:.8;}
+.rv-card .stars{display:block;margin-top:3px}
+.rv-card.tr{border-color:#8ec2ff;box-shadow:0 0 22px rgba(90,160,255,.45)}
+.rv-card.te{border-color:var(--gold);box-shadow:0 0 34px rgba(255,201,63,.6);
+  background:linear-gradient(180deg,rgba(255,224,138,.24),rgba(255,190,60,.08))}
+.rv-card.te b{color:#ffe9a8}
+.rv-skip{position:absolute;bottom:22px;right:24px;color:rgba(255,255,255,.55);
+  font-size:11px;letter-spacing:.16em;}
+@media (prefers-reduced-motion: reduce){
+  .rv-rays,.rv-orb{animation:none}
+  .rv-card{transition:opacity .2s}
+}
+
+/* ---------- career opening ----------
+   Four beats before the first turn. A career is three years of someone's life and it
+   used to open straight onto a board of numbers. */
+.cintro{position:relative;z-index:2;width:min(1000px,94vw);height:min(88vh,760px);
+  display:grid;grid-template-columns:minmax(0,320px) 1fr;grid-template-rows:1fr auto;
+  gap:0 24px;align-items:end;cursor:pointer}
+.cintro-art{grid-row:1;grid-column:1;max-height:66vh;width:100%;object-fit:contain;
+  object-position:bottom;filter:drop-shadow(0 14px 34px rgba(0,0,0,.65));
+  animation:ci-rise .6s cubic-bezier(.2,.9,.3,1)}
+@keyframes ci-rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.cintro-side{grid-row:1;grid-column:2;align-self:center;color:#fff}
+.cintro-name{font:900 clamp(24px,3.4vw,40px)/1.05 var(--font-ui);margin-bottom:14px;
+  text-shadow:0 3px 0 rgba(0,0,0,.35),0 8px 26px rgba(0,0,0,.8)}
+.cintro-side .sc-apt .apt{font-size:12px;padding:6px 9px}
+.cintro-legacy{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+.cintro-legacy span{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);
+  border-radius:8px;padding:6px 11px;font-weight:800;font-size:12.5px;text-transform:capitalize}
+.cintro-legacy .hl{background:var(--gold);color:#5c3f00;
+  border-color:var(--gold-dk);text-transform:none}
+.cintro-goal{background:rgba(255,255,255,.14);border-left:4px solid var(--gold);
+  border-radius:8px;padding:10px 13px;font-size:13.5px;max-width:520px}
+.cintro-goal b{color:var(--gold);margin-right:7px}
+.cintro-box{grid-row:2;grid-column:1/-1;position:relative;background:#fff;
+  border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 20px 30px;margin-top:18px;
+  box-shadow:0 14px 38px rgba(0,0,0,.5)}
+.cintro-text{margin-top:6px;font-size:15px;line-height:1.6;min-height:52px;color:var(--ink)}
+.cintro-cta{position:absolute;right:18px;bottom:10px;font-size:11px;color:var(--ink-3);
+  letter-spacing:.01em;}
+.cintro-skip{position:absolute;top:-2px;right:0}
+@media (max-width:760px){
+  .cintro{grid-template-columns:1fr}
+  .cintro-art{display:none}
+  .cintro-side{grid-column:1}
+}
+@media (prefers-reduced-motion: reduce){ .cintro-art{animation:none} }
+
+/* ---------- career moments ----------
+   Year turns, goals clearing, summer camp, the Finale arriving. Short, click to dismiss. */
+.cmoment{position:fixed;inset:0;z-index:965;overflow:hidden;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .38s ease}
+.cmoment.in{opacity:1}
+.cmoment.out{opacity:0}
+.cm-bg{position:absolute;inset:0;background-size:cover;background-position:center;
+  transform:scale(1.06);animation:cm-drift 5s ease-out both}
+@keyframes cm-drift{from{transform:scale(1.12)}to{transform:scale(1.02)}}
+.cm-scrim{position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(5,10,4,.72),rgba(5,10,4,.42) 45%,rgba(5,10,4,.82))}
+.cm-body{position:relative;text-align:center;color:#fff;padding:0 26px;max-width:900px}
+.cm-kicker{display:inline-block;font:800 13px/1 var(--font-ui);letter-spacing:.04em;padding:6px 12px 5px;
+  background:var(--turf);border-radius:var(--r-sm);box-shadow:0 3px 0 var(--turf-deep);margin-bottom:16px}
+.cm-title{font:400 clamp(30px,5.4vw,64px)/1.06 var(--font-display);letter-spacing:.01em;
+  -webkit-text-stroke:6px #10200f;paint-order:stroke fill;text-shadow:0 5px 0 #10200f,0 12px 40px rgba(0,0,0,.8)}
+.cm-sub{margin-top:14px;font-size:15px;line-height:1.5;opacity:.93;
+  text-shadow:0 2px 10px rgba(0,0,0,.85)}
+.cm-art{display:block;margin:18px auto 0;max-height:34vh;object-fit:contain;
+  filter:drop-shadow(0 12px 30px rgba(0,0,0,.7))}
+.cmoment.in .cm-title{animation:cm-pop .55s cubic-bezier(.2,1.3,.35,1) both}
+.cmoment.in .cm-kicker,.cmoment.in .cm-sub{animation:cm-fade .6s ease-out .12s both}
+.cmoment.in .cm-art{animation:cm-rise .6s cubic-bezier(.2,.9,.3,1) .1s both}
+@keyframes cm-pop{from{opacity:0;transform:scale(.82) translateY(14px)}to{opacity:1;transform:none}}
+@keyframes cm-fade{from{opacity:0;transform:translateY(8px)}to{opacity:.9;transform:none}}
+@keyframes cm-rise{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+/* the finale gets gold, a goal gets green */
+.cmoment.kfinale .cm-title{color:#ffe08a}
+.cmoment.kfinale .cm-kicker{background:var(--gold);color:#3a2800;box-shadow:0 3px 0 var(--gold-lo)}
+.cmoment.kcamp .cm-kicker{background:var(--sky);box-shadow:0 3px 0 var(--sky-lo)}
+.cmoment.kgoal .cm-title{color:#c7f5a8}
+.cmoment.kcamp .cm-title{color:#ffd9ef}
+
+/* ---------- career: turn reactions ---------- */
+.car-who img.good{animation:react-good .5s cubic-bezier(.3,1.4,.4,1)}
+.car-who img.bad{animation:react-bad .45s ease-out}
+@keyframes react-good{0%{transform:none}35%{transform:translateY(-7px) scale(1.06)}100%{transform:none}}
+@keyframes react-bad{0%,100%{transform:none}
+  20%{transform:translateX(-4px) rotate(-2deg)}60%{transform:translateX(4px) rotate(2deg)}}
+.cst.bumped em{animation:stat-bump .7s cubic-bezier(.2,1.4,.4,1);color:var(--turf)}
+.cst.lost em{animation:stat-bump .7s ease-out;color:var(--red)}
+@keyframes stat-bump{0%{transform:scale(1)}30%{transform:scale(1.35)}100%{transform:scale(1)}}
+.cst .bar b{transition:width .5s cubic-bezier(.2,.9,.3,1)}
+.fac.levelled{animation:fac-up .8s cubic-bezier(.2,1.4,.4,1);
+  box-shadow:0 0 0 3px rgba(255,201,63,.5)}
+@keyframes fac-up{0%{transform:scale(1)}30%{transform:scale(1.4)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){
+  .cm-bg,.cmoment.in .cm-title,.cmoment.in .cm-kicker,.cmoment.in .cm-sub,.cmoment.in .cm-art,
+  .car-who img.good,.car-who img.bad,.cst.bumped em,.cst.lost em,.fac.levelled{animation:none}
+}
+
+/* ---------- a racer joining ----------
+   The rarest event in the game. It used to be one tile in a grid of ten. */
+.joinc{position:fixed;inset:0;z-index:972;overflow:hidden;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:min(5vw,60px);
+  background:radial-gradient(120% 90% at 40% 50%,#241a3a 0%,#0d0a18 60%,#05040a 100%);
+  opacity:0;transition:opacity .4s ease}
+.joinc.in{opacity:1}
+.joinc.out{opacity:0}
+.jc-rays{position:absolute;width:200vmax;height:200vmax;opacity:.2;
+  background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.55) 0deg 2.5deg,
+    rgba(255,255,255,0) 2.5deg 11deg);animation:rv-spin 22s linear infinite}
+.joinc.s2 .jc-rays{opacity:.3}
+.joinc.s3 .jc-rays{opacity:.44;
+  background:repeating-conic-gradient(from 0deg,rgba(255,214,120,.7) 0deg 2.5deg,
+    rgba(255,214,120,0) 2.5deg 11deg)}
+.jc-art{position:relative;max-height:78vh;max-width:38vw;object-fit:contain;
+  filter:drop-shadow(0 18px 44px rgba(0,0,0,.8));
+  transform:translateX(-40px) scale(.94);opacity:0;
+  transition:transform .7s cubic-bezier(.2,.9,.3,1),opacity .5s ease}
+.joinc.in .jc-art{transform:none;opacity:1}
+.jc-side{position:relative;color:#fff;max-width:min(460px,42vw);
+  transform:translateX(30px);opacity:0;
+  transition:transform .7s cubic-bezier(.2,.9,.3,1) .12s,opacity .5s ease .12s}
+.joinc.in .jc-side{transform:none;opacity:1}
+.jc-kicker{font:800 12px/1 var(--font-ui);letter-spacing:.24em;
+  color:var(--gold);margin-bottom:10px}
+.jc-name{font:900 clamp(28px,4.2vw,52px)/1.04 var(--font-ui);
+  text-shadow:0 4px 0 rgba(0,0,0,.4),0 10px 34px rgba(0,0,0,.85)}
+.jc-stars{font-size:26px;color:var(--gold);letter-spacing:3px;margin-top:6px;
+  text-shadow:0 2px 10px rgba(0,0,0,.7)}
+.jc-blurb{margin-top:12px;font-size:14px;line-height:1.55;opacity:.92;
+  text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.jc-apt{display:flex;flex-wrap:wrap;gap:5px;margin-top:14px}
+.jc-skip{position:absolute;bottom:22px;right:24px;color:rgba(255,255,255,.5);
+  font-size:11px;letter-spacing:.16em;}
+@media (max-width:760px){ .jc-art{display:none} .jc-side{max-width:86vw} }
+
+/* ---------- scout results: the feature and the tally ---------- */
+.scout-res .res-hero{display:flex;gap:16px;align-items:center;padding:14px 16px;
+  border-bottom:1px solid var(--line);background:var(--paper-2)}
+.scout-res .res-hero.tr{background:linear-gradient(180deg,#eef5ff,#f7fbff);border-color:#aecaf0}
+.scout-res .res-hero.te{background:linear-gradient(180deg,var(--gold-pale),#fffdf5);border-color:#eed99a}
+.rh-art{width:104px;flex:0 0 104px;height:132px;border-radius:var(--r);overflow:hidden;
+  background:var(--turf-pale);display:flex;align-items:flex-end;
+  justify-content:center}
+.rh-art img{width:100%;height:100%;object-fit:contain}
+.rh-art img.racer{object-fit:cover;object-position:top center}
+.rh-info{flex:1;min-width:0}
+.rh-tag{font:800 10.5px/1 var(--font-ui);letter-spacing:.14em;
+  color:var(--ink-3)}
+.rh-name{font-weight:900;font-size:22px;margin:5px 0 3px;line-height:1.1}
+.rh-meta{font-size:12.5px;color:var(--ink-2)}
+.rh-blurb{font-size:12.5px;color:var(--ink-2);margin-top:7px;line-height:1.5}
+
+.res-tally{display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;
+  border-bottom:1px solid var(--line)}
+.res-tally div{flex:1;min-width:86px;background:var(--paper-2);border:1px solid var(--line);
+  border-radius:var(--r);padding:8px 10px}
+.res-tally i{display:block;font-style:normal;font-size:10.5px;
+  letter-spacing:.01em;color:var(--ink-3)}
+.res-tally b{font-size:19px}
+.res-again{padding:0 16px 16px;display:flex;justify-content:flex-end}
+@media (prefers-reduced-motion: reduce){
+  .jc-rays{animation:none}
+  .jc-art,.jc-side{transition:opacity .2s}
+}
+
+/* ---------- career grade reveal ----------
+   The payoff for seventy-eight turns: a wind-up, then the grade lands. */
+.greveal{position:fixed;inset:0;z-index:974;overflow:hidden;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:min(5vw,52px);
+  background:radial-gradient(120% 90% at 45% 50%,#1d2440 0%,#0a0d18 62%,#04060c 100%);
+  opacity:0;transition:opacity .45s ease}
+.greveal.in{opacity:1}
+.greveal.out{opacity:0}
+.gr-rays{position:absolute;width:200vmax;height:200vmax;opacity:0;
+  background:repeating-conic-gradient(from 0deg,rgba(255,214,120,.6) 0deg 2.5deg,
+    rgba(255,214,120,0) 2.5deg 11deg);
+  animation:rv-spin 20s linear infinite;transition:opacity .6s ease}
+.greveal.landed .gr-rays{opacity:.34}
+.greveal.failed.landed .gr-rays{opacity:.08}
+.gr-art{position:relative;max-height:74vh;max-width:34vw;object-fit:contain;
+  filter:drop-shadow(0 18px 44px rgba(0,0,0,.85));
+  transform:translateY(24px);opacity:0;
+  transition:transform .8s cubic-bezier(.2,.9,.3,1),opacity .6s ease}
+.greveal.in .gr-art{transform:none;opacity:1}
+.greveal.failed .gr-art{filter:drop-shadow(0 18px 44px rgba(0,0,0,.85)) grayscale(.55)}
+.gr-body{position:relative;text-align:center;color:#fff}
+.gr-kicker{font:800 13px/1 var(--font-ui);letter-spacing:.06em;opacity:.85}
+.gr-name{font:400 clamp(22px,2.8vw,34px)/1.1 var(--font-display);margin:10px 0 18px;
+  text-shadow:0 3px 14px rgba(0,0,0,.8)}
+/* the ring closes in during the wind-up, then vanishes as the letter lands */
+.gr-ring{position:absolute;left:50%;top:58%;width:230px;height:230px;margin:-115px 0 0 -115px;
+  border:3px solid rgba(255,255,255,.5);border-radius:50%;
+  animation:gr-close 1.5s cubic-bezier(.4,0,.6,1) forwards}
+@keyframes gr-close{from{transform:scale(2.4) rotate(0deg);opacity:0}
+  60%{opacity:.9}to{transform:scale(1) rotate(220deg);opacity:0}}
+.greveal.landed .gr-ring{display:none}
+.gr-grade{font:800 italic clamp(96px,16vw,220px)/1 var(--font-num);letter-spacing:0;
+  opacity:0;transform:scale(2.4);color:#fff;
+  text-shadow:0 6px 0 rgba(0,0,0,.35),0 16px 60px rgba(0,0,0,.9)}
+.greveal.landed .gr-grade{animation:gr-land .5s cubic-bezier(.2,1.4,.35,1) forwards}
+@keyframes gr-land{from{opacity:0;transform:scale(2.4)}to{opacity:1;transform:scale(1)}}
+.greveal.gSS .gr-grade,.greveal.gS .gr-grade{color:#ffe08a}
+.greveal.gA .gr-grade{color:#e0c3ff}
+.greveal.gB .gr-grade{color:#bcd9ff}
+.greveal.failed .gr-grade{color:#9aa0aa}
+.gr-rating{margin-top:6px;font:800 italic 22px/1 var(--font-num);color:var(--led);
+  opacity:0;transition:opacity .4s ease .25s}
+.greveal.landed .gr-rating{opacity:.85}
+.gr-champ{margin-top:18px;display:inline-block;padding:10px 20px 9px;border-radius:var(--r-sm);
+  background:var(--gold);color:#3a2800;box-shadow:0 4px 0 var(--gold-lo);
+  font:400 16px/1 var(--font-display);letter-spacing:.04em;
+  opacity:0;transform:translateY(10px);transition:all .45s cubic-bezier(.2,1.3,.4,1) .4s;
+  box-shadow:0 6px 22px rgba(0,0,0,.5)}
+.greveal.landed .gr-champ{opacity:1;transform:none}
+.gr-skip{position:absolute;bottom:22px;right:24px;color:rgba(255,255,255,.6);
+  font:800 12px var(--font-ui)}
+@media (max-width:820px){ .gr-art{display:none} }
+
+/* ---------- career results: sections arriving ---------- */
+.end-side > .es{opacity:0;transform:translateY(12px);
+  transition:opacity .38s ease,transform .44s cubic-bezier(.2,.9,.3,1)}
+.end-side > .es.in{opacity:1;transform:none}
+.sparks .spark{transition:opacity .3s ease,transform .4s cubic-bezier(.2,1.3,.4,1)}
+.sparks .spark.pending{opacity:0;transform:scale(.7)}
+@media (prefers-reduced-motion: reduce){
+  .gr-rays,.gr-ring,.greveal.landed .gr-grade{animation:none}
+  .gr-grade{opacity:1;transform:none}
+  .gr-art,.gr-rating,.gr-champ,.end-side > .es,.sparks .spark{transition:none;opacity:1;transform:none}
+}
+
+/* ---------- stable: dealt in ---------- */
+.rcard.deal{opacity:0;transform:translateY(14px) scale(.96);
+  transition:opacity .3s ease,transform .38s cubic-bezier(.2,1.2,.4,1)}
+.rcard.deal.in{opacity:1;transform:none}
+.unlockbar i{transition:width .8s cubic-bezier(.2,.9,.3,1)}
+
+/* ---------- one racer: her page arrives ---------- */
+.racer-art{position:relative}
+.racer-art.enter img{animation:ra-in .55s cubic-bezier(.2,.9,.3,1)}
+@keyframes ra-in{from{opacity:0;transform:translateY(22px) scale(.97)}to{opacity:1;transform:none}}
+.racer-info > .es{opacity:0;transform:translateY(10px);
+  transition:opacity .32s ease,transform .38s cubic-bezier(.2,.9,.3,1)}
+.racer-info > .es.in{opacity:1;transform:none}
+.statgrid .bar b{transition:width .7s cubic-bezier(.2,.9,.3,1)}
+
+/* ---------- the wardrobe change ----------
+   An instant src swap read as a glitch. The outgoing costume dissolves from on top of
+   the incoming one, so there is never a blank frame, and a light sweeps across. */
+.of-ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  object-position:bottom;pointer-events:none;
+  animation:of-out .6s cubic-bezier(.3,0,.6,1) forwards}
+@keyframes of-out{from{opacity:1;transform:none;filter:brightness(1)}
+  40%{opacity:.85;filter:brightness(1.6)}
+  to{opacity:0;transform:scale(1.04);filter:brightness(2.2)}}
+#racerArt.of-in{animation:of-in .55s cubic-bezier(.2,.9,.3,1) .12s both}
+@keyframes of-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.of-sweep{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 34%,rgba(255,255,255,.28) 46%,
+    rgba(255,255,255,.85) 50%,rgba(255,255,255,.28) 54%,transparent 66%);
+  transform:translateX(-120%);animation:of-sweep .62s cubic-bezier(.4,0,.3,1) forwards}
+@keyframes of-sweep{to{transform:translateX(120%)}}
+.of-tag{position:absolute;left:0;right:0;bottom:10px;text-align:center;
+  font:800 12px/1 var(--font-ui);letter-spacing:.14em;
+  color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.9);pointer-events:none;
+  animation:of-tag 1.5s ease-out forwards}
+@keyframes of-tag{0%{opacity:0;transform:translateY(10px)}
+  18%{opacity:1;transform:none}72%{opacity:1}100%{opacity:0}}
+.of.sel{position:relative}
+.of.sel::after{content:"";position:absolute;inset:-2px;border-radius:var(--r);
+  box-shadow:0 0 0 2px var(--grn),0 0 14px rgba(124,192,42,.6);pointer-events:none}
+
+@media (prefers-reduced-motion: reduce){
+  .rcard.deal,.racer-info > .es{transition:none;opacity:1;transform:none}
+  .racer-art.enter img,.of-ghost,#racerArt.of-in,.of-sweep,.of-tag{animation:none}
+  .of-ghost,.of-sweep{display:none}
+}
+
+/* ---------- deck builder ----------
+   Decks are card boxes on a felt table: the case shows the hero card standing in front of
+   the stack, which is what tells you at a glance a tile is a DECK and not a single card. */
+.deck-sum{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;
+          padding:12px 18px 0;color:var(--ink-2);font-size:12.5px;font-weight:700}
+.deck-sum b{font:800 italic 20px/1 var(--font-num);color:var(--ink)}
+.deck-sum .fine{flex-basis:100%;margin:2px 0 0;font-weight:500}
+
+.deck-grid{display:grid;gap:12px;padding:14px 18px;
+           grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.dtile{display:block;text-align:left;padding:0 0 10px;background:var(--paper);border:0;
+       border-radius:var(--r-lg);overflow:hidden;cursor:pointer;
+       box-shadow:inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2);transition:transform .08s,box-shadow .1s}
+.dtile:hover{background:#fff}
+.dtile:active{transform:translateY(2px)}
+.dtile.sel{box-shadow:inset 0 0 0 3px var(--gold),0 3px 0 var(--gold-lo)}
+.dtile.new{background:transparent;box-shadow:inset 0 0 0 2px var(--rule-2);border:0}
+.dtile.new .dt-case{background:var(--paper-2)}
+
+.dt-case{position:relative;height:106px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+         background:repeating-linear-gradient(90deg,#2d8a3c 0 22px,#33933f 22px 44px);
+         box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.dt-art{position:relative;z-index:2;width:60px;height:84px;object-fit:cover;border-radius:var(--r-sm);
+        transform:rotate(-7deg) translateX(-10px);box-shadow:0 0 0 2px #fff,0 6px 14px rgba(0,0,0,.45)}
+.dt-art.empty{background:var(--paper-3)}
+.dt-box{position:absolute;right:28px;bottom:18px;width:36px;height:48px}
+.dt-box i{position:absolute;inset:0;border-radius:var(--r-sm);background:var(--paper-3);box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.dt-box i:nth-child(2){transform:translate(4px,-4px);background:var(--paper-2)}
+.dt-box i:nth-child(3){transform:translate(8px,-8px);background:var(--paper)}
+.dt-plus{font:400 44px/1 var(--font-display);color:var(--ink-3)}
+.dt-name{padding:9px 11px 0;font:400 14px/1.2 var(--font-display);color:var(--ink);
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt-meta{padding:2px 11px 0;font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.dt-eq{display:inline-block;margin:6px 11px 0;font:800 10.5px/1 var(--font-ui);color:#fff;
+       background:var(--sky);border-radius:3px;padding:3px 6px;box-shadow:0 2px 0 var(--sky-lo);
+       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 22px)}
+.dt-eq.none{background:transparent;color:var(--ink-3);font-weight:700;padding:3px 0;box-shadow:none}
+.deck-empty{padding:0 18px 4px}
+
+.deck-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 18px 18px}
+.deck-acts .spacer{flex:1}
+
+/* ---------- the builder ---------- */
+.de-head{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;padding:14px 18px 0}
+.de-name{flex:1;min-width:200px;display:block}
+.de-name span{display:block;font:800 11.5px var(--font-ui);color:var(--ink-3);margin-bottom:5px}
+.de-name input,.ask-input{width:100%;font:700 15px/1.2 var(--font-ui);padding:9px 12px;color:var(--ink);
+               border:0;border-radius:var(--r);background:#fff;box-shadow:inset 0 0 0 1px var(--rule-2),inset 0 2px 0 rgba(0,0,0,.05)}
+.de-name input:focus,.ask-input:focus{outline:none;box-shadow:inset 0 0 0 2px var(--gold)}
+/* the count: how full the box is, as a number on the board */
+.de-count{display:flex;flex-direction:column;align-items:flex-end;min-width:160px;padding:7px 12px;
+          background:var(--board);border-radius:var(--r);box-shadow:0 3px 0 #0c140f;color:#a8b8ac}
+.de-count b{font:800 italic 30px/1 var(--font-num)}
+.de-count.ok b{color:var(--led)}
+.de-count.bad b{color:#ff7a7a}
+.de-count small{display:block;font-size:11.5px;font-weight:700;margin-top:3px}
+.de-count.bad small{color:#ff9a9a}
+
+/* The current deck, in the order it was built: a row on the felt. Clicking a chip drops
+   that copy. */
+.de-strip{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:66px;
+          margin:12px 18px 0;padding:8px;border-radius:var(--r);
+          background:repeating-linear-gradient(90deg,#2d8a3c 0 22px,#33933f 22px 44px);
+          box-shadow:inset 0 2px 6px rgba(0,0,0,.25)}
+.de-strip .fine{color:#e3f1dc}
+.de-chip{position:relative;width:36px;height:50px;padding:0;border:0;border-radius:var(--r-sm);
+         overflow:hidden;cursor:pointer;background:var(--paper-3);flex:none;box-shadow:0 0 0 2px #fff,0 3px 6px rgba(0,0,0,.3)}
+.de-chip img{width:100%;height:100%;object-fit:cover;display:block}
+.de-chip .de-cost{position:absolute;top:2px;left:2px;min-width:15px;height:15px;border-radius:3px;
+                  background:var(--gold);color:#3a2800;font:800 italic 11px/15px var(--font-num);text-align:center}
+.de-chip .de-x{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+               background:rgba(214,48,60,.82);color:#fff;font:800 20px/1 var(--font-ui);opacity:0;transition:opacity .1s}
+.de-chip:hover .de-x{opacity:1}
+
+.de-h3{display:flex;align-items:baseline;gap:8px;margin:18px 18px 8px;font:400 15px var(--font-display)}
+.de-h3 .fine{font:500 12px var(--font-ui)}
+.de-pool{padding:0 18px 14px}
+.de-pool .dcard.maxed{opacity:.5}
+.de-pool .dcard .tick{display:none}
+.de-pool .dcard.in .tick{display:block}
+.de-own{margin-top:5px;font-size:11px;font-weight:700;color:var(--ink-3)}
+
+/* ---------- prompt / choose dialogs ---------- */
+.ask-card.wide{width:min(94vw,460px)}
+.ask-input{margin:4px 0 12px}
+.ask-list{display:flex;flex-direction:column;gap:7px;max-height:46vh;overflow-y:auto;margin:6px 0 12px;padding:2px 2px 4px}
+.ask-opt{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 11px;border:0;
+         border-radius:var(--r);background:var(--paper-2);cursor:pointer;width:100%;
+         box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule-2)}
+.ask-opt:hover{background:#fff}
+.ask-opt.sel{background:var(--gold-pale);box-shadow:inset 0 0 0 2px var(--gold),0 2px 0 var(--gold-lo)}
+.ask-opt img,.ask-opt canvas.vbust{width:36px;height:36px;flex:none;border-radius:var(--r-sm);object-fit:cover;
+             object-position:top center;background:var(--paper-3)}
+.ao-t{display:flex;flex-direction:column;min-width:0}
+.ao-t b{font-size:13.5px;font-weight:800}
+.ao-t i{font-style:normal;font-size:11.5px;color:var(--ink-3)}
+
+/* The equipped deck as shown on the pre-race sheet: the same chips as the builder, but
+   nothing to click -- this screen sets up a race, it does not edit the deck. */
+.pre-deck{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 12px}
+.de-chip.static{cursor:default}
+.de-chip.static:hover .de-x{opacity:0}
+
+/* How to Play is one tall panel rather than a list of them, so its wrap centres it while
+   there is room and scrolls once there is not. */
+.howto-wrap{justify-content:center;padding-top:14px}
+
+/* ---------- deck builder: choosing whose deck ---------- */
+.dr-grid{display:flex;flex-direction:column;gap:8px;padding:14px 18px}
+.drow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:8px 14px 8px 8px;border:0;
+      border-radius:var(--r);background:var(--paper);cursor:pointer;
+      box-shadow:inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2);transition:transform .08s}
+.drow:hover{background:#fff}
+.drow:active{transform:translateY(2px)}
+.dr-art{width:46px;height:46px;flex:none;border-radius:var(--r-sm);object-fit:cover;
+        object-position:top center;background:var(--paper-3);box-shadow:0 0 0 1px var(--rule-2)}
+.dr-art.big{width:78px;height:78px;border-radius:var(--r)}
+.dr-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.dr-txt b{font:400 15px/1.2 var(--font-display);color:var(--ink)}
+.dr-txt i{font-style:normal;font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.dr-eq{flex:none;font:800 11px/1 var(--font-ui);color:#fff;background:var(--sky);box-shadow:0 2px 0 var(--sky-lo);
+       border-radius:3px;padding:4px 8px;max-width:44%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-eq.none{background:transparent;color:var(--ink-3);box-shadow:none}
+
+/* the header inside one racer's deck screen */
+.dr-head{display:flex;align-items:center;gap:14px;padding:14px 18px 0}
+.dr-headtxt{min-width:0}
+.dr-name{font:400 21px/1.2 var(--font-display)}
+.dr-sub{font-size:12px;font-weight:700;color:var(--ink-3);margin-top:3px}
+.dr-now{font-size:13px;color:var(--ink-2);margin-top:6px}
+.dr-now .warn{color:var(--red);font-weight:800}
+
+/* ---------- glossary popups ---------- */
+.ask-card.info-card{width:min(94vw,520px)}
+.info-body{max-height:78vh;display:flex;flex-direction:column;min-height:0}
+.info-content{overflow-y:auto;min-height:0;padding-right:4px}
+.info-content p{margin:0 0 10px;color:var(--ink-2);line-height:1.55}
+.info-content p:last-of-type{margin-bottom:2px}
+.gl-mine{background:var(--gold-pale);border:1px solid #e6c95a;border-radius:var(--r);
+         padding:8px 11px;color:var(--ink)!important}
+.gl-tip{font-size:12.5px;color:var(--ink-3)!important;border-top:1px solid var(--line);
+        padding-top:9px;margin-top:12px!important}
+.gl-tab{width:100%;border-collapse:collapse;font-size:12.5px;margin:4px 0 12px}
+.gl-tab th{text-align:left;font:700 10px/1 var(--font-ui);
+           letter-spacing:.01em;color:var(--ink-3);padding:0 8px 6px;
+           border-bottom:1px solid var(--line)}
+.gl-tab td{padding:4px 8px;border-bottom:1px solid var(--paper-2);color:var(--ink-2)}
+.gl-tab tr:last-child td{border-bottom:0}
+.gl-tab tr.me td{background:var(--gold-pale);font-weight:700;color:var(--ink)}
+.gl-tab tr.me td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+.gl-tab .g{font-size:18px}
+.gl-card{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.gl-card img{width:64px;height:88px;object-fit:cover;border-radius:7px;
+             border:1px solid var(--line);background:var(--paper-3)}
+.gl-kind{font:700 11px/1 var(--font-ui);letter-spacing:.01em;
+         margin-bottom:6px}
+.gl-cost b{font-size:20px}
+
+/* a label that explains itself, wherever it appears */
+/* No decorative dot on every one of them -- a help cursor and a hover tint say it, and
+   the dots were the kind of ornament that makes a screen look generated. */
+[data-info]{cursor:help;position:relative}
+[data-info]:hover{background-color:var(--gold-pale)}
+[data-info]:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* ---------- clickable labels ---------- */
+.apt.style{background:var(--paper);color:var(--ink);border-color:var(--rule-2)}
+.apt.uni{background:var(--gold-pale);color:#5a3e00;border-color:#e6c95a}
+.sc-pick{margin-top:12px;align-self:flex-start}
+.starter-card{cursor:default}
+
+/* her unique, on the racer screen */
+.uniq-panel{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+            padding:10px 13px;border-radius:var(--r);cursor:pointer;
+            background:var(--gold-pale);border:1px solid #e6c95a;box-shadow:0 3px 0 #e6c95a;font-family:var(--font-ui)}
+.uniq-panel:hover{border-color:var(--gold)}
+.uniq-panel:active{transform:translateY(2px);box-shadow:0 1px 0 #e6c95a}
+.uq-star{flex:none;line-height:0}
+.uq-star .ico{width:26px;height:26px}
+.uq-txt{display:flex;flex-direction:column;min-width:0;flex:1}
+.uq-txt b{font:400 15px var(--font-display);color:#5a3e00}
+.uq-txt i{font-style:normal;font-size:11.5px;color:#8a7233;line-height:1.4}
+.uq-more{flex:none;font-size:10.5px;font-weight:700;
+         letter-spacing:.01em;color:#a8791a;white-space:nowrap}
+.gl-uni{font-style:italic;color:var(--ink-3)!important}
+.gl-fx{margin:0 0 12px;padding-left:20px;color:var(--ink-2);line-height:1.6}
+.pv[data-info]{cursor:help}
+
+/* ---------- the reward box ---------- */
+.reward-card{width:min(94vw,420px);position:relative;overflow:hidden;text-align:center}
+.rw-rays{position:absolute;inset:-40% -40% auto -40%;height:200%;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg,rgba(242,183,5,.13) 0deg 8deg,
+             transparent 8deg 16deg);animation:rw-spin 22s linear infinite}
+@keyframes rw-spin{to{transform:rotate(360deg)}}
+/* the kicker is the card's turf header; the title is what was earned */
+.rw-head{position:relative;padding:0 0 2px}
+.rw-kicker{display:block;padding:10px 16px 9px;color:#fff;font:800 12.5px/1 var(--font-ui);
+  background:repeating-linear-gradient(90deg,#2d8a3c 0 28px,#33933f 28px 56px);border-bottom:3px solid var(--gold)}
+.rw-title{font:400 26px/1.15 var(--font-display);color:var(--ink);margin:16px 20px 0}
+.rw-msg{font-size:13px;color:var(--ink-2);margin:8px 20px 0}
+.rw-body{position:relative;padding:14px 20px 20px}
+.rw-list{display:flex;flex-direction:column;gap:7px;margin:4px 0 18px}
+/* `backwards`, never a base opacity of 0: if the animation does not run, the rows must
+   still be there (see the fill-mode note in theme.css) */
+.rw-row{display:flex;align-items:center;gap:11px;padding:8px 13px 8px 10px;border-radius:var(--r);
+        background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule-2);
+        animation:rw-in .42s cubic-bezier(.2,.9,.3,1) backwards}
+@keyframes rw-in{from{opacity:0;transform:translateY(10px) scale(.96)}
+                 to{opacity:1;transform:none}}
+.rw-ic{flex:none;line-height:0}
+.rw-ic .ico{width:24px;height:24px}
+.rw-lb{flex:1;text-align:left;font-size:13px;font-weight:700;color:var(--ink-2)}
+.rw-am{max-width:62%;text-align:right;font:800 italic 22px/1.05 var(--font-num);color:var(--ink)}
+
+/* ---------- career schedule ----------
+   The fixture list: each year a heading with its goals, each race turn a date on the left
+   and the races on offer as tickets. Grades wear the JRA's own colours -- G1 blue, G2 red,
+   G3 green -- so the calendar reads at a glance the way a racing paper does. */
+.car-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cal-lead{margin:14px 18px 4px;font-size:13px;color:var(--ink-2);line-height:1.6}
+.cal-list{padding:4px 18px 14px}
+.cal-filter{display:flex;gap:8px;padding:6px 18px 0}
+
+.cal-year{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:18px 0 8px;
+          padding-bottom:7px;border-bottom:3px solid var(--turf)}
+.cal-year.finale{border-bottom-color:var(--gold)}
+.cy-name{font:400 18px/1 var(--font-display);color:var(--ink);margin-right:6px}
+.cal-year.finale .cy-name{color:var(--gold-lo)}
+.cy-goal{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;color:var(--ink-2);
+         background:var(--paper-2);border-radius:var(--r-sm);padding:4px 9px;box-shadow:inset 0 0 0 1px var(--rule)}
+.cy-goal .ico{width:13px;height:13px}
+.cy-goal.met{color:var(--turf-lo);background:var(--turf-pale);box-shadow:inset 0 0 0 1px #a8d29a}
+.cy-goal.late{color:var(--red);background:#fdeceb;box-shadow:inset 0 0 0 1px #f0b8b4}
+
+.cal-turn{display:flex;gap:14px;padding:9px 0;border-bottom:1px dashed var(--rule)}
+.cal-turn:last-child{border-bottom:0}
+.cal-turn.now{background:var(--gold-pale);border-radius:var(--r);padding:9px 10px;border-bottom-color:transparent;
+              box-shadow:inset 4px 0 0 var(--gold)}
+.cal-turn.past{opacity:.5}
+.ct-when{flex:0 0 104px;display:flex;flex-direction:column;gap:2px;padding-top:3px}
+.ct-when b{font:400 14px/1.1 var(--font-display);color:var(--ink)}
+.ct-when i{font:700 italic 13px/1 var(--font-num);color:var(--ink-3)}
+.ct-tag{font:800 10.5px/1 var(--font-ui);color:#3a2800;background:var(--gold);border-radius:var(--r-sm);
+        padding:3px 6px;align-self:flex-start;margin-top:4px;box-shadow:0 2px 0 var(--gold-lo)}
+.ct-races{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+
+.calrace{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:var(--r);
+         background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule);font-size:12px}
+.calrace.goal{background:#fffbea;box-shadow:inset 0 0 0 1px #e6c95a,0 2px 0 #e6c95a}
+.calrace.done{opacity:.7}
+.cr-grade{flex:0 0 40px;text-align:center;font:800 italic 14px/1 var(--font-num);letter-spacing:.02em;
+          padding:5px 0 4px;border-radius:var(--r-sm);background:#8a8f86;color:#fff;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.cr-grade.gG1{background:#1f5fbf}
+.cr-grade.gG2{background:#d6303c}
+.cr-grade.gG3{background:#2f8f3e}
+.cr-grade.gOP{background:#e0821a}
+.cr-grade.gDebut{background:#6b5a9a;font-size:12px}
+.cr-main{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+.cr-main b{font-size:13px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cr-main i{font-style:normal;font-size:11px;font-weight:700;color:var(--ink-3)}
+.cr-must{font:800 10px/1 var(--font-ui);color:#fff;background:var(--red);border-radius:3px;
+         padding:2px 5px 3px;margin-left:5px;vertical-align:1px}
+.cr-pay{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;font:700 italic 15px/1 var(--font-num);
+        color:var(--ink-2);white-space:nowrap}
+.cr-pay .ico{width:13px;height:13px;color:var(--ink-3)}
+.cr-note{flex:0 0 100px;text-align:right;font-size:11.5px;font-weight:800;white-space:nowrap}
+.cr-note.f3{color:var(--turf)}
+.cr-note.f2{color:#a8791a}
+.cr-note.f1{color:var(--red)}
+.cr-note.ok{color:var(--turf)}
+.cr-note.lock{color:var(--ink-3);font-weight:700}
+
+@media (max-width:560px){
+  .cal-turn{flex-direction:column;gap:5px}
+  .ct-when{flex:none;flex-direction:row;align-items:baseline;gap:7px}
+  .cr-pay{display:none}
+  .cr-note{flex:0 0 74px}
+}
+
+/* Her own lines in the career intro read as hers: the nameplate changes colour and the
+   box picks up her side of the conversation. */
+.cintro-box.her{border-color:rgba(226,192,88,.55)}
+.coach-name.her{background:var(--gold);color:#5c3f00}
+.cintro-uni{display:flex;flex-direction:column;gap:3px;background:rgba(255,244,214,.92);
+            border:1px solid #e6cf90;border-radius:var(--r);padding:9px 12px;margin-top:8px;
+            max-width:340px}
+.cintro-uni b{color:#6b4e00;font-size:13.5px}
+.cintro-uni i{font-style:normal;font-size:11.5px;color:#8a7233;line-height:1.45}
