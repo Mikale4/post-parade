@@ -19,6 +19,11 @@
  * dithering, and each racer keeps a personal offset of up to half an hour on every
  * change, so the academy does not empty in one tick.
  *
+ * Nobody is a clock, though: now and then a racer is somewhere else for a band on a whim
+ * (WANDER), and `plan` keeps somebody about at every hour -- a handful in the main hall, a
+ * couple on the training track and in the cafeteria, one in the library (ABOUT) -- drawn at random from whoever
+ * is not pinned elsewhere.
+ *
  * Pure data and logic, no DOM: validate-routines.js checks it under node.
  */
 (function (root) {
@@ -53,7 +58,27 @@
     curfew: "home",
   };
 
+  /* Where a whim takes her instead, by day and by night, and how often: a racer is
+     elsewhere than her routine says about one band in eight, much less often when her own
+     routine pins her (Suzuka at dawn), and seldom at night (up for a drink, a word in the
+     corridor). */
+  const WANDER = { day: "hall:chat 35, library:read 15, cafe:eat 15, track:jog 15, school:look 10, corridor:chat 10",
+                   night: "corridor:look 50, hall:look 25, home:read 25" };
+  const WANDER_ODDS = 0.12, WANDER_ODDS_SURE = 0.04, WANDER_ODDS_NIGHT = 0.05;
+  /** Places never left empty, at any hour: at least `day` (or `night`) racers in each, at
+      `acts` (by day, by night) -- talking in the hall, a midnight snack, a moonlit lap,
+      somebody up late over her books in the library. */
+  const ABOUT = [
+    { place: "hall", day: 5, night: 3, acts: ["chat", "look"] },
+    { place: "cafe", day: 2, night: 2, acts: ["eat", "eat"] },
+    { place: "track", day: 2, night: 2, acts: ["jog", "jog"] },
+    { place: "library", day: 1, night: 1, acts: ["read", "study"] },
+  ];
+  const HALL_MIN = ABOUT[0].day, HALL_MIN_NIGHT = ABOUT[0].night;
+
   /* Each racer: `at`, her day band by band (anything left out falls back on DEFAULT);
+     `keep`, bands she never strays from (Rice, who will not go out at night; Suzuka's
+     dawn run; Oguri at her meals);
      `away`, where she is when she is nowhere to be walked to (one place, or one per band
      with a `default`); `lines`, what she says, by band or by what she is doing (`dawn`,
      `night`, and any act or band id); `meet`, a word for somebody in particular, when
@@ -67,6 +92,7 @@
                eat: ["Curry's the special today. I just knew it!", "Seconds? ...Thirds would be polite, right?"] },
       meet: { "Silence Suzuka": "Suzuka-san! Wait for me!", "Oguri Cap": "Oguri-san, rematch at dinner? Most bowls wins!" } },
     "Silence Suzuka": { // runs alone at the front, and before anyone is up; circles when she thinks
+      keep: ["dawn"],
       at: { dawn: "track:jog", breakfast: "cafe:eat 70, track:jog 30", lunch: "cafe:eat", after: "track:jog 60, track:train 40",
             dinner: "cafe:eat", evening: "home:sit 80, away 20" },
       away: { evening: "stargazing on the roof with Admire Vega", default: "out on a long run" },
@@ -103,6 +129,7 @@
                study: ["The answer is 42. Probably. Next question."] },
       meet: { "Mejiro McQueen": "McQueen! Perfect timing. Hold this. Don't ask." } },
     "Oguri Cap": {      // the cafeteria whenever it is open; thanks the meal even alone; sways when happy
+      keep: ["breakfast", "lunch", "dinner"],
       at: { dawn: "track:jog", breakfast: "cafe:eat", lunch: "cafe:eat", after: "track:train 80, cafe:eat 20",
             dinner: "cafe:eat", evening: "home:chat" },
       lines: { dawn: ["I'm hungry. Is the cafeteria open yet?"],
@@ -153,6 +180,7 @@
                look: ["Walk. Rules exist for a reason."] },
       meet: { "Symboli Rudolf": "President. The forms are on your desk.", "Silence Suzuka": "Suzuka. Don't overdo it." } },
     "Rice Shower": {    // trains twice as hard, alone; picture books; afraid of ghosts, so never out at night
+      keep: ["late", "evening", "curfew"],
       at: { dawn: "track:train", breakfast: "cafe:eat", lunch: "cafe:eat", after: "track:train 70, library:read 30",
             dinner: "cafe:eat", evening: "home:study" },
       lines: { dawn: ["Rice will try her best today... for everyone."],
@@ -275,6 +303,8 @@
   function hash(s) {
     let h = 2166136261;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    // and stirred, so keys a character apart ("...|6", "...|7") land nowhere near each other
+    h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
     return h >>> 0;
   }
   const unit = s => hash(s) / 4294967296;
@@ -308,9 +338,58 @@
     const total = opts.reduce((s, o) => s + o.w, 0);
     let x = unit(name + "|" + (day || 0) + "|" + band.id) * total, pick = opts[opts.length - 1];
     for (const o of opts) { if ((x -= o.w) < 0) { pick = o; break; } }
-    // `sure`: the band has her in one place, no odds about it (Suzuka on the track at dawn)
-    return { place: pick.place, act: pick.act, band: band.id, away: pick.place === "away" ? awayOf(r, band.id) : null,
-             sure: opts.length === 1 };
+    // `sure`: her own routine has her in one place this band, no odds about it (Suzuka on the
+    // track at dawn) -- the bands she shares with everyone (class, say) are not
+    const sure = opts.length === 1 && !!(r.at && r.at[band.id]);
+    // and now and then, not where she would usually be: a day's whim, the same all band
+    const night = band.id === "late" || band.id === "curfew";
+    const odds = night ? WANDER_ODDS_NIGHT : sure ? WANDER_ODDS_SURE : WANDER_ODDS;
+    if (!(r.keep && r.keep.includes(band.id)) && unit("wander|" + name + "|" + (day || 0) + "|" + band.id) < odds) {
+      const ws = parse(night ? WANDER.night : WANDER.day), wt = ws.reduce((s, o) => s + o.w, 0);
+      let y = unit("whim|" + name + "|" + (day || 0) + "|" + band.id) * wt, alt = ws[ws.length - 1];
+      for (const o of ws) { if ((y -= o.w) < 0) { alt = o; break; } }
+      if (alt.place !== pick.place) return { place: alt.place, act: alt.act, band: band.id, away: null, sure: false, whim: true };
+    }
+    return { place: pick.place, act: pick.act, band: band.id, away: pick.place === "away" ? awayOf(r, band.id) : null, sure };
+  }
+
+  /** Everyone at once, at `hour` on `day`: a Map of name -> where(). On top of each racer's
+      own day, the places in ABOUT are never empty: a handful always about the main hall, a
+      couple on the training track and in the cafeteria, one in the library, at any hour (at night, the ones
+      still up, by preference). They are drawn at random from whoever is not pinned
+      elsewhere -- and never from a place that would then fall short itself -- a fresh draw
+      every hour and a half. */
+  function plan(names, hour, day) {
+    const out = new Map(names.map(n => [n, where(n, hour, day)]));
+    const band = bandAt(hour).id, night = band === "late" || band === "curfew";
+    const slot = Math.floor(((hour % 24) + 24) % 24 / 1.5);
+    const count = {};
+    for (const w of out.values()) count[w.place] = (count[w.place] || 0) + 1;
+    const least = place => { const a = ABOUT.find(a => a.place === place); return a ? (night ? a.night : a.day) : 0; };
+    for (const a of ABOUT) {
+      const min = Math.min(names.length, night ? a.night : a.day);
+      if ((count[a.place] || 0) >= min) continue;
+      // who comes: the unpinned first, the ones awake before the ones asleep, and last of
+      // all anyone her own routine has off somewhere or out on the track (the shrine at
+      // dawn, Suzuka's run); a racer whose day ever brings her here a little sooner; then by
+      // the luck of the day. Nobody comes out of a place that needs her to stay.
+      const pool = names.filter(n => {
+        const w = out.get(n), r = ROUTINES[n];
+        return w.place !== a.place && !(r && r.keep && r.keep.includes(w.band)) && (count[w.place] || 0) > least(w.place);
+      }).map(n => {
+        const w = out.get(n), r = ROUTINES[n] || {};
+        const fits = Object.values(r.at || {}).some(s => parse(s).some(o => o.place === a.place));
+        return { n, w, score: (w.sure ? 2 : 0) + (w.act === "sleep" ? 1 : 0) + (w.sure && (w.place === "away" || w.place === "track") ? 1 : 0)
+          - (fits ? 0.5 : 0) + unit(a.place + "|" + n + "|" + (day || 0) + "|" + slot) };
+      }).sort((x, y) => x.score - y.score);
+      for (const o of pool) {
+        if ((count[a.place] || 0) >= min) break;
+        if ((count[o.w.place] || 0) <= least(o.w.place)) continue;            // (she is needed where she is now)
+        count[o.w.place]--; count[a.place] = (count[a.place] || 0) + 1;
+        out.set(o.n, { place: a.place, act: night ? a.acts[1] : a.acts[0], band: o.w.band, away: null, sure: false, drawn: true });
+      }
+    }
+    return out;
   }
   /** Where she is when she is not anywhere to be walked to, in words: "in her lab". */
   function awayOf(r, band) {
@@ -336,5 +415,5 @@
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   }
 
-  root.Routines = { BANDS, PLACES, ACTS, DEFAULT, ROUTINES, where, line, bandAt, awayOf, parse, hash };
+  root.Routines = { BANDS, PLACES, ACTS, DEFAULT, ROUTINES, WANDER, ABOUT, HALL_MIN, HALL_MIN_NIGHT, where, plan, line, bandAt, awayOf, parse, hash };
 })(typeof globalThis !== "undefined" ? globalThis : this);

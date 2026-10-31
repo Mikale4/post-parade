@@ -331,6 +331,14 @@ The routines come from the games, the anime, *Road to the Top*, the film and *Ci
 
 A band can carry odds ("track:jog 60, home:sleep 40"). Each pick holds for the whole band that day, and each racer moves up to half an hour off the hour, so rooms empty gradually, not all in one tick.
 
+Nobody runs like a clock, though:
+- **Whims:** on a given day, a racer can be somewhere else for a band. That happens about one band in eight, rarely when her own routine pins her, and seldom at night (up for a drink, a word in the corridor). `WANDER` lists where whims take her.
+- **Never empty** (`ABOUT`): at any hour there are at least 5 racers about the main hall (3 at night), 2 on the training track, 2 in the cafeteria and 1 in the library.
+  - Anyone short is filled from whoever isn't pinned elsewhere, the ones still awake first at night. A racer whose day ever takes her to that place is a little likelier.
+  - Nobody is pulled out of a place that would then fall short itself. A fresh draw comes every hour and a half.
+  - At 3 AM that can mean a midnight snack in the cafeteria, a moonlit lap, or Rudolf over her books in the library.
+- **`keep`:** bands a racer never strays from. Rice Shower stays in at night (she is afraid of ghosts), Suzuka always takes her dawn run, and Oguri is always at her meals.
+
 How the lobby uses them:
 - **Coming and going:** in the room you are in, a racer due elsewhere gets up, walks to the door that leads there, opens it and goes through. One due here comes in through the door she is coming from.
 - **Out of sight:** a room you aren't in is simply right when you walk in. At night the racers in a dorm room are already asleep in their beds, with the odd "Zzz...".
@@ -341,7 +349,7 @@ How the lobby uses them:
 - **Fallback:** without `routines.js`, the shell's fixed room lists still work.
 
 Checks:
-- `node race/validate-routines.js`: every routine reads, every racer has one, and the academy keeps its hours (mostly in bed at 2:30 AM, in class at 10, at dinner at 7).
+- `node race/validate-routines.js`: every routine reads, every racer has one, and the academy keeps its hours (mostly in bed at 2:30 AM, in class at 10, at dinner at 7). It also checks that whims happen, that the `ABOUT` places are never empty, and that `keep` holds.
 - `Lobby._debug.whereNow(def)` and `dueIn(room)` show what the lobby makes of it.
 
 **Doors open.** At a door she turns to it, it swings open (each leaf on its own hinge),

@@ -3604,10 +3604,20 @@
   const ROUTINE_CAP_LOW = { hall: 7, cafe: 6, track: 2, library: 4 };   // on a phone: fewer to draw
   const routined = R => academy.length > 0 && ROUTINE_CAP[R.id] != null;
   const academyDay = () => Math.floor((Date.now() + clockShift) / GAME_HOUR / 24);
+  /** The whole academy's whereabouts now (Routines.plan: each racer's day, a whim or two, a
+      handful always about the hall), worked out afresh every three academy minutes. */
+  let planKey = "", planMap = null;
+  function planNow() {
+    const h = hourNow(), key = academyDay() + ":" + Math.floor(h * 20) + ":" + academy.length;
+    if (key !== planKey) { planKey = key; planMap = Routines.plan(academy.map(a => bareName(a.name)), h, academyDay()); }
+    return planMap;
+  }
   /** Where racer `d` is at `hour` (now, by default): a room id and which (`v`), what she is
       at there (`act`), or `away` and where, in words. */
   function whereNow(d, hour) {
-    const name = bareName(d.name), w = Routines.where(name, hour == null ? hourNow() : hour, academyDay());
+    const name = bareName(d.name);
+    const w = (hour == null ? planNow() : Routines.plan(academy.map(a => bareName(a.name)), hour, academyDay())).get(name)
+      || Routines.where(name, hour == null ? hourNow() : hour, academyDay());
     if (w.place === "home") {
       const v = DORM_ROOMS.findIndex(r => r.names.includes(name));
       return v >= 0 ? { id: "room", v, act: w.act, sure: w.sure } : { id: "away", away: "in her room" };
@@ -5172,7 +5182,7 @@
     }
     for (const k in casts) casts[k] = casts[k].filter(d => d.id !== def.id);
     // with routines, the one she was keeps her own hours from here on
-    if (academy.length) { academy = academy.filter(d => d.id !== def.id); if (!was.trainer) academy.push(was); }
+    if (academy.length) { academy = academy.filter(d => d.id !== def.id); if (!was.trainer) academy.push(was); planKey = ""; }
     // the one she was goes home: the trainer to the office, a racer to the hall
     const into = was.trainer ? "office" : "hall";
     if (!casts[into].some(d => d.id === was.id)) casts[into].push(was);
