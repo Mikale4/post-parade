@@ -142,6 +142,9 @@
       finaleSP: { Qualifier: 60, Semifinal: 90, Finals: 120 },
       field: 1.03, fullDeck: true, sharp: true, rivalDecks: "cheap",
       stamina: "dreamRun",
+      /* Earned, not bought: the summit opens after three URA Finale championships on the
+         account. A run already under way is never locked out mid-career. */
+      unlock: { uraChampions: 3, text: "Win the URA Finale three times" },
       /* Completion carrots three to four times the URA Finale's, prize money for every win
          on the way, and a haul of items for reaching the end at all. */
       pay: { carrots: { failed: 500, normal: 3000, champion: 10000 },
@@ -153,12 +156,57 @@
   };
   const scenarioOf = s => SCENARIOS[(s && (typeof s === "string" ? s : s.scenario))] || SCENARIOS.ura;
 
+  /**
+   * Whether a scenario can be started, given the account's record ({ uraChampions }).
+   * Null when it is open; otherwise what it takes and how far along the trainer is, for
+   * the picker to show. The screens own where the record comes from.
+   */
+  function scenarioLock(id, record) {
+    const u = scenarioOf(id).unlock;
+    if (!u) return null;
+    const have = Math.max(0, (record && record.uraChampions) || 0);
+    return have >= u.uraChampions ? null : { need: u.uraChampions, have, text: u.text };
+  }
+
   const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 
   // ---------------------------------------------------------------- calendar
   const turnYear  = t => clamp(Math.floor(t / 24), 0, 2);
   const turnMonth = t => Math.floor((t % 24) / 2);
   const turnHalf  = t => (t % 2) ? "Late" : "Early";
+
+  /* The weather on a turn: its season by the month, and the day's weather drawn from the
+     run's seed, so a turn looks the same every time it is opened and its race is run in
+     what the turn screen showed. Odds after Japan's: June is the rainy season (tsuyu),
+     autumn is the driest, and snow only falls in winter. The finale turns are in winter. */
+  const SEASONS = ["winter", "winter", "spring", "spring", "spring", "summer",
+                   "summer", "summer", "autumn", "autumn", "autumn", "winter"];
+  const WEATHER_ODDS = {
+    spring: [["clear", 0.55], ["cloudy", 0.28], ["rain", 0.17]],
+    tsuyu:  [["clear", 0.25], ["cloudy", 0.3], ["rain", 0.45]],
+    summer: [["clear", 0.65], ["cloudy", 0.17], ["rain", 0.18]],
+    autumn: [["clear", 0.62], ["cloudy", 0.26], ["rain", 0.12]],
+    winter: [["clear", 0.5], ["cloudy", 0.24], ["rain", 0.08], ["snow", 0.18]],
+  };
+  /* The going follows the weather, as it does at a real course: firm on a clear day, softer
+     the wetter it is. It is what the weather does to a race (sim.js GROUND): the real
+     game's stat penalties and stamina cost, by ground and surface. */
+  const GROUND_ODDS = {
+    clear:  [["firm", 0.85], ["good", 0.15]],
+    cloudy: [["firm", 0.6], ["good", 0.3], ["soft", 0.1]],
+    rain:   [["good", 0.2], ["soft", 0.45], ["heavy", 0.35]],
+    snow:   [["good", 0.25], ["soft", 0.45], ["heavy", 0.3]],
+  };
+  const draw = (odds, x) => { let acc = 0; for (const [k, p] of odds) { acc += p; if (x < acc) return k; } return odds[odds.length - 1][0]; };
+  function weatherOf(s, turn) {
+    const t = turn == null ? (s ? s.turn : 0) : turn;
+    const month = t >= TRAINING_TURNS ? 11 : turnMonth(t);
+    const season = SEASONS[month];
+    const rnd = Sim.mulberry32((((s && s.seed) >>> 0) + t * 104729 + 17) >>> 0);
+    const weather = draw(WEATHER_ODDS[month === 5 ? "tsuyu" : season], rnd());
+    const ground = draw(GROUND_ODDS[weather], rnd());
+    return { month, season, weather, ground };
+  }
 
   /** Summer camp: Early Jul .. Late Aug of Classic and Senior years. */
   function isSummerCamp(turn) {
@@ -575,7 +623,9 @@
        timed skills ride along as `skills` for Skills.check to fire during the race.
        Passive stat skills are applied AFTER the cap, so they legitimately push past it
        -- they are not training. */
-    if (Skills) me = Skills.applyToDef(me, s);
+    // the day she runs it: weather and season and the going, for the skills that need them
+    const wx = weatherOf(s, race.turn != null ? race.turn : s.turn);
+    if (Skills) me = Skills.applyToDef(me, s, wx);
     /* An inherited unique is a second signature effect, and the sim only gives a racer
        one `unique`. It rides as a timed skill instead -- same trigger language, same
        firing path, and it can coexist with her own. */
@@ -607,7 +657,7 @@
     return {
       field, race, scenario: scn.id,
       course: { id: race.id, name: race.name,
-                distance: raceMetres(race), surface: race.surface },
+                distance: raceMetres(race), surface: race.surface, ground: wx.ground },
       /* How each controller is built (ai.js makeController): whole decks for everyone in
          the Dream Trophy, the sharper read for her rivals only. */
       rules: d => ({ fullDeck: scn.fullDeck, sharp: scn.sharp && d.id !== "trainee" }),
@@ -841,8 +891,8 @@
     RACE_CAL, LEGACY_CAL, GOALS, CONDITIONS, DIST_METRES, DIST_ORDER, DIST_LABEL, DIST_CLASS,
     calOf, raceById, raceMetres, goalsOf, goalRacesNow, isGoalRace, nextGoalTrip,
     YEAR_MUL, yearMul, expectedStat, GRADE_FACTOR, FINALE_FACTOR,
-    SCENARIOS, scenarioOf, stageName, payout,
-    create, turnLabel, turnYear, turnMonth, turnHalf, isSummerCamp, finaleRaceAt,
+    SCENARIOS, scenarioOf, scenarioLock, stageName, payout,
+    create, turnLabel, turnYear, turnMonth, turnHalf, isSummerCamp, finaleRaceAt, weatherOf, SEASONS,
     rnd, moodName, moodTrain, moodRace, failChance, facilityLevel, trainPreview, condName,
     train, rest, recreation, infirmary, passTurn,
     racesOn, canEnter, upcomingRaces, resolveRace, bestDistance, bestSurface,

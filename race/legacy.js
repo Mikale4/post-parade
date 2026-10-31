@@ -231,10 +231,37 @@
 
   // ---------------------------------------------------------------- inheritance
   /**
+   * Why this veteran cannot be one of the trainee's parents, or null if she can. A racer
+   * inherits from someone else: never from a past run of herself, and the two parents are
+   * two different racers. `otherId` is the other parent already chosen, if any.
+   * (Her grandparents are her parents' business; only the two parents are checked.)
+   */
+  function parentBlock(def, vetId, otherId) {
+    const v = byId(vetId);
+    if (!v) return "No such veteran.";
+    if (def && v.racerId === def.id) return `${def.name} cannot inherit from herself.`;
+    const o = otherId && otherId !== vetId ? byId(otherId) : null;
+    if (o && o.racerId === v.racerId) return `${v.name} is already her other parent.`;
+    return null;
+  }
+
+  /** The parents a pairing may actually use: in order, each allowed against the ones before. */
+  function validParents(def, ids) {
+    const out = [];
+    for (const id of ids || []) {
+      if (!id || out.length >= 2) continue;
+      if (!parentBlock(def, id, out[0])) out.push(id);
+    }
+    return out;
+  }
+
+  /**
    * Work out what a trainee would inherit from a pairing. Pure -- returns a plan, and
-   * `applyToCareer` is what spends it, so the UI can preview before committing.
+   * `applyToCareer` is what spends it, so the UI can preview before committing. A parent
+   * the rules above refuse is dropped here as well, whoever asks.
    */
   function inheritanceFor(def, parentAId, parentBId) {
+    [parentAId, parentBId] = validParents(def, [parentAId, parentBId]);
     const nodes = tree(parentAId, parentBId);
     const aff = affinity(def, parentAId, parentBId);
     const mul = affinityMul(aff);
@@ -357,6 +384,7 @@
                 statStars, aptStars, gradeIndex, rollSparks,
                 load, save, reload, veterans, byId, addVeteran, removeVeteran,
                 tree, affinity, affinityMul, bestAptOf,
+                parentBlock, validParents,
                 inheritanceFor, applyToCareer, inspirationAt, inspire, summarise };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Legacy = api;

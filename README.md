@@ -1,4 +1,4 @@
-# Post Parade
+# Umamusume: Post Parade
 
 An unofficial Umamusume: Pretty Derby fan game: a racing game you prepare for rather than
 play. Pick a racer, build her deck, train her through a career, and walk the academy as a

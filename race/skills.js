@@ -153,6 +153,31 @@
       text: "+80 stamina and a tenth more in reserve.",
       stats: { stamina: 80 }, mods: { maxHpMul: 1.10 }, fit: { dist: ["medium", "long"] } },
 
+    /* ---- The day's conditions: the real game's ground, weather and season skills (the ○
+       tier, 90 points), which count only when their condition holds on race day (`need`,
+       read against Career.weatherOf). The going matters most races, so the two ground
+       skills are on offer to everyone; the weather and season ones come by hint. */
+    { id: "sk_firm", name: "Firm Conditions ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 power on firm ground.", stats: { power: 40 }, need: { ground: ["firm"] }, fit: {} },
+    { id: "sk_wet", name: "Wet Conditions ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 power on good, soft or heavy ground.", stats: { power: 40 }, need: { ground: ["good", "soft", "heavy"] }, fit: {} },
+    { id: "sk_sunny", name: "Sunny Days ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 guts in clear weather.", stats: { guts: 40 }, need: { weather: ["clear"] }, fit: { hint: true } },
+    { id: "sk_cloudy", name: "Cloudy Days ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 guts under cloud.", stats: { guts: 40 }, need: { weather: ["cloudy"] }, fit: { hint: true } },
+    { id: "sk_rainy", name: "Rainy Days ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 guts in the rain.", stats: { guts: 40 }, need: { weather: ["rain"] }, fit: { hint: true } },
+    { id: "sk_snowy", name: "Snowy Days ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 guts in the snow.", stats: { guts: 40 }, need: { weather: ["snow"] }, fit: { hint: true } },
+    { id: "sk_spring", name: "Spring Runner ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 speed in spring.", stats: { speed: 40 }, need: { season: ["spring"] }, fit: { hint: true } },
+    { id: "sk_summer", name: "Summer Runner ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 speed in summer.", stats: { speed: 40 }, need: { season: ["summer"] }, fit: { hint: true } },
+    { id: "sk_fall", name: "Fall Runner ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 speed in autumn.", stats: { speed: 40 }, need: { season: ["autumn"] }, fit: { hint: true } },
+    { id: "sk_winter", name: "Winter Runner ○", type: "passive", rarity: "normal", cost: 90,
+      text: "+40 speed in winter.", stats: { speed: 40 }, need: { season: ["winter"] }, fit: { hint: true } },
+
     // ---- Debuffs: aimed at whoever is directly in front
     { id: "sk_pressure", name: "Apply Pressure", type: "debuff", rarity: "normal", cost: 110,
       text: "Middle phase: makes the racer ahead work harder.",
@@ -205,6 +230,7 @@
   /** Does this skill suit her naturally? An empty `fit` suits everyone. */
   function suits(skill, state) {
     const f = skill.fit || {};
+    if (f.hint) return false;                    // only ever by hint
     if (!f.style && !f.dist && !f.surface) return true;
     if (f.style && f.style.indexOf(state.style) >= 0) return true;
     if (f.dist) {
@@ -320,13 +346,23 @@
     dirtPaceMul: 1, spirit: 0, biasMul: 1, ignoreTrafficFinal: false, secondWind: 0,
   });
 
-  function applyToDef(def, state) {
+  /** Whether race day meets a skill's `need` ({ ground, weather, season } lists), given
+      the day (`wx`, Career.weatherOf). With no day known, a conditional skill does not count. */
+  function meets(need, wx) {
+    if (!need) return true;
+    if (!wx) return false;
+    return ["ground", "weather", "season"].every(k => !need[k] || need[k].indexOf(wx[k]) >= 0);
+  }
+
+  /* `wx` is race day's weather, season and going, for the skills that only count on some. */
+  function applyToDef(def, state, wx) {
     const out = Object.assign({}, def);
     out.stats = Object.assign({}, def.stats);
     const mods = Object.assign(emptyMods(), def.mods || {});
     const timed = [];
 
     const apply = entry => {
+      if (entry.need && !meets(entry.need, wx)) return;
       if (entry.stats)
         for (const k in entry.stats)
           out.stats[k] = Math.max(1, (out.stats[k] || 0) + entry.stats[k]);
@@ -418,7 +454,7 @@
     return events;
   }
 
-  const api = { SKILLS, DETRIMENTS, TYPES, RARITY, byId, detrimentById,
+  const api = { SKILLS, DETRIMENTS, TYPES, RARITY, byId, detrimentById, meets,
                 HINT_STEP, HINT_MAX, emptyMods,
                 suits, isAvailable, costFor, shop, owned, heldDetriments, hintsOn, owns,
                 buy, clearDetriment, addHint, rollHint, rollDetriment,

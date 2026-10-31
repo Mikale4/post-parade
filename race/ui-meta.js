@@ -392,7 +392,7 @@
                   <div class="gc"><img src="assets/cards/${c.id}.png" alt="">
                     <b>${esc(c.ability)}</b><i>${c.cost}sp &middot; ${esc(c.kind)}</i></div>`).join("")}
               </div>
-              <button class="btn lg" id="starterGo">To the menu</button>
+              <button class="btn lg" id="starterGo">To the lobby</button>
             </div>
           </div>
         </div>
@@ -407,10 +407,6 @@
     const s = Stable.summary();
     const open = Stable.unlockedRacers().length;
     const isCard = scoutTab === "card";
-    const one = isCard ? Stable.COSTS.cardScout : Stable.COSTS.racerScout;
-    const ten = isCard ? Stable.COSTS.cardScout10 : Stable.COSTS.racerScout10;
-    const ticket = isCard ? "cardTicket" : "racerTicket";
-    const tickets = Stable.itemCount(ticket);
 
     el.innerHTML = `
       ${Bg.layer("scout")}
@@ -444,12 +440,10 @@
                 <p class="fine">${open} of ${s.rosterTotal} unlocked &middot; ${s.racers} owned. Duplicates feed her passives.</p>
               `}
               <div class="scout-actions">
-                <button class="btn lg" data-pull="1" ${Stable.carrots() < one ? "disabled" : ""}>
-                  <span>Scout &times;1</span><i>${Icon("carrot")}${num(one)}</i></button>
-                <button class="btn gold lg" data-pull="10" ${Stable.carrots() < ten ? "disabled" : ""}>
-                  <span>Scout &times;10</span><i>${Icon("carrot")}${num(ten)}</i></button>
-                ${tickets ? `<button class="btn blue" data-ticket="${ticket}">
-                  <span>Use a ticket</span><i>${Icon(isCard ? "ticket" : "pass")}${tickets} left</i></button>` : ""}
+                ${scoutBtn(isCard, 1, "carrots", "lg")}
+                ${scoutBtn(isCard, 10, "carrots", "gold lg")}
+                ${[1, 10].map(n => Stable.itemCount(Stable.SCOUT_ITEM[n])
+                  ? scoutBtn(isCard, n, "item", "blue") : "").join("")}
               </div>
             </div>
           </div>
@@ -461,161 +455,71 @@
     el.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
       scoutTab = b.dataset.tab; scoutBuild(el);
     });
-    el.querySelectorAll("[data-pull]").forEach(b => b.onclick = () => doScout(el, +b.dataset.pull));
-    const t = el.querySelector("[data-ticket]");
-    if (t) t.onclick = () => {
-      const res = Stable.useItem(t.dataset.ticket);
-      if (!res.ok) return notify(res.error);
-      Quests.record(scoutTab === "card" ? "scoutCard" : "scoutRacer");
-      renderPulls(el, res.results, res.refunded, 1);
-      refreshBar(el);
-    };
+    wireScoutBtns(el, el.querySelector(".scout-actions"));
   }
 
-  async function doScout(el, n) {
-    const isCard = scoutTab === "card";
-    const res = isCard ? Stable.pullCard(n) : Stable.pullRacer(n);
-    if (!res.ok) return notify(res.error);
-    Quests.record(isCard ? "scoutCard" : "scoutRacer", { n });
-    const unlocked = Quests.checkAwards();
+  /* Every scout button names what it spends -- carrots, a Scout Ticket or a Scout Pass --
+     and carries that in data-pay, which goes to Stable as it is. A free scout never turns
+     into a paid one: once the last Ticket is gone its button is rebuilt away, and a tap
+     that reaches a stale one is refused by Stable rather than charged in carrots. */
+  function scoutBtn(isCard, n, pay, cls, label) {
+    const item = Stable.SCOUT_ITEM[n];
+    const cost = isCard ? (n === 10 ? Stable.COSTS.cardScout10 : Stable.COSTS.cardScout)
+                        : (n === 10 ? Stable.COSTS.racerScout10 : Stable.COSTS.racerScout);
+    const left = Stable.itemCount(item);
+    const can = pay === "item" ? left > 0 : Stable.carrots() >= cost;
+    const what = pay === "item"
+      ? `${Icon(Stable.itemDef(item).icon)}<small>${n === 10 ? "Scout Pass" : "Scout Ticket"}</small>${left} left`
+      : `${Icon("carrot")}${num(cost)}`;
+    return `<button class="btn ${cls || ""}" data-pull="${n}" data-pay="${pay}" ${can ? "" : "disabled"}>
+      <span>${esc(label || "Scout")} &times;${n}</span><i>${what}</i></button>`;
+  }
 
-    await reveal(res.results, isCard);    // the pull itself
+  function wireScoutBtns(el, box) {
+    if (!box) return;
+    box.querySelectorAll("[data-pull]").forEach(b => b.onclick = () => {
+      if (scouting) return;
+      b.disabled = true;               // this tap is spoken for, whatever the next one hits
+      doScout(el, +b.dataset.pull, b.dataset.pay);
+    });
+  }
 
-    /* A racer joining outranks the summary, so it plays before it. Capped: a ten-pull
-       early on can bring several at once and four cutscenes back to back is a chore. */
-    if (!isCard) {
-      const joined = res.results.filter(r => r.isNew).slice(0, 3);
-      for (const r of joined) await joinCutscene(r);
+  /* One scout at a time. The reveal covers the screen at once, but a double tap can land
+     its second click before that, on a button the first one is about to rebuild. */
+  let scouting = false;
+
+  async function doScout(el, n, pay) {
+    if (scouting) return;
+    scouting = true;
+    try {
+      const isCard = scoutTab === "card", kind = isCard ? "card" : "racer";
+      /* A free scout goes through useItem, which tells the awards an item was spent. */
+      const res = pay === "item" ? Stable.useItem(Stable.SCOUT_ITEM[n], kind) : Stable.scout(kind, n, "carrots");
+      if (!res.ok) {
+        if (pay === "item") scoutBuild(el);    // the count it showed was stale; show the real one
+        return notify(res.error);
+      }
+      Quests.record(isCard ? "scoutCard" : "scoutRacer", { n, results: res.results });
+      const unlocked = Quests.checkAwards();
+      scoutBuild(el);                     // counts and costs change now, under the reveal
+
+      /* The pull itself, results grid and all. A racer joining is announced inside it, on
+         her own reveal, the way the real game gives a new trainee her moment. */
+      await ScoutFX.play(res.results, { kind: isCard ? "card" : "racer" });
+
+      renderPulls(el, res.results, res.refunded, n);
+      if (unlocked.length) toastAwards(unlocked);
+    } finally {
+      scouting = false;
     }
-
-    scoutBuild(el);                       // costs changed, so rebuild the screen
-    renderPulls(el, res.results, res.refunded, n);
-    if (unlocked.length) toastAwards(unlocked);
   }
 
   // ---------------------------------------------------------------- the reveal
-  /* A scout is the one moment in this game that is pure chance, and it was resolving as
-     a list quietly appearing under a button. This gives it a wind-up whose length and
-     brightness are set by the best thing in the pull, then reveals one at a time so a
-     good pull lands instead of arriving pre-spoiled in a grid. Skippable, because it is
-     watched dozens of times. */
+  /* The pull itself plays in scoutfx.js: the gate or the deal, the rarity hint, each
+     result in turn and, for a ten, the grid. Tiers here rank the summary under it. */
   const RANK = { C: 0, R: 1, E: 2 };
   const tierOf = (r, isCard) => isCard ? RANK[r.card.rarity] : (r.rarity - 1);
   const TIER = ["c", "r", "e"];
-
-  function reveal(results, isCard) {
-    return new Promise(resolve => {
-      const best = Math.max(...results.map(r => tierOf(r, isCard)));
-      const host = document.createElement("div");
-      host.className = "reveal t" + TIER[best];
-      host.innerHTML =
-        '<div class="rv-rays"></div>' +
-        '<div class="rv-orb"></div>' +
-        '<div class="rv-items"></div>' +
-        '<div class="rv-skip">click to skip</div>';
-      document.body.appendChild(host);
-
-      const items = host.querySelector(".rv-items");
-      const timers = [];
-      const at = (ms, fn) => timers.push(setTimeout(fn, ms));
-      let step = 0, killed = false;
-
-      const finish = () => {
-        if (killed) return;
-        killed = true;
-        timers.forEach(clearTimeout);
-        host.classList.add("gone");
-        setTimeout(() => host.remove(), 420);
-        resolve();
-      };
-      host.onclick = () => (step < 2 ? burst() : finish());
-
-      /* The wind-up is longer and brighter for a better pull, so the anticipation is
-         itself information -- a long charge means something good is coming. */
-      at(620 + best * 420, burst);
-
-      function burst() {
-        if (step >= 2 || killed) return;
-        step = 2;
-        timers.forEach(clearTimeout); timers.length = 0;
-        host.classList.add("burst");
-        FX.shake(best >= 2 ? 420 : 220, best >= 2 ? 9 : 4);
-        if (best >= 1) FX.confetti({ count: best >= 2 ? 160 : 70 });
-
-        const gap = results.length > 5 ? 185 : 300;
-        results.forEach((r, i) => {
-          const tier = tierOf(r, isCard);
-          at(160 + i * gap, () => {
-            if (killed) return;
-            const card = document.createElement("div");
-            card.className = "rv-card t" + TIER[tier] + (isCard ? " card" : " racer");
-            card.innerHTML = isCard ? revealCard(r) : revealRacer(r);
-            items.appendChild(card);
-            requestAnimationFrame(() => card.classList.add("in"));
-            if (tier >= 1) FX.sparkleOn(card, { count: tier >= 2 ? 22 : 10, spread: 60 });
-            if (tier >= 2) {
-              host.classList.add("flash");
-              setTimeout(() => host.classList.remove("flash"), 260);
-            }
-          });
-        });
-        at(160 + results.length * gap + 1500, finish);
-      }
-    });
-  }
-
-  const revealCard = r => `
-    <img src="assets/cards/${r.card.id}.png" alt="">
-    <b>${esc(r.card.ability)}</b>
-    <i>${r.card.rarity === "E" ? "EPIC" : r.card.rarity === "R" ? "RARE" : "COMMON"}
-       ${r.isNew ? "&middot; NEW" : "&middot; copy " + r.copies}</i>`;
-
-  const revealRacer = r => `
-    <img src="${art(r.def.sprite)}" alt="">
-    <b>${esc(r.def.name)}</b>
-    <span class="stars">${RARITY_STAR(r.rarity)}</span>
-    <i>${r.isNew ? "NEW RACER"
-        : r.passive ? "PASSIVE UNLOCKED"
-        : r.progress ? r.progress.have + " / " + r.progress.at + " to next passive"
-        : "+" + Icon("carrot") + " " + r.refund}</i>`;
-
-  /* A racer actually joining is the rarest thing that happens in this game, and it used
-     to be a small tile in a grid. Each new one gets her own moment. */
-  function joinCutscene(r) {
-    return new Promise(resolve => {
-      const el = document.createElement("div");
-      el.className = "joinc s" + r.rarity;
-      el.innerHTML =
-        '<div class="jc-rays"></div>' +
-        `<img class="jc-art" src="${art(r.def.sprite)}" alt="">` +
-        '<div class="jc-side">' +
-          '<div class="jc-kicker">Joins your stable</div>' +
-          `<div class="jc-name">${esc(r.def.name)}</div>` +
-          `<div class="jc-stars">${RARITY_STAR(r.rarity)}</div>` +
-          `<div class="jc-blurb">${esc(r.def.blurb || "")}</div>` +
-          '<div class="jc-apt">' +
-            ["sprint", "mile", "medium", "long", "turf", "dirt"].map(k =>
-              `<span class="apt g${r.def.aptitude[k]}">${k.slice(0, 4).toUpperCase()} ${r.def.aptitude[k]}</span>`).join("") +
-          '</div>' +
-        '</div>' +
-        '<div class="jc-skip">click to continue</div>';
-      document.body.appendChild(el);
-      requestAnimationFrame(() => el.classList.add("in"));
-      FX.confetti({ count: r.rarity >= 3 ? 170 : 90 });
-      FX.shake(r.rarity >= 3 ? 400 : 220, r.rarity >= 3 ? 8 : 4);
-
-      let done = false;
-      const close = () => {
-        if (done) return;
-        done = true;
-        clearTimeout(t);
-        el.classList.add("out");
-        setTimeout(() => { el.remove(); resolve(); }, 420);
-      };
-      el.onclick = close;
-      const t = setTimeout(close, 3400);
-    });
-  }
 
   /** Count a number up, so a payout reads as something arriving rather than just being. */
   function countUp(node, to, ms) {
@@ -629,6 +533,7 @@
   }
 
   function renderPulls(el, results, refunded, n) {
+    n = n === 10 ? 10 : 1;
     const out = el.querySelector("#scoutOut");
     if (!out) return;
     const isCard = !!(results[0] && results[0].card);
@@ -673,7 +578,8 @@
           ${ranked.map((r, i) => isCard ? cardPull(r, i) : racerPull(r, i)).join("")}
         </div>
         <div class="res-again">
-          <button class="btn" data-again="${n || 1}">Scout again</button>
+          ${scoutBtn(isCard, n, "carrots", "", "Again")}
+          ${Stable.itemCount(Stable.SCOUT_ITEM[n]) ? scoutBtn(isCard, n, "item", "blue", "Again") : ""}
         </div>
       </div>`;
 
@@ -691,8 +597,9 @@
         if (p.classList.contains("big")) FX.sparkleOn(p, { count: 10, spread: 40 });
       }, 60 * i));
 
-    const again = out.querySelector("[data-again]");
-    if (again) again.onclick = () => doScout(el, +again.dataset.again);
+    /* "Again" offers the same size both ways, carrots first so that button never moves:
+       when the last Ticket goes, its button goes with it and nothing slides into its place. */
+    wireScoutBtns(el, out.querySelector(".res-again"));
   }
 
   const cardPull = (r, i) => `
@@ -931,13 +838,28 @@
   }
 
   // ---------------------------------------------------------------- quests
-  let questTab = "quests";
+  /* Four boards on one notice board: the day's quests, the week's, the trainer tasks (first
+     steps, then the tiered chains by category) and the medal case. Each tab carries its own
+     count of rewards waiting, and Claim all takes only what is on the tab in front of you. */
+  let questTab = "daily";
 
   function questsBuild(el) {
-    const isQ = questTab === "quests";
-    const daily = Quests.daily(), weekly = Quests.weekly(), tasks = Quests.tasks();
-    const awards = Quests.awards();
-    const ready = Quests.claimable();
+    if (!["daily", "weekly", "tasks", "awards"].includes(questTab)) questTab = "daily";
+    const tab = questTab;
+    const waiting = Quests.claimableBy();
+    const sum = Quests.summary();
+    const ready = tab === "awards" ? 0 : waiting[tab];
+    const left = Quests.resets();
+    const badge = n => n ? `<span class="badge">${n}</span>` : "";
+    // a claim rebuilds the board: stay where you were on it, not back at the top
+    const prev = el.querySelector(".scr-wrap");
+    const keep = prev && el.dataset.qtab === tab ? prev.scrollTop : 0;
+
+    let body = "";
+    if (tab === "daily") body = questGroup("Daily", Quests.daily(), "Resets in " + untilText(left.day));
+    else if (tab === "weekly") body = questGroup("Weekly", Quests.weekly(), "Resets in " + untilText(left.week));
+    else if (tab === "tasks") body = tasksBoard();
+    else body = awardsBoard();
 
     el.innerHTML = `
       ${Bg.layer("quests")}
@@ -945,41 +867,37 @@
         ${resourceBar()}
         <div class="panel pop">
           <div class="panel-hd">${Icon("clipboard")}Quests &amp; awards</div>
-          <div class="scout-tabs">
-            <button class="tab ${isQ ? "sel" : ""}" data-qtab="quests">
-              Quests${ready ? `<span class="badge">${ready}</span>` : ""}</button>
-            <button class="tab ${!isQ ? "sel" : ""}" data-qtab="awards">
-              Awards <small>${awards.filter(a => a.unlocked).length}/${awards.length}</small></button>
+          <div class="scout-tabs quest-tabs">
+            <button class="tab ${tab === "daily" ? "sel" : ""}" data-qtab="daily">Daily${badge(waiting.daily)}</button>
+            <button class="tab ${tab === "weekly" ? "sel" : ""}" data-qtab="weekly">Weekly${badge(waiting.weekly)}</button>
+            <button class="tab ${tab === "tasks" ? "sel" : ""}" data-qtab="tasks">
+              Trainer tasks <small>${sum.tiersClaimed}/${sum.tiersTotal}</small>${badge(waiting.tasks)}</button>
+            <button class="tab ${tab === "awards" ? "sel" : ""}" data-qtab="awards">
+              Awards <small>${sum.awardsUnlocked}/${sum.awardsTotal}</small></button>
           </div>
           <div class="quest-body">
-            ${isQ ? `
-              ${ready ? `<button class="btn gold" id="claimAll">Claim all (${ready})</button>` : ""}
-              ${questGroup("Daily", daily)}
-              ${questGroup("Weekly", weekly)}
-              ${questGroup("Trainer tasks", tasks)}
-            ` : `
-              <div class="award-grid">
-                ${awards.map(a => `
-                  <div class="aw ${a.unlocked ? "on" : ""} t${a.tier}">
-                    <div class="aw-top"><b>${esc(a.name)}</b>
-                      <span class="tier">${esc(a.tier)}</span></div>
-                    <i>${esc(a.desc)}</i>
-                    ${a.need ? `<span class="pbar"><b style="width:${(a.pct * 100).toFixed(0)}%"></b></span>
-                       <small>${a.have} / ${a.need}</small>` : ""}
-                    <span class="rw">${rewardText(a.reward)}</span>
-                  </div>`).join("")}
-              </div>`}
+            ${ready ? `<button class="btn gold" id="claimAll">Claim all (${ready})</button>` : ""}
+            ${body}
           </div>
         </div>
       </div>`;
 
+    el.dataset.qtab = tab;
+    if (keep) el.querySelector(".scr-wrap").scrollTop = keep;
     wireResourceBar(el);
     el.querySelectorAll("[data-qtab]").forEach(b => b.onclick = () => {
       questTab = b.dataset.qtab; questsBuild(el);
     });
+    // the medal case's filters: a category, and what to show of it
+    el.querySelectorAll("[data-acat]").forEach(b => b.onclick = () => {
+      awardCat = b.dataset.acat; el.dataset.qtab = ""; questsBuild(el);
+    });
+    el.querySelectorAll("[data-ashow]").forEach(b => b.onclick = () => {
+      awardShow = b.dataset.ashow; questsBuild(el);
+    });
     const ca = el.querySelector("#claimAll");
     if (ca) ca.onclick = async () => {
-      const got = Quests.claimAll();
+      const got = Quests.claimAll(tab);
       questsBuild(el);
       /* Everything the player is given is shown to them. Claiming several at once is one
          box listing the lot rather than a stack of them. */
@@ -991,6 +909,8 @@
           reward: mergeRewards(got.map(g => g.quest && g.quest.reward)),
           big: got.length > 2,
         });
+        toastAwards([].concat(...got.map(g => g.awards || [])));
+        questsBuild(el);
       }
     };
     el.querySelectorAll("[data-claim]").forEach(b => b.onclick = async () => {
@@ -1001,13 +921,25 @@
       await reward({ kicker: "Claimed",
                      title: (r.quest || {}).name || "Reward",
                      reward: (r.quest || {}).reward });
+      if (r.awards && r.awards.length) { toastAwards(r.awards); questsBuild(el); }
     });
   }
 
-  const questGroup = (title, list) => `
-    <h4 class="qh">${title}</h4>
+  /** "5h 12m", "3d 4h": how long until a board comes back. */
+  function untilText(ms) {
+    const m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24);
+    return d ? `${d}d ${h % 24}h` : h ? `${h}h ${m % 60}m` : `${m}m`;
+  }
+
+  /* Waiting to be claimed first, then still to do, then what is already claimed: the board
+     is long, and the thing to act on should not be below the fold. */
+  const byUrgency = list => list.map((q, i) => ({ q, i, k: q.claimed ? 2 : q.done ? 0 : 1 }))
+    .sort((a, b) => a.k - b.k || a.i - b.i).map(x => x.q);
+
+  const questGroup = (title, list, note) => `
+    <h4 class="qh">${title}${note ? `<small>${esc(note)}</small>` : ""}</h4>
     <div class="quest-list">
-      ${list.map(q => `
+      ${byUrgency(list).map(q => `
         <div class="q ${q.done ? "done" : ""} ${q.claimed ? "claimed" : ""}">
           <div class="q-main">
             <b>${esc(q.name)}</b><i>${esc(q.desc)}</i>
@@ -1022,6 +954,116 @@
           </div>
         </div>`).join("")}
     </div>`;
+
+  /* Trainer tasks. First steps while any are left to claim, then every chain by category.
+     A chain is one card: its ladder of tiers (claimed in turf, reached and waiting in gold,
+     the one being worked on outlined), the target of that tier with a bar toward it, and
+     what it pays. Claim takes every tier it has reached at once. */
+  function tasksBoard() {
+    const first = Quests.first();
+    const firstLeft = first.some(q => !q.claimed);
+    const cats = Quests.trainer();
+    const card = (v, ladder) => {
+      const state = v.complete ? "complete" : v.ready ? "ready" : "";
+      return `
+        <div class="tk ${state}">
+          <div class="tk-hd"><b>${esc(v.name)}</b>${ladder ? `<span class="tk-of">${v.complete ? "Complete" : "Tier " + v.roman}</span>` : ""}</div>
+          <i>${esc(v.desc)}</i>
+          ${ladder ? `<div class="tk-steps">${v.steps.map(st => `<span class="${st.claimed ? "got" : st.reached ? "ready" : !v.complete && st.roman === v.roman ? "cur" : ""}"
+            title="${st.roman}: ${esc(st.desc)} ${esc(rewardPlain(st.reward))}">${st.roman}</span>`).join("")}</div>` : ""}
+          <span class="pbar"><b style="width:${(v.pct * 100).toFixed(0)}%"></b></span>
+          <div class="tk-ft">
+            <small>${num(v.have)} / ${num(v.need)}</small>
+            ${v.reward ? `<span class="rw">${rewardText(v.reward)}</span>` : ""}
+            ${v.ready ? `<button class="btn sm gold" data-claim="${v.id}">${v.ready > 1 ? `Claim ${v.ready} tiers` : "Claim"}</button>`
+              : v.claimedOne ? `<span class="done-tag">Claimed</span>` : ""}
+          </div>
+        </div>`;
+    };
+    // a first step reads like a one-tier chain
+    const step = q => card({ id: q.id, name: q.name, desc: q.desc, have: q.have, need: q.need, pct: q.pct,
+                             reward: q.claimed ? null : q.reward, ready: q.done && !q.claimed ? 1 : 0,
+                             complete: q.claimed, claimedOne: q.claimed }, false);
+    return `
+      ${firstLeft ? `
+        <h4 class="qh">First steps<small>${first.filter(q => q.claimed).length} / ${first.length}</small></h4>
+        <div class="tk-grid">${byUrgency(first).map(step).join("")}</div>` : ""}
+      ${cats.map(c => `
+        <h4 class="qh">${esc(c.name)}<small>${c.claimed} / ${c.total} tiers</small></h4>
+        <div class="tk-grid">${c.chains.map(v => card(v, true)).join("")}</div>`).join("")}`;
+  }
+
+  /* The medal case: ~200 awards, so it has a category row (each with its count and a bar)
+     and a To earn / Earned switch. Champions are laid out by racer, her URA Finale and
+     Dream Trophy side by side, since that is how anyone looks for them. Secrets read "???"
+     with a hint until they are earned. */
+  let awardCat = "all", awardShow = "all";
+  function awardsBoard() {
+    const all = Quests.awards(), cats = Quests.AWARD_CATS;
+    const done = list => list.filter(a => a.unlocked).length;
+    const keep = a => awardShow === "all" || (awardShow === "done" ? a.unlocked : !a.unlocked);
+    if (awardCat !== "all" && !cats.some(c => c.id === awardCat)) awardCat = "all";
+    const catBtn = (id, name, list) => `
+      <button class="${awardCat === id ? "sel" : ""}" data-acat="${id}">${esc(name)}
+        <small>${done(list)} / ${list.length}</small>
+        <i><b style="width:${list.length ? (done(list) / list.length * 100).toFixed(0) : 0}%"></b></i></button>`;
+    const card = a => a.hidden ? `
+      <div class="aw secret t${a.tier}">
+        <div class="aw-top"><b>???</b><span class="tier">${esc(a.tier)}</span></div>
+        <i>${esc(a.hint || "A secret.")}</i>
+        <span class="rw">${rewardText(a.reward)}</span>
+      </div>` : `
+      <div class="aw ${a.unlocked ? "on" : ""} t${a.tier}">
+        <div class="aw-top"><b>${esc(a.name)}</b>
+          <span class="tier">${esc(a.tier)}</span></div>
+        <i>${esc(a.desc)}</i>
+        ${a.need && !a.unlocked ? `<span class="pbar"><b style="width:${(a.pct * 100).toFixed(0)}%"></b></span>
+           <small>${num(a.have)} / ${num(a.need)}</small>` : ""}
+        <span class="rw">${rewardText(a.reward)}</span>
+      </div>`;
+    // a racer's two titles on one tile
+    const champs = list => {
+      const by = {};
+      for (const a of list) if (a.racer) (by[a.racer] = by[a.racer] || {})[a.scn] = a;
+      const mark = (a, label, cls) => a ? `<span class="champ-m ${cls}${a.unlocked ? " on" : ""}"
+        title="${esc(a.desc)} ${esc(rewardPlain(a.reward))}">${label}</span>` : "";
+      const tiles = Object.keys(by).filter(id => keep(by[id].ura || {}) || keep(by[id].dream || {})).map(id => {
+        const d = Stable.defOf(id) || { name: id, color: "#9aa2b4" };
+        return `<div class="champ"><i class="sw" style="background:${d.color || "#9aa2b4"}"></i><b>${esc(d.name)}</b>
+          ${mark(by[id].ura, "URA", "ura")}${mark(by[id].dream, "Dream", "dream")}</div>`;
+      });
+      return tiles.length ? `<div class="champ-grid">${tiles.join("")}</div>` : "";
+    };
+    const section = (c, heading) => {
+      const list = all.filter(a => a.cat === c.id);
+      const plain = list.filter(a => !a.racer && keep(a));
+      const body = (plain.length ? `<div class="award-grid">${plain.map(card).join("")}</div>` : "") +
+                   (c.id === "champions" ? champs(list) : "");
+      if (!body) return heading ? "" : `<p class="aw-none">Nothing here${awardShow === "done" ? " earned yet" : " left to earn"}.</p>`;
+      return (heading ? `<h4 class="qh">${esc(c.name)}<small>${done(list)} / ${list.length}</small></h4>` : "") + body;
+    };
+    return `
+      <div class="aw-bar">
+        <div class="aw-total"><b>${num(done(all))}</b><small>/ ${num(all.length)} Awards</small>
+          <span class="pbar"><b style="width:${(done(all) / all.length * 100).toFixed(1)}%"></b></span></div>
+        <div class="seg">${[["all", "All"], ["todo", "To earn"], ["done", "Earned"]].map(([k, l]) =>
+          `<button class="${awardShow === k ? "sel" : ""}" data-ashow="${k}">${l}</button>`).join("")}</div>
+      </div>
+      <div class="aw-cats">${catBtn("all", "All", all)}${cats.map(c => catBtn(c.id, c.name, all.filter(a => a.cat === c.id))).join("")}</div>
+      ${awardCat === "all" ? cats.map(c => section(c, true)).join("") : section(cats.find(c => c.id === awardCat), false)}`;
+  }
+
+  /** A reward as plain words, for a tooltip. */
+  function rewardPlain(r) {
+    if (!r) return "";
+    const bits = [];
+    if (r.carrots) bits.push(num(r.carrots) + " carrots");
+    for (const id in r.items || {}) {
+      const d = Stable.itemDef(id);
+      bits.push((d ? d.name : id) + (r.items[id] > 1 ? " ×" + r.items[id] : ""));
+    }
+    return bits.length ? "— " + bits.join(", ") : "";
+  }
 
   function rewardText(r) {
     if (!r) return "";
@@ -1132,18 +1174,22 @@
   function toastAwards(list) {
     if (!list || !list.length) return;
     FX.confetti({ count: 70 });
-    for (let i = 0; i < list.length; i++) {
-      const a = list[i].award;
-      setTimeout(() => {
-        const t = document.createElement("div");
-        t.className = "awtoast";
-        t.innerHTML = `<b>Award unlocked</b><span>${esc(a.name)}</span>
-                       <i>${rewardText(a.reward)}</i>`;
-        document.body.appendChild(t);
-        setTimeout(() => t.classList.add("in"), 20);
-        setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 400); }, 3200);
-      }, i * 400);
-    }
+    /* A returning trainer can earn a dozen at once (the medal case grew): three by name,
+       then one notice for the rest, rather than a stack of toasts for a minute. */
+    const named = list.length > 4 ? list.slice(0, 3) : list;
+    const toasts = named.map(x => `<b>Award unlocked</b><span>${esc(x.award.name)}</span>
+                                   <i>${rewardText(x.award.reward)}</i>`);
+    if (list.length > named.length)
+      toasts.push(`<b>Awards unlocked</b><span>${list.length - named.length} more</span>
+                   <i>Every one is in Quests, under Awards.</i>`);
+    toasts.forEach((html, i) => setTimeout(() => {
+      const t = document.createElement("div");
+      t.className = "awtoast";
+      t.innerHTML = html;
+      document.body.appendChild(t);
+      setTimeout(() => t.classList.add("in"), 20);
+      setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 400); }, 3200);
+    }, i * 900));
   }
 
   /**
@@ -1163,7 +1209,10 @@
         .concat(heard.map(t => ({ value: t.file, label: t.title, note: t.where, sel: t.file === J.picked }))),
       cancel: "Close",
     });
-    if (v !== null && v !== J.picked) Settings.set("jukebox", v);
+    if (v !== null && v !== J.picked) {
+      Settings.set("jukebox", v);
+      if (root.Quests) toastAwards(Quests.record("jukebox").awards);     // an award for asking
+    }
   }
 
   const api = { ask, prompt, choose, jukebox, info, wireInfo, reward, notify, countUp, resourceBar, wireResourceBar, refreshBar, rewardText, toastAwards, art, aptGrid,

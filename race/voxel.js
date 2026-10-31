@@ -861,6 +861,34 @@
   let attract = false;
   const camName = () => attract ? "Auto" : CAMS[camMode];
 
+  /* A phone (a touch screen, or few cores) starts on a smaller budget: fewer pixels and a
+     coarser shadow map. Then the governor watches the frames; if they keep running long it
+     steps the budget down, one notch each time, and never back up -- a picture that keeps
+     sharpening and blurring is worse than one that is a little soft. (lobby.js has the same.) */
+  const LOW_POWER = !!(root.matchMedia && matchMedia("(pointer:coarse)").matches) || (navigator.hardwareConcurrency || 8) <= 4;
+  const gov = { level: 0, slow: 0, t: 0 };
+  /* What applySeason restyles: the sky dome, the ground, the trees (set by buildWorld). */
+  const SCENERY = { sky: null, far: null, ground: null, trees: [], season: undefined, weather: undefined };
+  function budget() {
+    renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, [LOW_POWER ? 1.25 : 1.75, 1, 1, 0.8][gov.level]));
+    const size = gov.level >= 2 ? 1024 : LOW_POWER ? 1536 : 2048;
+    if (sun && sun.shadow.mapSize.x !== size) {
+      sun.shadow.mapSize.set(size, size);
+      if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+    }
+  }
+  function govern(dt, w, h) {
+    if (!dt || document.hidden || gov.level >= 3) return;
+    // the share of recent frames slower than 24 a second: not 30, which is where a phone on
+    // battery saver holds every page however little it draws
+    gov.slow += ((dt > 1 / 24 ? 1 : 0) - gov.slow) * 0.05;
+    gov.t += dt;
+    if (gov.t < 2.5 || gov.slow < 0.5) return;
+    gov.level++; gov.t = 0; gov.slow = 0;
+    budget();
+    renderer.setSize(w, h, false);
+  }
+
   function ensureRenderer(stage) {
     if (renderer) {
       if (renderer.domElement.parentNode !== stage) stage.insertBefore(renderer.domElement, stage.firstChild);
@@ -870,7 +898,6 @@
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     } catch (e) { renderer = null; return false; }
-    renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, 1.75));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.setClearColor(0xa8d0ee);
@@ -884,7 +911,7 @@
     scene.add(hemi);
     sun = new THREE.DirectionalLight(0xfff2da, 0.7);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    budget();
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.04;
     const sc = sun.shadow.camera; sc.near = 60; sc.far = 260;
@@ -899,7 +926,8 @@
      them -- one InstancedMesh around the whole oval would always be "in view". */
   function addInstanced(parent, geo, mat, items, opts) {
     opts = opts || {};
-    if (!items.length) return;
+    const made = [];                    // the meshes, for anything that swaps their geometry later (the seasons)
+    if (!items.length) return made;
     const CH = opts.chunk || 64, buckets = new Map();
     for (const it of items) {
       const k = Math.floor(it.x / CH) + "," + Math.floor(it.z / CH);
@@ -924,7 +952,9 @@
       });
       im.castShadow = opts.shadow !== false; im.receiveShadow = opts.receive !== false;
       parent.add(im);
+      made.push(im);
     }
+    return made;
   }
 
   function cheerMaterial() {
@@ -1021,22 +1051,50 @@
     return out;
   }
 
-  function tree(kind, seed) {
+  /* Trees: 0 a broadleaf, 1 a conifer, 2 a cherry. `season` dresses them for the time of
+     year (applySeason): fresh green and blossom in spring, deep green in summer, red and
+     gold in autumn, bare branches with snow on them in winter -- the conifer keeps its
+     needles and only takes the snow. No season is the look the course always had. */
+  const LEAVES = {
+    null:   [0x4a9a3e, 0x2f6e3a, 0xf2a6c4],
+    spring: [0x6ab84a, 0x356f3a, 0xf6b8cc],
+    summer: [0x3f8a36, 0x2a6232, 0x3f8a36],
+    autumn: [0xd8762a, 0x3a6a36, 0xc8402a],
+  };
+  const AUTUMN = [0xd8762a, 0xc8402a, 0xe8b23a, 0xb85a22];
+  function tree(kind, seed, season) {
     const R = mulberry32(seed), v = new Vox();
-    const trunk = 0x7a5232, leaves = kind === 1 ? 0x2f6e3a : kind === 2 ? 0xf2a6c4 : 0x4a9a3e;
+    const trunk = 0x7a5232, SNOW = 0xf2f6fa;
+    const winter = season === "winter";
+    const leaves = (LEAVES[season] || LEAVES.null)[kind];
     const h = kind === 1 ? 4 : 3 + Math.floor(R() * 3);
     v.box(0, 0, 0, 0, h, 0, trunk);
     if (kind === 1) {                                     // conifer: stacked tiers
       for (let t = 0; t < 4; t++) {
         const r = 3 - t * 0.7, y = h - 1 + t * 2;
         for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (let dy = 0; dy < 2; dy++)
-          if (x * x + z * z <= r * r) v.set(x, y + dy, z, jit(leaves, R, 0.1));
+          if (x * x + z * z <= r * r) v.set(x, y + dy, z, winter && dy === 1 && R() < 0.75 ? SNOW : jit(leaves || 0x2f6e3a, R, 0.1));
       }
+    } else if (winter) {                                  // bare: a few branches, snow along the tops
+      const cy = h + 1;
+      v.box(0, h, 0, 0, h + 3, 0, trunk);
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) {
+        const len = 2 + Math.floor(R() * 2), y0 = cy + Math.floor(R() * 2);
+        for (let i = 1; i <= len; i++) {
+          v.set(dx * i, y0 + Math.floor(i / 2), dz * i, trunk);
+          if (R() < 0.6) v.set(dx * i, y0 + Math.floor(i / 2) + 1, dz * i, SNOW);
+        }
+      }
+      v.set(0, h + 4, 0, SNOW);
     } else {
       const r = 2.6 + R() * 1.2, cy = h + 2;
       for (let x = -4; x <= 4; x++) for (let y = -3; y <= 4; y++) for (let z = -4; z <= 4; z++) {
         const d = (x * x + (y * 1.2) * (y * 1.2) + z * z);
-        if (d <= r * r) v.set(x, cy + y, z, jit(y > 1 ? mixC(leaves, 0xffffff, 0.12) : leaves, R, 0.12));
+        if (d > r * r) continue;
+        // autumn: every leaf its own red or gold; otherwise lighter toward the top
+        const c = season === "autumn" && kind !== 1 ? AUTUMN[Math.floor(R() * AUTUMN.length)]
+                : (y > 1 ? mixC(leaves, 0xffffff, 0.12) : leaves);
+        v.set(x, cy + y, z, jit(c, R, 0.12));
       }
     }
     return meshVox(v, 0.5);
@@ -1073,15 +1131,16 @@
       sc.push(c.r, c.g, c.b);
     }
     sky.setAttribute("color", new THREE.Float32BufferAttribute(sc, 3));
-    world.add(new THREE.Mesh(sky, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })));
+    SCENERY.sky = new THREE.Mesh(sky, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+    world.add(SCENERY.sky);
 
     // ground: the painted course, and plain country beyond it
     const far = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000).rotateX(-Math.PI / 2),
       new THREE.MeshLambertMaterial({ color: 0x5c9a3e }));
-    far.position.y = -1.2; world.add(far);
+    far.position.y = -1.2; world.add(far); SCENERY.far = far;
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(1024, 512).rotateX(-Math.PI / 2),
       new THREE.MeshLambertMaterial({ map: buildGroundTexture() }));
-    ground.receiveShadow = true; world.add(ground);
+    ground.receiveShadow = true; world.add(ground); SCENERY.ground = ground;
     const water = new THREE.Mesh(new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2),
       new THREE.MeshLambertMaterial({ color: 0x5aa0e0, transparent: true, opacity: 0.55 }));
     water.scale.set(POND.rx * 0.93, 1, POND.rz * 0.93); water.position.set(POND.x, 0.05, POND.z);
@@ -1136,7 +1195,9 @@
       const kind = dD < 0 ? (rnd() < 0.45 ? 2 : 0) : (rnd() < 0.5 ? 1 : 0);
       treeItems[kind * 2 + Math.floor(rnd() * 2)].push({ x, z, yaw: Math.floor(rnd() * 4) * Math.PI / 2, s: 0.9 + rnd() * 0.5 });
     }
-    treeItems.forEach((list, i) => addInstanced(world, kinds[i >> 1][i & 1], M.vox, list, { chunk: 160, cy: 4 }));
+    // kept by kind and variant, so applySeason can dress them for the time of year
+    SCENERY.trees = treeItems.map((list, i) => ({ kind: i >> 1, variant: i & 1,
+      meshes: addInstanced(world, kinds[i >> 1][i & 1], M.vox, list, { chunk: 160, cy: 4 }) }));
 
     /* Distant hills: a terraced landscape of 40m blocks rising toward the horizon, heights
        smooth from one block to the next so it reads as country rather than a skyline.
@@ -1755,8 +1816,128 @@
   }
 
   // ---------------------------------------------------------------- per race
+  // ---------------------------------------------------------------- seasons and weather
+  /* A career race is run in its turn's season and weather (Career.weatherOf, carried on
+     G.career.weather). The course dresses for it -- the trees (see tree), the grass, the
+     sky, the fog and the light -- and the weather falls around the camera: rain, snow,
+     sakura petals in spring, leaves in autumn. Anything else (exhibitions, the title race,
+     the tutorials) keeps the course's own look. */
+  const SKY = {                                          // [horizon, overhead]
+    clear:  [0xd4e8f6, 0x5a9ae0],
+    cloudy: [0xc6ced6, 0x8894a2],
+    rain:   [0x9aa3ac, 0x58626c],
+    snow:   [0xdde4ec, 0xa6b2c0],
+  };
+  const SEASON_SKY = { autumn: [0xe6dfd0, 0x5c96d6], winter: [0xdbe6f0, 0x6c9ed4] };   // clear days
+  const FOG_AT = { clear: [260, 1500], cloudy: [220, 1200], rain: [120, 700], snow: [90, 620] };
+  const SUN_I = { clear: 0.7, cloudy: 0.38, rain: 0.28, snow: 0.34 };
+  const HEMI_I = { clear: 0.55, cloudy: 0.62, rain: 0.56, snow: 0.72 };
+  const SUN_C = { null: 0xfff2da, spring: 0xfff2da, summer: 0xfff6e2, autumn: 0xffe2b8, winter: 0xeef2ff };
+  // the country beyond the rails, and a tint over the course's own painted grass
+  const FAR_C = { null: 0x5c9a3e, spring: 0x62a242, summer: 0x4f9236, autumn: 0x8a9646, winter: 0x948f62 };
+  const GRASS_TINT = { null: 0xffffff, spring: 0xffffff, summer: 0xf4fbea, autumn: 0xf2ecd2, winter: 0xe4dcc0 };
+  const seasonTrees = {};
+
+  function applySeason(w) {
+    if (!SCENERY.sky) return;
+    const season = w ? w.season : null, weather = w ? w.weather : "clear";
+    if (SCENERY.season === season && SCENERY.weather === weather) return setWeatherFx(wxKindOf(w));
+    if (SCENERY.season !== season) {
+      const key = String(season);
+      if (!seasonTrees[key]) seasonTrees[key] = [0, 1, 2].map(k => [0, 1].map(s => tree(k, k * 31 + s * 7 + 3, season)));
+      for (const t of SCENERY.trees) {
+        if (!t.meshes.length) continue;
+        // one geometry per kind, shared by its chunks as addInstanced shares it, keeping their bounds
+        const old = t.meshes[0].geometry, g = seasonTrees[key][t.kind][t.variant].clone();
+        g.boundingSphere = old.boundingSphere;
+        for (const im of t.meshes) im.geometry = g;
+        old.dispose();
+      }
+    }
+    // the sky dome, and the fog and clear colour to match its horizon
+    const [lo, hi] = (weather === "clear" && SEASON_SKY[season]) || SKY[weather] || SKY.clear;
+    const pos = SCENERY.sky.geometry.attributes.position, col = SCENERY.sky.geometry.attributes.color, c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      c.setHex(mixC(lo, hi, Math.pow(clamp(pos.getY(i) / 3000, 0, 1), 0.6)));
+      col.setXYZ(i, c.r, c.g, c.b);
+    }
+    col.needsUpdate = true;
+    if (w) { scene.fog.color.setHex(lo); renderer.setClearColor(lo); }
+    else { scene.fog.color.setHex(0xcfe2f0); renderer.setClearColor(0xa8d0ee); }    // the course's own
+    [scene.fog.near, scene.fog.far] = FOG_AT[weather] || FOG_AT.clear;
+    // the light: weaker and greyer under cloud, warm in autumn, cool in winter
+    sun.intensity = SUN_I[weather]; sun.color.setHex(SUN_C[season]);
+    hemi.intensity = HEMI_I[weather]; hemi.color.setHex(weather === "clear" ? 0xeef6ff : 0xdde3ea);
+    // the grass: dormant and straw-coloured in winter, darker in the wet, white under snow
+    SCENERY.far.material.color.setHex(weather === "snow" ? 0xe8eef2 : FAR_C[season]);
+    SCENERY.ground.material.color.setHex(weather === "rain" ? mixC(GRASS_TINT[season], 0x8a96a0, 0.35)
+                                        : weather === "snow" ? 0xc8ced4 : GRASS_TINT[season]);
+    // under snow the painted grass is lifted toward white: a tint alone can only darken it
+    SCENERY.ground.material.emissive.setHex(weather === "snow" ? 0x7a8088 : 0x000000);
+    SCENERY.season = season; SCENERY.weather = weather;
+    setWeatherFx(wxKindOf(w));
+  }
+
+  /* What falls: the weather first, then the season's own. Square, like everything else. */
+  const WX_KIND = {
+    rain:   { n: 700, s: [0.025, 0.75, 0.025], v: [-1.2, -22, -0.4], jit: 1.5, c: [0xc8d4e2, 0xaab8c8] },
+    snow:   { n: 520, s: [0.16, 0.16, 0.16], v: [0, -1.6, 0], jit: 0.6, wob: 0.8, c: [0xffffff, 0xf4f8fc] },
+    petals: { n: 240, s: [0.2, 0.03, 0.15], v: [0.6, -1.0, 0.3], jit: 0.4, wob: 1.0, spin: true, c: [0xf6b8cc, 0xf2a2bc, 0xfbd2de] },
+    leaves: { n: 200, s: [0.22, 0.03, 0.16], v: [0, -1.6, 0], jit: 0.6, wob: 1.2, spin: true, c: AUTUMN },
+  };
+  const wxKindOf = w => !w ? null : w.weather === "rain" ? "rain" : w.weather === "snow" ? "snow"
+                      : w.season === "spring" ? "petals" : w.season === "autumn" ? "leaves" : null;
+  const WX_BOX = { x: 40, y: 22, z: 40 };                // the box round the camera they fall in
+  const WX = { mesh: null, parts: [], kind: null, n: 0, K: null };
+  function setWeatherFx(kind) {
+    if (WX.kind === kind && (!kind || WX.mesh)) return;
+    WX.kind = kind;
+    if (WX.mesh) WX.mesh.visible = false;
+    if (!kind || !scene) return;
+    const K = WX_KIND[kind];
+    let n = K.n;
+    if (LOW_POWER) n = Math.round(n * 0.5);              // a phone, or a small CPU
+    if (gov.level >= 2) n = Math.round(n * 0.5);         // and again if the frames are struggling
+    if (!WX.mesh) {
+      WX.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), 700);
+      WX.mesh.frustumCulled = false; WX.mesh.castShadow = false; WX.mesh.receiveShadow = false;
+      scene.add(WX.mesh);
+    }
+    const cam = camera.position, c = new THREE.Color(), R = (a, b) => a + Math.random() * (b - a);
+    WX.parts = [];
+    for (let i = 0; i < n; i++) {
+      WX.parts.push({ x: cam.x + R(-0.5, 0.5) * WX_BOX.x, y: Math.max(0, cam.y) + R(0, WX_BOX.y), z: cam.z + R(-0.5, 0.5) * WX_BOX.z,
+                      vx: K.v[0] + R(-0.5, 0.5) * K.jit, vy: K.v[1] * R(0.8, 1.2), vz: K.v[2] + R(-0.5, 0.5) * K.jit,
+                      ph: R(0, 6.28), a: R(0, 6.28), va: K.spin ? R(-2.5, 2.5) : 0 });
+      WX.mesh.setColorAt(i, c.setHex(K.c[i % K.c.length]));
+    }
+    WX.mesh.instanceColor.needsUpdate = true;
+    WX.mesh.count = n; WX.n = n; WX.K = K; WX.mesh.visible = true;
+  }
+  const wxM = new THREE.Matrix4(), wxQ = new THREE.Quaternion(), wxE = new THREE.Euler(),
+        wxS = new THREE.Vector3(), wxP = new THREE.Vector3();
+  function stepWeather(dt) {
+    if (!WX.kind || !WX.mesh || !WX.mesh.visible) return;
+    const K = WX.K, cam = camera.position, hx = WX_BOX.x / 2, hz = WX_BOX.z / 2, floor = Math.max(0, cam.y - WX_BOX.y / 2);
+    for (let i = 0; i < WX.n; i++) {
+      const p = WX.parts[i];
+      p.ph += dt; p.a += p.va * dt;
+      p.x += (p.vx + (K.wob ? Math.sin(p.ph * 1.3) * K.wob : 0)) * dt;
+      p.y += p.vy * dt;
+      p.z += (p.vz + (K.wob ? Math.cos(p.ph) * K.wob * 0.6 : 0)) * dt;
+      // what drifts out of the box round the camera comes back in the other side
+      if (p.x < cam.x - hx) p.x += WX_BOX.x; else if (p.x > cam.x + hx) p.x -= WX_BOX.x;
+      if (p.z < cam.z - hz) p.z += WX_BOX.z; else if (p.z > cam.z + hz) p.z -= WX_BOX.z;
+      if (p.y < floor) p.y += WX_BOX.y; else if (p.y > floor + WX_BOX.y) p.y -= WX_BOX.y;
+      if (K.spin) wxQ.setFromEuler(wxE.set(p.a, p.a * 0.7, p.a * 0.4)); else wxQ.identity();
+      WX.mesh.setMatrixAt(i, wxM.compose(wxP.set(p.x, p.y, p.z), wxQ, wxS.set(K.s[0], K.s[1], K.s[2])));
+    }
+    WX.mesh.instanceMatrix.needsUpdate = true;
+  }
+
   function setupRace(stage, G, opts) {
     if (!ensureRenderer(stage)) return false;
+    applySeason(!(opts && opts.attract) && G.career && G.career.weather ? G.career.weather : null);
     attract = !!(opts && opts.attract);
     for (const { m } of racers.values()) raceGroup.remove(m.root);
     racers = new Map();
@@ -2294,6 +2475,7 @@
 
     const wallDt = lastWall ? clamp((now - lastWall) / 1000, 0, 0.1) : 0;
     lastWall = now;
+    govern(wallDt, w, h);
     // a signature cutscene has the screen; the race is held underneath it
     if (inCut()) {
       if (!G.paused) stepCut(wallDt, now);
@@ -2362,6 +2544,7 @@
     }
     if (ring) ring.rotation.y = t * 1.4;
     if (live) fx.step(wallDt);
+    if (live) stepWeather(wallDt);
 
     /* How fast it should FEEL, 0..1, for the speed lines index.html draws round the edge
        of the screen: top speed in the final phase, a spurt, her signature. Close shots
@@ -2675,11 +2858,11 @@
      their moment, staged the way the anime stages its great duels (Tamamo and Oguri,
      Tachyon and Jungle Pocket): out of the race into an image space of their own, the sky
      split between their two colours with a seam of light where they meet. The music drops
-     away (index.html). Side by side in slow motion, a spark is struck between their eyes;
-     then in close on each in turn as she sizes the other up and tells herself how she will
-     beat her (index.html lays the words over); then the clash, both signatures going off at
-     once. In the final third it is the Zone: the sky darkens, light streams back from
-     their eyes the whole way, a flash goes off (index.html), and the clash brings out
+     away (index.html). Side by side in slow motion, a spark is struck in the gap between
+     them; then in close on each in turn as she sizes the other up and tells herself how she
+     will beat her (index.html lays the words over); then the clash, both signatures going
+     off at once. In the final third it is the Zone: the sky darkens, light streams back
+     off their shoulders the whole way, a flash goes off (index.html), and the clash brings out
      three of its effects -- each racer's own where she has one (Oguri's grey smoke, Rice's
      blue flame, Tachyon's numbers...), the rest at random, so no two are alike. Two
      others' rivalry is the short cut: the spark and the clash. */
@@ -2770,7 +2953,9 @@
     sparks(A, dt, e, eyes) {                          // the spark between them, and sparks falling from it
       const mx = (eyes[0].x + eyes[1].x) / 2, my = (eyes[0].y + eyes[1].y) / 2, n = Math.ceil(dt * 160);
       for (let i = 0; i < n; i++) {
-        const k = Math.random(), j = (Math.random() - 0.5) * 0.06;
+        /* The middle of the gap only: drawn the whole way from face to face, its ends sat
+           on their noses (the eyes of a voxel face are right above them). */
+        const k = 0.3 + Math.random() * 0.4, j = (Math.random() - 0.5) * 0.06;
         cut.fx.emit({ x: lerp(eyes[0].x, eyes[1].x, k), y: lerp(eyes[0].y, eyes[1].y, k) + j, z: 0.35 + j, life: 0.12,
                       size: 0.035, glow: true, c: k < 0.5 ? A.T[0][2] : A.T[1][2] });
       }
@@ -2821,10 +3006,10 @@
                       c: s < 0 ? A.T[0][2] : A.T[1][2], shape: SHAPE.streak, stretch: 7 });
       }
     },
-    smoke(A, dt, e, eyes) {                           // grey smoke off them, the phantom kind, and out of their eyes
+    smoke(A, dt, e, eyes) {                           // grey smoke off them, the phantom kind (off the body: from the face it sat on her nose)
       for (let i = 0, n = Math.ceil(dt * 50); i < n; i++) {
-        const j = i & 1, P = A.P[j], fromEye = Math.random() < 0.35;
-        cut.fx.emit({ x: fromEye ? eyes[j].x : P.x + R(-0.3, 0.3), y: fromEye ? eyes[j].y : R(0.2, 1.4), z: fromEye ? eyes[j].z : R(-0.2, 0.2),
+        const j = i & 1, P = A.P[j];
+        cut.fx.emit({ x: P.x + R(-0.3, 0.3), y: R(0.2, 1.4), z: R(-0.35, -0.1),
                       vx: R(-0.3, 0.3), vy: R(0.2, 0.8), vz: -R(2, 4), life: R(0.6, 1), size: R(0.08, 0.14), grow: 2,
                       c: Math.random() < 0.5 ? 0x9a9aa8 : 0xd8d8e2 });
       }
@@ -2869,8 +3054,6 @@
         cam.position.set(hx + s * (1.45 - k * 0.25), 1.5, 1.9 - k * 0.3);       // head and shoulders, pushing in
         cam.up.set(-0.07 * s, 1, 0).normalize();
         cam.lookAt(hx + s * 0.1, eyes[j].y - 0.12, 0); cam.fov = 36;
-        if (Math.random() < dt * 30) cut.fx.emit({ x: eyes[j].x + s * 0.03, y: eyes[j].y, z: eyes[j].z, vz: -R(0.5, 1.2), life: 0.5,
-                                                   size: 0.03, glow: true, c: WHITE });          // a glint in her eye
         break;
       }
       default: {                           // the clash: pulled back, both coming at the lens, everything at once
@@ -2885,10 +3068,13 @@
         for (const s of A.styles) CLASH[s](A, dt, e, eyes);
       }
     }
-    // the Zone: light streaming back from their eyes the whole way through
-    if (A.final) for (const p of eyes) if (Math.random() < dt * 60)
-      cut.fx.emit({ x: p.x, y: p.y, z: p.z, vz: -R(2.5, 4), vy: R(-0.1, 0.1), life: 0.45, size: 0.035, glow: true,
-                    c: p === eyes[0] ? A.T[0][2] : A.T[1][2], shape: SHAPE.streak, stretch: 4 });
+    /* The Zone: light streaming back off their shoulders the whole way through. (It used to
+       stream from their eyes, which on a voxel face put it on her nose.) */
+    if (A.final) A.P.forEach((P, j) => {
+      if (Math.random() < dt * 60)
+        cut.fx.emit({ x: P.x + R(-0.32, 0.32), y: R(1.05, 1.5), z: -0.25, vz: -R(2.5, 4), vy: R(-0.1, 0.1), life: 0.45,
+                      size: 0.035, glow: true, c: A.T[j][2], shape: SHAPE.streak, stretch: 4 });
+    });
     if (i !== A.shot) A.shot = i;
     cam.aspect = camera.aspect;
     cam.updateProjectionMatrix();
@@ -3021,7 +3207,7 @@
 
   root.Voxel = {
     ok: true, bustHTML,
-    setupRace, render, project, sayingOf, ears, signature, cycleCamera, startIntro, endIntro, playCut, playRival, endCut, inCut,
+    setupRace, applySeason, render, project, sayingOf, ears, signature, cycleCamera, startIntro, endIntro, playCut, playRival, endCut, inCut,
     cameraName: () => CAMS[camMode],
     speedFeel: () => feel,
     LOOKS, lookFor, SIG, makeFx,

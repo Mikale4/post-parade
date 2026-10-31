@@ -1,7 +1,7 @@
 /*
  * The home screen: Tracen Academy, in voxels, to walk around in.
  *
- * Five rooms. The main hall is the real game's home screen: a polished cream marble floor,
+ * Eight places. The main hall is the real game's home screen: a polished cream marble floor,
  * square pillars holding up a mezzanine, red carpet along a navy-panelled wall, burgundy
  * drapery with gold fringe and little teal crystals, a vending machine and a jukebox,
  * benches, a notice board, the library through an archway, and the academy's racers in
@@ -11,7 +11,10 @@
  * office. That is the second room: the trainer works there, and its far door opens on the
  * stable, where a career is begun. The doors on the left go through to the cafeteria; the
  * ones on the right to the dorm, a corridor of rooms two to a room, each room dressed for
- * the pair who live in it.
+ * the pair who live in it. The classroom door at the back opens on the school wing, a
+ * corridor of classrooms, one for each tutorial, the lesson taught at its board. And the
+ * Scouting doors go outside, to the old training track, where the racers warm up and the
+ * trainers watch from the rail.
  *
  * Doors open. Walk up to one and press E (or click its sign): she turns, the door swings,
  * the camera follows her through, and afterwards she comes back out of the same door.
@@ -24,7 +27,11 @@
  *   Lobby.start(host, { me, cast, office, cafe, corridor, home, stations, tags, onEnter, safeTop })
  *     -> true when running. cast: the hall's company; office, cafe, corridor: those rooms';
  *     home: dorm residents who are in their rooms today (Lobby.residents: who has one);
- *     onJukebox(): the hall's jukebox was used -- the shell offers the music to choose from
+ *     onJukebox(): the hall's jukebox was used -- the shell offers the music to choose from;
+ *     school, classes: the school wing's corridor, and who is in class; lessons: the
+ *     tutorials, a classroom each ({ id, name, text, done }); onLesson(id): one was started
+ *     at its classroom's board; onMusic(role): she has gone into a place with music of its
+ *     own (null: back where the home theme plays)
  *   Lobby.stop()
  *   Lobby.setPlayer(def)
  */
@@ -272,7 +279,7 @@
       p.position.set(i ? d.w / 2 : -d.w / 2, 0, -0.125);
       if (i) m.scale.x = -1;                         // the second leaf, mirrored, hinged on the right
       m.receiveShadow = true;
-      p.add(m); g.add(p); pivots.push({ p, s: i ? -1 : 1 });
+      p.add(m); g.add(p); pivots.push({ p, s: i ? -1 : 1, x0: p.position.x });
     }
     if (d.frame) {
       const fc = canvas(F, 12); d.frame(fc, d.w, d.h);
@@ -285,12 +292,17 @@
     if (d.beyond.turf || d.beyond.out) skyDoors.push(back);          // outdoors: it takes the hour's light (daylight)
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(bw, deep), new THREE.MeshBasicMaterial({ color: d.beyond.floor }));
     fl.rotation.x = -PI / 2; fl.position.set(0, 0.002, -deep / 2 - 0.125); g.add(fl);
-    return { g, pivots, open: 0, target: 0, x: d.x, z: d.z, yaw: d.yaw, w: d.w, h: d.h, back };
+    return { g, pivots, open: 0, target: 0, x: d.x, z: d.z, yaw: d.yaw, w: d.w, h: d.h, back, slide: d.slide || 0, lw };
   }
+  /* A hinged door swings its leaves away from the room; a sliding one (`slide`: which way
+     along the wall, -1 or 1) runs its leaf along the track into the wall beside the opening. */
   function swingDoor(d, dt) {
     d.open += clamp(d.target - d.open, -dt * 1.7, dt * 1.7);
-    const a = ease(d.open) * 1.5;
-    for (const p of d.pivots) p.p.rotation.y = p.s * a;
+    const a = ease(d.open);
+    for (const p of d.pivots) {
+      if (d.slide) p.p.position.x = p.x0 + d.slide * a * d.lw * 0.94;
+      else p.p.rotation.y = p.s * a * 1.5;
+    }
   }
 
   /** A painted sign: words on a board, for doors and the notice board. */
@@ -662,9 +674,9 @@
     quests:   { station: "quests", x: -9, z: -9.4, face: PI, ax: -9, ay: 3.7, az: -10.8 },
     deck:     { station: "deck", x: -18, z: -10.2, face: PI, ax: -18, ay: 4.6, az: -10.8 },
     settings: { station: "settings", x: 14.875, z: -9.75, face: PI, ax: 14.875, ay: 2.15, az: -10.7 },
-    tutorial: { station: "tutorial", x: 19, z: -9.4, face: PI, ax: 19, ay: 3.9, az: -10.8, door: "class" },
+    tutorial: { station: "tutorial", x: 19, z: -9.4, face: PI, ax: 19, ay: 3.9, az: -10.8, door: "class", room: "school", arrive: "hall" },
     race:     { station: "race", x: -22.4, z: -1, face: -PI / 2, ax: -23.8, ay: 5.1, az: -1, door: "track" },
-    scout:    { station: "scout", x: 22.4, z: -5.5, face: PI / 2, ax: 23.8, ay: 3.9, az: -5.5, door: "scout" },
+    scout:    { station: "scout", x: 22.4, z: -5.5, face: PI / 2, ax: 23.8, ay: 3.9, az: -5.5, door: "scout", room: "track", arrive: "hall" },
     stable:   { station: "stable", x: 22.4, z: 0.5, face: PI / 2, ax: 23.8, ay: 3.9, az: 0.5, door: "dorm", room: "dorm", arrive: "hall" },
     howto:    { station: "howto", x: -15, z: 5.4, face: PI, ax: -15, ay: 2.4, az: 4 },
     cafe:     { label: "Cafeteria", sub: "Lunch is on", icon: "carrot", x: -22.4, z: -7.5, face: -PI / 2, ax: -23.8, ay: 3.9, az: -7.5,
@@ -1169,6 +1181,7 @@
       "void main() { gl_FragColor = vec4(mix(low, top, pow(clamp((vy + 40.0) / 80.0, 0.0, 1.0), 0.7)), 1.0); }",
   });
   const OUT_MAT = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const FLOODLIT = new THREE.Color(0x9a9890);              // how the floodlights leave the training track
   const outFlats = [];                                   // the grass, the path, the far trees: { m, base }
   const skyDoors = [];                                   // what shows past a door that opens outdoors (makeDoor)
   const WIN_MAT = new THREE.MeshBasicMaterial({ color: 0xc6e4f4 });
@@ -1194,9 +1207,12 @@
     hemiLight.color.copy(sky.hemi); hemiLight.groundColor.copy(sky.ground); hemiLight.intensity = sky.hemiI;
     sunLight.color.copy(sky.sun); sunLight.intensity = sky.sunI;
     OUT_MAT.color.copy(sky.out);
+    // out on the training track after dark, the floodlights are on: it is lit, if not as by day
+    if (room && room.outdoor) OUT_MAT.color.lerp(FLOODLIT, sky.lamps * 0.5);
     for (const f of outFlats) f.m.material.color.setHex(f.base).multiply(sky.out);
     WIN_MAT.color.copy(sky.low).lerp(sky.top, 0.35);
     LAMP_MAT.opacity = sky.lamps * 0.8;
+    POOL_MAT.opacity = sky.lamps * 0.45;                        // the floodlights' light on the track
     for (const b of skyDoors) b.material.color.copy(sky.out);
     lookOf(room);
     if (clockEl) {
@@ -2096,6 +2112,671 @@
     R.dressed[v].visible = true;
   }
 
+  // ================================================================ the school wing
+  /* Through the classroom door at the back of the hall: the school wing, a corridor of
+     classrooms the way Tracen's are. Sliding doors with glass in their tops, each with its
+     plate overhead; banks of lockers between them; the timetable by the entrance, which
+     is the Tutorials list; a drinking fountain and a window at the far end; and the sun on
+     the floor from the windows on this side. Each classroom teaches one of the tutorials
+     (LESSONS): the lesson is chalked up on its board, and it starts at the board. */
+  const SCHOOL = { x0: -19, x1: 19, z0: -1.5, z1: 3.25, h: 3.75 };
+  const SW = { x0: -18.7, x1: 18.7, z0: -1.2, z1: 3.0 };
+  const classX = i => -13.5 + 4.5 * i;
+  /* The lessons: the tutorials as the shell passes them (opts.lessons -- each one's id,
+     name, what it covers, its carrots, and whether it is done), seven at most, a classroom
+     each. Without them, the names alone. */
+  const LESSONS_PLAIN = [["race", "Race Basics"], ["exhibition", "Exhibition"], ["deck", "Deck Building"], ["scout", "Scouting"],
+    ["career", "Career Mode"], ["dream", "Dream Rules"], ["rival", "Rivalries"]].map(([id, name]) => ({ id, name, text: "", done: false }));
+  let LESSONS = LESSONS_PLAIN;
+  /** A classroom's sliding door: a light wood frame, two panes of glass in its top half, a
+      panel below, a finger pull. */
+  function leafSlide(c, lw, h) {
+    const col = 0xd8b07a, colD = mulC(col, 0.85), gy0 = 1.25, gy1 = h - 0.1875;
+    c.box(0, 0, -F, lw, h, F, (X, Y) => X >= 0.125 && X < lw - 0.125 && Y >= gy0 && Y < gy1
+      ? (Math.abs(X + c.h - lw / 2) < F ? col : ((X + Y) % 0.6) < 0.07 ? C.glassHi : C.glass) : col);
+    for (const z of [F, -2 * F]) {
+      c.box(0.1875, 0.25, z, lw - 0.1875, 1.0625, z + F, colD);
+      c.box(lw - 0.3125, 0.875, z, lw - 0.1875, 1.125, z + F, 0x5a3a24);
+    }
+  }
+  const SCHOOL_DOORS = {
+    // the far side of the hall's classroom door, the same door
+    hall: { x: SCHOOL.x0, z: 0.75, yaw: PI / 2, w: 1.5, h: 2.75, leaf: leafClass, frame: frameArch(C.woodD, C.woodD),
+            beyond: { top: 0xf8f2e6, bottom: 0xe6ddca, floor: 0xe6ddca } },
+  };
+  for (let i = 0; i < 7; i++) SCHOOL_DOORS["s" + i] = { x: classX(i), z: SCHOOL.z0, yaw: 0, w: 1.5, h: 2.25, leaf: leafSlide, slide: -1,
+    frame: frameArch(C.woodD, C.woodD), beyond: { top: 0xf6f2e6, bottom: 0xd8dcc8, floor: 0xc8b48a } };
+  const schoolWall = (X, Y) => Y < 0.25 ? 0x5e6a60 : Y < 1.0 ? 0x9cbfa6 : Y < 1.125 ? 0xe4e8da : Y >= SCHOOL.h - 0.25 ? C.crown : 0xf4f2e8;
+  function schoolShell() {
+    const c = canvas(S, 81), { box, clear, jit } = c, D = SCHOOL;
+    // half-metre tiles, pale and speckled, and squares of sun between the doors on this side
+    box(D.x0, -0.25, D.z0, D.x1, 0, D.z1, (X, Y, Z) => {
+      let col = (Math.floor((X - D.x0) / 0.5) + Math.floor((Z - D.z0) / 0.5)) % 2 ? 0xdcd9ce : 0xd0cdc0;
+      if (Z >= 1.5 && ((X + 12.25) % 4.5 + 4.5) % 4.5 < 2.0) col = mixC(col, 0xfff4cc, 0.4);
+      return jit(col, 0.03);
+    });
+    box(D.x0, 0, D.z0 - 0.25, D.x1, D.h, D.z0, schoolWall);
+    box(D.x0 - 0.25, 0, D.z0 - 0.25, D.x0, D.h, D.z1, schoolWall);
+    box(D.x1, 0, D.z0 - 0.25, D.x1 + 0.25, D.h, D.z1, schoolWall);
+    box(D.x0 - 0.25, D.h, D.z0 - 0.25, D.x1 + 0.25, D.h + 0.25, D.z1, C.ceiling);
+    for (const id in SCHOOL_DOORS) {
+      const d = SCHOOL_DOORS[id];
+      if (d.yaw === 0) clear(d.x - d.w / 2, 0, D.z0 - 0.25, d.x + d.w / 2, d.h, D.z0);
+      else clear(D.x0 - 0.25, 0, d.z - d.w / 2, D.x0, d.h, d.z + d.w / 2);
+    }
+    clear(D.x1, 1.0, -0.75, D.x1 + 0.25, 3.0, 1.75);                                   // the window at the far end
+    return c.mesh((X, Y, Z, nx, ny, nz) => !(ny < 0 && Y < 0) && !(ny > 0 && Y >= D.h) && !(nz < 0 && Z < D.z0 - 0.2)
+      && !(nx < 0 && X < D.x0 - 0.2) && !(nx > 0 && X >= D.x1));
+  }
+  // banks of lockers: between the doors, and one more past the last
+  const LOCKERS = [0, 1, 2, 3, 4, 5].map(i => classX(i) + 2.25).concat([15.875]);
+  /** A bank of steel lockers against the back wall: four across, two high, each door with
+      its vents, its handle and a name card. */
+  function lockers(c, cx, zw) {
+    const x0 = cx - 0.875, x1 = cx + 0.875, zf = zw + 0.4375, top = 1.8125, body = 0x8a9ab0;
+    c.box(x0, 0, zw, x1, F, zf, 0x4a5260);                                               // the plinth
+    c.box(x0, F, zw, x1, top, zf, body);
+    c.box(x0 - F, top, zw, x1 + F, top + F, zf + F, mulC(body, 0.86));
+    c.box(x0, F, zf, x1, top, zf + F, (X, Y) => {
+      const u = (X - x0) % 0.4375, v = (Y - F) % 0.875;
+      if (u < F || v < F) return mulC(body, 0.72);                                        // where the doors meet
+      if (v >= 0.625 && v < 0.75 && u >= 0.125 && u < 0.3125 && Math.round(Y / F) % 2) return 0x3a4250;   // vents
+      if (v >= 0.375 && v < 0.5 && u >= 0.3125 && u < 0.375) return C.chrome;              // the handle
+      if (v >= 0.5 && v < 0.5625 && u >= 0.125 && u < 0.25) return 0xf6f2e8;               // a name card
+      return mixC(body, 0xffffff, 0.06);
+    });
+  }
+  function schoolProps() {
+    const c = canvas(F, 8181), { box } = c, D = SCHOOL, z0 = D.z0;
+    for (const x of LOCKERS) lockers(c, x, z0);
+    // the timetable's frame (the timetable itself, the lessons and which are done: buildSchool)
+    box(-18.375, 0.875, z0, -15.625, 2.625, z0 + F, C.woodD);
+    // the drinking fountain by the window, its extinguisher by it
+    const fx = 17.75;
+    box(fx - 0.25, 0, z0, fx + 0.25, 0.75, z0 + 0.375, C.chromeD);
+    box(fx - 0.375, 0.75, z0, fx + 0.375, 0.875, z0 + 0.5, C.chrome);
+    box(fx - 0.3125, 0.8125, z0 + F, fx + 0.3125, 0.875, z0 + 0.4375, 0x8ab0c8);
+    box(fx - 0.0625, 0.875, z0 + 0.0625, fx + 0.0625, 1.0, z0 + 0.25, C.chromeD);
+    box(18.5, 0.125, z0, 18.75, 0.6875, z0 + 0.25, 0xd8302a);
+    box(18.5625, 0.6875, z0 + 0.0625, 18.6875, 0.8125, z0 + 0.1875, 0x2a2a30);
+    // long ceiling lights between the doors
+    for (let i = -1; i < 7; i++) {
+      const x = classX(i) + 2.25;
+      box(x - 0.75, D.h - F, 0.25, x + 0.75, D.h, 0.75, C.lamp);
+      box(x - 0.8125, D.h - F, 0.1875, x + 0.8125, D.h, 0.25, 0xd8d2c4);
+    }
+    // the far window: frame, a bar across and one down, a sill
+    const x = D.x1;
+    box(x - F, 0.8125, -0.9375, x, 3.1875, 1.9375, C.frame);
+    c.clear(x - F, 1.0, -0.75, x, 3.0, 1.75);
+    box(x + 0.0625, 1.0, 0.5, x + 0.125, 3.0, 0.5625, C.frame);
+    box(x + 0.0625, 2.25, -0.75, x + 0.125, 2.3125, 1.75, C.frame);
+    box(x - 0.25, 0.9375, -0.9375, x, 1.0, 1.9375, C.frame);
+    return c.mesh(notUnder);
+  }
+  /** The timetable by the entrance: every lesson, a tick by the ones she has done. */
+  function timetablePaint(cv) {
+    const g = cv.getContext("2d"), W = cv.width, H = cv.height;
+    g.fillStyle = "#f6f2e6"; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#2f6a4e"; g.fillRect(0, 0, W, H * 0.17);
+    g.fillStyle = "#f6efdc"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = `400 ${Math.round(H * 0.1)}px "Dela Gothic One", "Arial Black", sans-serif`;
+    g.fillText("LESSONS", W / 2, H * 0.09);
+    const rows = LESSONS.length, rh = H * 0.8 / rows;
+    LESSONS.forEach((L, i) => {
+      const y = H * 0.19 + rh * (i + 0.5);
+      g.fillStyle = i % 2 ? "#ebe6d6" : "#f6f2e6"; g.fillRect(0, y - rh / 2, W, rh);
+      g.fillStyle = "#2a3a2e"; g.textAlign = "left"; g.font = `700 ${Math.round(rh * 0.5)}px "M PLUS Rounded 1c", "Segoe UI", sans-serif`;
+      g.fillText(`${i + 1}  ${L.name}`, W * 0.06, y);
+      g.strokeStyle = L.done ? "#2f8a4e" : "#b8b2a2"; g.lineWidth = rh * 0.09;
+      g.strokeRect(W * 0.84, y - rh * 0.28, rh * 0.56, rh * 0.56);
+      if (L.done) { g.beginPath(); g.moveTo(W * 0.84 + rh * 0.1, y); g.lineTo(W * 0.84 + rh * 0.24, y + rh * 0.16); g.lineTo(W * 0.84 + rh * 0.5, y - rh * 0.2); g.stroke(); }
+    });
+  }
+  function schoolPlaces() {
+    const P = {
+      hall:    { label: "Main hall", sub: "Back out", icon: "door", x: -17.6, z: 0.75, face: -PI / 2, ax: -18.9, ay: 3.6, az: 0.75,
+                 door: "hall", room: "hall", arrive: "tutorial" },
+      lessons: { station: "tutorial", sub: "Timetable", x: -17, z: -0.75, face: PI, ax: -17, ay: 2.95, az: -1.4 },
+    };
+    LESSONS.slice(0, 7).forEach((L, i) => P["c" + i] = {
+      label: L.name, sub: L.done ? "Classroom · done" : "Classroom", icon: "cap",
+      x: classX(i), z: -0.6, face: PI, ax: classX(i), ay: 3.2, az: -1.4, door: "s" + i, room: "class", v: i, arrive: "door" });
+    return P;
+  }
+  const SCHOOL_POIS = [
+    { x: 18.25, z: 0.6, face: PI / 2, act: "look" },
+    { x: 17.75, z: -0.8, face: PI, act: "drink", icon: "juice" },
+    { x: -17.4, z: -0.8, face: PI, act: "read", icon: "clipboard" }, { x: -16.6, z: -0.8, face: PI, act: "read" },
+    // at her locker
+    ...LOCKERS.map(x => ({ x: x + 0.3, z: -0.55, face: PI, act: "browse" })),
+  ];
+  const SCHOOL_HUDDLES = [[-9, 1.1], [2.25, 1.1], [11.25, 1.1]];
+  const SCHOOL_THINGS = [
+    { kind: "fountain", label: "Have a drink", poi: [1], x: 17.75, z: -0.8, face: PI, ax: 17.75, ay: 1.6, az: -1.4 },
+    { kind: "look", label: "Look out", poi: [0], x: 18.25, z: 0.6, face: PI / 2, ax: 18.95, ay: 2.5, az: 0.6,
+      say: ["Somebody's doing laps out there already.", "Not long till the bell.", "The track looks fast today."] },
+  ];
+  const SCHOOL_BLOCKS = [...LOCKERS.map(x => [x - 0.95, -1.5, x + 0.95, -1.0]), [17.35, -1.5, 18.15, -0.95], [18.45, -1.5, 18.8, -1.2]];
+  function schoolWalkable(x, z, r) {
+    if (x < SW.x0 + r || x > SW.x1 - r || z < SW.z0 + r || z > SW.z1 - r) return false;
+    for (const b of SCHOOL_BLOCKS) if (x > b[0] - r && x < b[2] + r && z > b[1] - r && z < b[3] + r) return false;
+    return true;
+  }
+  function buildSchool(R) {
+    const g = new THREE.Group(), D = SCHOOL;
+    const shell = new THREE.Mesh(schoolShell(), MAT); shell.receiveShadow = true; g.add(shell);
+    const props = new THREE.Mesh(schoolProps(), MAT); props.receiveShadow = true; g.add(props);
+    g.add(pane(2.5, 2, D.x1 + 0.09, 2.0, 0.5, -PI / 2));
+    g.add(outdoors({ x: D.x1 + 0.25, dir: 1, z0: -30, z1: 3.0, seed: 57 }));
+    for (let i = -1; i < 7; i++) glow(g, classX(i) + 2.25, D.h - 0.2, 0.5, 2.6);
+    R.doors = {};
+    for (const id in SCHOOL_DOORS) { const d = makeDoor(SCHOOL_DOORS[id]); R.doors[id] = d; g.add(d.g); }
+    hangSign(g, "SCHOOL WING", D.x0 + 0.03, 3.4, 0.75, PI / 2, 0.6, "#2f6a4e", "#f6efdc");
+    // the timetable, repainted each time she comes in (dressSchool)
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 320;
+    R.timetable = { cv, tex: new THREE.CanvasTexture(cv) };
+    const tt = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.5625), new THREE.MeshBasicMaterial({ map: R.timetable.tex }));
+    tt.position.set(-17, 1.75, D.z0 + F + 0.004); g.add(tt);
+    // a plate over each door, the lesson and whether it is done (dressSchool)
+    R.plates = [];
+    for (let i = 0; i < 7; i++) { const slot = new THREE.Group(); slot.position.set(classX(i), 2.85, D.z0 + 0.01); g.add(slot); R.plates.push({ slot, key: "" }); }
+    return g;
+  }
+  /** The corridor as it stands today: the lessons on the doors, done or not, and on the timetable. */
+  function dressSchool(R) {
+    R.places = schoolPlaces();
+    R.plates.forEach((p, i) => {
+      const L = LESSONS[i], key = L ? L.id + (L.done ? ":done" : "") : "";
+      if (p.key === key) return;
+      p.key = key;
+      for (const m of p.slot.children.slice()) { p.slot.remove(m); m.material.map.dispose(); m.material.dispose(); m.geometry.dispose(); }
+      if (L) p.slot.add(plate([L.name, `Lesson ${i + 1}${L.done ? " · done" : ""}`], 1.25, 0.4, L.done ? "#e4efe0" : "#f6f0e2", "#2a3a2e"));
+    });
+    timetablePaint(R.timetable.cv); R.timetable.tex.needsUpdate = true;
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { timetablePaint(R.timetable.cv); R.timetable.tex.needsUpdate = true; });
+  }
+
+  // ================================================================ a classroom
+  /* The classroom for one lesson: the blackboard across the front on a low platform, the
+     lesson chalked up on it (classBoard); the teacher's desk to one side of it; three rows
+     of three desks, each with its chair; the sliding door from the corridor on the left;
+     tall windows onto the grounds on the right; a clock over the board; a notice board by
+     the door. One room, dressed for the lesson she came in for (dressClass). */
+  const CLASS = { x0: -4.25, x1: 4.25, z0: -3.75, z1: 4.75, h: 3.75 };
+  const CLW = { x0: -4.0, x1: 4.0, z0: -3.5, z1: 3.75 };
+  const DESK_X = [-1.75, 0.375, 2.5], DESK_Z = [-1.25, 0.25, 1.75];
+  const CLASS_WINDOWS = [[-3.0, -0.75], [-0.25, 2.0]];
+  const CLASS_DOORS = {
+    door: { x: CLASS.x0, z: 2.25, yaw: PI / 2, w: 1.5, h: 2.25, leaf: leafSlide, slide: 1, frame: frameArch(C.woodD, C.woodD),
+            beyond: { top: 0xf6f2e6, bottom: 0xdcd9ce, floor: 0xd0cdc0 } },
+  };
+  function classShell() {
+    const c = canvas(S, 91), { box, clear, jit } = c, O = CLASS;
+    box(O.x0, -0.25, O.z0, O.x1, 0, O.z1, (X, Y, Z) => {
+      const col = Math.round((X - O.x0) / S), k = Math.floor((Z - O.z0 + (col % 4) * 0.5) / 1.5);
+      return jit([C.plankA, C.plankB, C.plankC][((col * 7 + k * 13) % 3 + 3) % 3], 0.04);
+    });
+    const wall = (X, Y) => Y < 0.25 ? 0x5e6a60 : Y < 1.0 ? 0xc8d6c4 : Y < 1.125 ? 0xe4e8da : Y >= O.h - 0.25 ? C.crown : 0xf4f2e8;
+    box(O.x0, 0, O.z0 - 0.25, O.x1, O.h, O.z0, wall);
+    box(O.x0 - 0.25, 0, O.z0 - 0.25, O.x0, O.h, O.z1, wall);
+    box(O.x1, 0, O.z0 - 0.25, O.x1 + 0.25, O.h, O.z1, wall);
+    box(O.x0 - 0.25, O.h, O.z0 - 0.25, O.x1 + 0.25, O.h + 0.25, O.z1, C.ceiling);
+    const d = CLASS_DOORS.door;
+    clear(O.x0 - 0.25, 0, d.z - d.w / 2, O.x0, d.h, d.z + d.w / 2);
+    for (const [a, b] of CLASS_WINDOWS) clear(O.x1, 1.0, a, O.x1 + 0.25, 2.75, b);
+    return c.mesh((X, Y, Z, nx, ny, nz) => !(ny < 0 && Y < 0) && !(ny > 0 && Y >= O.h) && !(nz < 0 && Z < O.z0 - 0.2)
+      && !(nx < 0 && X < O.x0 - 0.2) && !(nx > 0 && X >= O.x1));
+  }
+  function classProps() {
+    const c = canvas(F, 9191), { box } = c, O = CLASS, z0 = O.z0;
+    // the platform along the front, and the blackboard's frame and chalk tray (the board: classBoard)
+    box(-3.25, 0, z0, 3.25, 0.1875, -2.75, (X, Y, Z) => Z >= -2.8125 ? C.woodD : C.wood);
+    box(-2.875, 0.875, z0, 2.875, 2.5, z0 + F, 0xb8bcc4);
+    box(-2.875, 0.875, z0 + F, 2.875, 0.9375, z0 + 0.1875, 0xb8bcc4);
+    for (const [x, col] of [[-2.25, 0xf6f6f2], [-2.0, 0xf2c8d0], [-1.8125, 0xf6e6a0]]) box(x, 0.9375, z0 + 0.0625, x + 0.125, 1.0, z0 + 0.125, col);   // chalk
+    box(2.25, 0.9375, z0 + F, 2.5, 1.0, z0 + 0.1875, 0x3a3a40);                              // the eraser
+    // the teacher's desk, on the platform by the windows: the register, a pot of chalk, flowers
+    const tt = 0.1875 + 0.75;
+    box(1.75, 0.1875, -3.4375, 3.0, tt - F, -2.875, C.wood);
+    box(1.6875, tt - F, -3.5, 3.0625, tt, -2.8125, C.woodL);
+    box(2.0, tt, -3.25, 2.4375, tt + F, -2.9375, 0x2a4a8a);
+    cyl(c, 2.75, -3.125, 0.0625, tt, tt + 0.1875, 0xf6f2ea);
+    for (const [ox, col] of [[-0.0625, 0xf07aa8], [0.0625, 0xf0c040]]) box(2.75 + ox, tt + 0.1875, -3.1875, 2.75 + ox + F, tt + 0.25, -3.125, col);
+    // the desks: a light top on steel legs, a shelf under it, the chair behind
+    for (const dx of DESK_X) for (const dz of DESK_Z) {
+      const top = 0.6875;
+      box(dx - 0.3125, top, dz - 0.25, dx + 0.3125, top + F, dz + 0.1875, C.woodL);
+      box(dx - 0.3125, top - 0.125, dz - 0.25, dx + 0.3125, top - F, dz + 0.0625, 0x8a92a0);
+      for (const lx of [dx - 0.3125, dx + 0.25]) for (const lz of [dz - 0.25, dz + 0.125]) box(lx, 0, lz, lx + F, top, lz + F, 0x8a92a0);
+      const cz = dz + 0.5625;
+      for (const lx of [dx - 0.1875, dx + 0.125]) for (const lz of [cz - 0.1875, cz + 0.125]) box(lx, 0, lz, lx + F, 0.4375, lz + F, 0x8a92a0);
+      box(dx - 0.1875, 0.4375, cz - 0.1875, dx + 0.1875, 0.5, cz + 0.1875, C.woodL);
+      box(dx - 0.1875, 0.5, cz + 0.125, dx + 0.1875, 0.875, cz + 0.1875, C.woodL);
+    }
+    // the windows: white frames, a bar across, the sills; curtains drawn back between them
+    for (const [a, b] of CLASS_WINDOWS) {
+      const x = O.x1;
+      box(x - F, 0.8125, a - 0.1875, x, 2.9375, b + 0.1875, C.frame);
+      c.clear(x - F, 1.0, a, x, 2.75, b);
+      box(x + 0.0625, 1.875, a, x + 0.125, 1.9375, b, C.frame);
+      box(x + 0.0625, 1.0, (a + b) / 2, x + 0.125, 2.75, (a + b) / 2 + F, C.frame);
+      box(x - 0.25, 0.9375, a - 0.1875, x, 1.0, b + 0.1875, C.frame);
+    }
+    box(O.x1 - 0.1875, 0.75, -0.6875, O.x1 - F, 2.9375, -0.3125, (X, Y, Z) => ((Z + 0.6875) % 0.125) < F ? 0xe8d8a8 : 0xf6eac0);
+    // a clock over the board, and a notice board between the board and the door
+    c.box(-0.3125, 2.625, z0, 0.3125, 3.25, z0 + F, (X, Y) => {
+      const dx = X + c.h, dy = Y + c.h - 2.9375, r = Math.hypot(dx, dy);
+      if (r > 0.3125) return undefined;
+      if (r > 0.25) return 0x3a3a40;
+      return (Math.abs(dx) < 0.035 && dy > 0 && dy < 0.2) || (Math.abs(dy) < 0.035 && dx > 0 && dx < 0.14) ? 0x2a2a30 : 0xf8f6f0;
+    });
+    box(O.x0, 1.125, -1.75, O.x0 + F, 2.375, 0.75, C.woodD);
+    box(O.x0 + F, 1.1875, -1.6875, O.x0 + 2 * F, 2.3125, 0.6875, () => c.jit(C.cork, 0.06));
+    [[-1.5, 1.5, 0xf6f2e8], [-0.75, 1.75, 0xf0c8d8], [0.0, 1.375, 0xc8e0f0], [-1.125, 1.9375, 0xf6e0a0]].forEach(([z, y, col]) =>
+      box(O.x0 + 2 * F, y, z, O.x0 + 3 * F, y + 0.3125, z + 0.4375, col));
+    // two rows of lights across the ceiling
+    for (const lx of [-1.5, 1.5]) box(lx - 0.125, O.h - F, -2.5, lx + 0.125, O.h, 2.5, C.lamp);
+    return c.mesh(notUnder);
+  }
+  /** The lesson on the board: its name, what it covers, a chalk drawing of it, which lesson
+      of how many; ringed "Done" once she has taken it. */
+  const CHALK_DRAW = {
+    race: (g, x, y, s) => { g.beginPath(); g.ellipse(x, y, 1.7 * s, s, 0, 0, PI * 2); g.stroke();
+      g.setLineDash([s * 0.15, s * 0.15]); g.beginPath(); g.ellipse(x, y, 1.35 * s, 0.7 * s, 0, PI * 0.2, PI * 1.6); g.stroke(); g.setLineDash([]);
+      g.beginPath(); g.moveTo(x + 1.7 * s, y); g.lineTo(x + 1.7 * s, y - 0.9 * s); g.lineTo(x + 2.2 * s, y - 0.75 * s); g.lineTo(x + 1.7 * s, y - 0.6 * s); g.stroke(); },
+    exhibition: (g, x, y, s) => { for (let i = 0; i < 6; i++) { g.strokeRect(x - 1.8 * s + i * 0.6 * s, y - 0.6 * s, 0.5 * s, 1.2 * s);
+      g.fillText(String(i + 1), x - 1.55 * s + i * 0.6 * s, y + 0.95 * s); } },
+    deck: (g, x, y, s) => { for (let i = 0; i < 3; i++) { g.save(); g.translate(x + (i - 1) * 0.55 * s, y); g.rotate((i - 1) * 0.25);
+      g.strokeRect(-0.4 * s, -0.6 * s, 0.8 * s, 1.2 * s); g.restore(); } g.fillText("×2", x + 1.5 * s, y - 0.7 * s); },
+    scout: (g, x, y, s) => { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -PI / 2 + i * PI / 5, r = i % 2 ? 0.45 * s : s;
+      g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.closePath(); g.stroke();
+      for (const [dx, dy] of [[1.4, -0.7], [-1.4, 0.6], [1.2, 0.8]]) { g.beginPath(); g.moveTo(x + dx * s - 0.15 * s, y + dy * s); g.lineTo(x + dx * s + 0.15 * s, y + dy * s);
+        g.moveTo(x + dx * s, y + dy * s - 0.15 * s); g.lineTo(x + dx * s, y + dy * s + 0.15 * s); g.stroke(); } },
+    career: (g, x, y, s) => { for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) g.strokeRect(x - 1.6 * s + k * 0.8 * s, y - 0.9 * s + r * 0.6 * s, 0.8 * s, 0.6 * s);
+      g.beginPath(); g.arc(x + 0.8 * s, y + 0.6 * s, 0.32 * s, 0, PI * 2); g.stroke(); },
+    dream: (g, x, y, s) => { g.beginPath(); g.arc(x - 0.6 * s, y, 0.55 * s, PI * 0.5, PI * 1.5); g.arc(x, y - 0.4 * s, 0.6 * s, PI, PI * 2);
+      g.arc(x + 0.7 * s, y, 0.5 * s, PI * 1.5, PI * 0.5); g.closePath(); g.stroke(); g.fillText("!", x + 1.6 * s, y - 0.5 * s); },
+    rival: (g, x, y, s) => { for (const d of [-1, 1]) { g.beginPath(); g.moveTo(x + d * 1.8 * s, y); g.lineTo(x + d * 0.5 * s, y);
+      g.moveTo(x + d * 0.8 * s, y - 0.3 * s); g.lineTo(x + d * 0.5 * s, y); g.lineTo(x + d * 0.8 * s, y + 0.3 * s); g.stroke(); }
+      g.beginPath(); g.moveTo(x + 0.1 * s, y - 0.7 * s); g.lineTo(x - 0.15 * s, y); g.lineTo(x + 0.15 * s, y); g.lineTo(x - 0.1 * s, y + 0.7 * s); g.stroke(); },
+  };
+  function boardPaint(cv, L, i) {
+    const g = cv.getContext("2d"), W = cv.width, H = cv.height, rnd = mulberry32(31 + i);
+    g.fillStyle = "#2c4a3a"; g.fillRect(0, 0, W, H);
+    g.fillStyle = "rgba(255,255,255,.045)";
+    for (let k = 0; k < 40; k++) g.fillRect(rnd() * W, rnd() * H, 60 + rnd() * 200, 4 + rnd() * 12);         // old chalk
+    const chalk = "rgba(244,242,232,.92)";
+    g.fillStyle = chalk; g.strokeStyle = chalk; g.lineWidth = H * 0.016; g.lineCap = "round"; g.lineJoin = "round";
+    g.textBaseline = "middle"; g.textAlign = "left";
+    g.font = `700 ${Math.round(H * 0.075)}px "M PLUS Rounded 1c", "Segoe UI", sans-serif`;
+    g.fillText(`Lesson ${i + 1} of ${LESSONS.length}`, W * 0.04, H * 0.12);
+    g.font = `400 ${Math.round(H * 0.17)}px "Dela Gothic One", "Arial Black", sans-serif`;
+    g.fillText(L.name, W * 0.04, H * 0.32);
+    // what it covers, wrapped
+    g.font = `700 ${Math.round(H * 0.085)}px "M PLUS Rounded 1c", "Segoe UI", sans-serif`;
+    const words = String(L.text || "").split(" "), lines = [];
+    let line = "";
+    for (const w of words) { const t = line ? line + " " + w : w; if (g.measureText(t).width > W * 0.58 && line) { lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line);
+    lines.slice(0, 4).forEach((t, k) => g.fillText(t, W * 0.04, H * (0.55 + k * 0.12)));
+    g.font = `700 ${Math.round(H * 0.11)}px "M PLUS Rounded 1c", "Segoe UI", sans-serif`; g.textAlign = "center";
+    const draw = CHALK_DRAW[L.id];
+    if (draw) draw(g, W * 0.81, H * 0.5, H * 0.17);
+    if (L.done) {                                                                            // ringed in pink chalk
+      g.strokeStyle = g.fillStyle = "rgba(246,170,190,.95)";
+      g.beginPath(); g.ellipse(W * 0.81, H * 0.86, W * 0.07, H * 0.09, -0.08, 0, PI * 2); g.stroke();
+      g.font = `400 ${Math.round(H * 0.09)}px "Dela Gothic One", "Arial Black", sans-serif`; g.fillText("Done", W * 0.81, H * 0.865);
+    }
+  }
+  const CLASS_PLACES_DOOR = { label: "Corridor", sub: "Back out", icon: "door", x: -2.75, z: 2.25, face: -PI / 2, ax: -4.15, ay: 2.8, az: 2.25,
+                              door: "door", room: "school", arrive: () => "c" + ROOMS.class.v };
+  // the desks' chairs (got into from the aisle beside each), the window, the board
+  const CLASS_SEATS = [];
+  for (const dz of DESK_Z) for (const dx of DESK_X)
+    CLASS_SEATS.push({ x: dx, z: dz + 0.5625, face: PI, act: "study", seat: true, from: { x: dx + 0.75, z: dz + 0.5625 } });
+  const CLASS_POIS = [...CLASS_SEATS, { x: 3.55, z: 0.9, face: PI / 2, act: "look" }, { x: -1.5, z: -2.3, face: PI, act: "read" }];
+  const CLASS_HUDDLES = [[-3.15, 0.0]];
+  const CLASS_THINGS = [
+    ...CLASS_SEATS.map((p, i) => ({ kind: "sit", label: "Take a seat", pose: "study", poi: [i] })),
+    { kind: "look", label: "Look out", poi: [CLASS_SEATS.length], x: 3.55, z: 0.9, face: PI / 2, ax: 4.15, ay: 2.4, az: 0.9,
+      say: ["I can see the track from up here.", "Eyes front... in a minute.", "The bell's going to go any second."] },
+  ];
+  const CLASS_BLOCKS = [
+    [-3.25, -3.75, 3.25, -2.75],
+    ...DESK_X.flatMap(dx => DESK_Z.map(dz => [dx - 0.375, dz - 0.3, dx + 0.375, dz + 0.8])),
+    [CLASS.x0, -1.8, CLASS.x0 + 0.2, 0.8],
+  ];
+  function classWalkable(x, z, r) {
+    if (x < CLW.x0 + r || x > CLW.x1 - r || z < CLW.z0 + r || z > CLW.z1 - r) return false;
+    for (const b of CLASS_BLOCKS) if (x > b[0] - r && x < b[2] + r && z > b[1] - r && z < b[3] + r) return false;
+    return true;
+  }
+  function buildClass(R) {
+    const g = new THREE.Group(), O = CLASS;
+    const shell = new THREE.Mesh(classShell(), MAT); shell.receiveShadow = true; g.add(shell);
+    const props = new THREE.Mesh(classProps(), MAT); props.receiveShadow = true; g.add(props);
+    for (const [a, b] of CLASS_WINDOWS) g.add(pane(b - a, 1.75, O.x1 + 0.09, 1.875, (a + b) / 2, -PI / 2));
+    g.add(outdoors({ x: O.x1 + 0.25, dir: 1, z0: -30, z1: 2.25, seed: 66 }));
+    for (const lx of [-1.5, 1.5]) for (const lz of [-1.5, 1.5]) glow(g, lx, O.h - 0.15, lz, 2.0);
+    R.doors = {};
+    for (const id in CLASS_DOORS) { const d = makeDoor(CLASS_DOORS[id]); R.doors[id] = d; g.add(d.g); }
+    // the board, its lesson chalked up for whichever lesson she came in for (dressClass)
+    const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 280;
+    R.board = { cv, tex: new THREE.CanvasTexture(cv) };
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 1.5), new THREE.MeshBasicMaterial({ map: R.board.tex }));
+    b.position.set(0, 1.6875, O.z0 + F + 0.004); g.add(b);
+    return g;
+  }
+  /** Dress the classroom for lesson `v`: its board, and the place at the board that starts it. */
+  function dressClass(R, v) {
+    R.v = v;
+    const L = LESSONS[v] || LESSONS[0];
+    R.places = {
+      door: CLASS_PLACES_DOOR,
+      lesson: { label: L.name, sub: L.done ? "Done · take it again" : "Start the lesson", icon: "cap", lesson: L.id,
+                x: 0, z: -2.3, face: PI, ax: 0, ay: 2.75, az: -3.6 },
+    };
+    const paint = () => { boardPaint(R.board.cv, L, v); R.board.tex.needsUpdate = true; };
+    paint();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(paint);
+  }
+
+  // ================================================================ the training track
+  /* Out through the Scouting doors on the hall's right: the academy's old training track,
+     the way Cinderella Gray draws Kasamatsu's -- a small local course by a river. A deep-sand
+     oval with tired white rails (a gap here and there, rust where the paint has gone), a worn
+     infield, an old roofed grandstand of concrete steps, a tin shed, floodlights at the
+     corners, a chain-link fence, a sidewalk along the school and one along the road, the
+     river's levee behind with a path on top, an iron railway bridge over the river beyond it,
+     and the mountains. Racers warm up: jogging laps, kicking up the sand; stretching; drills.
+     Trainers at the rail time them, take notes, coach, and recruit at a table -- those are
+     the scout stations. After dark the floodlights come on and the racers go in. Everything
+     out here is lit as the grounds are (OUT_MAT), so it follows the hour. */
+  const TRACK = { x0: -22, x1: 26, z0: -24, z1: 11 };
+  const TW = { x0: -21.6, x1: 25.0, z0: -17.6, z1: 10.0 };
+  // the oval: a stadium shape round (cx, cz), its straights 2L long, the rails at rin and
+  // rout, the line they jog at rjog; run right-handed (the near straight right to left)
+  const OVAL = { cx: 5, cz: -5, L: 7, rin: 5, rout: 8.75, rjog: 6.875 };
+  const ovalD = (x, z) => Math.hypot(Math.max(Math.abs(x - OVAL.cx) - OVAL.L, 0), z - OVAL.cz);
+  const ovalLen = r => 4 * OVAL.L + 2 * PI * r;
+  /** The point `s` metres round the oval at radius r, from the near straight's right end. */
+  function ovalAt(r, s) {
+    const { cx, cz, L } = OVAL, P = ovalLen(r), arc = PI * r;
+    s = ((s % P) + P) % P;
+    if (s < 2 * L) return { x: cx + L - s, z: cz + r };
+    s -= 2 * L;
+    if (s < arc) { const a = PI / 2 + s / r; return { x: cx - L + r * Math.cos(a), z: cz + r * Math.sin(a) }; }
+    s -= arc;
+    if (s < 2 * L) return { x: cx - L + s, z: cz - r };
+    s -= 2 * L;
+    const a = -PI / 2 + s / r;
+    return { x: cx + L + r * Math.cos(a), z: cz + r * Math.sin(a) };
+  }
+  // the gaps in the rails, to cross onto the track and into the infield (near straight, x from..to)
+  const RAIL_GAPS = { out: [-1.5, 1.5], in: [8.5, 11] };
+  const inGap = (which, x, z) => z > OVAL.cz && x >= RAIL_GAPS[which][0] && x <= RAIL_GAPS[which][1];
+  // where they join the jogging line (through the outer gap), and how far round that is
+  const JOG = { r: OVAL.rjog, P: ovalLen(OVAL.rjog), entry: { x: 0, z: OVAL.cz + OVAL.rjog }, s0: OVAL.cx + OVAL.L };
+  const TRACK_EXIT = { x: -20.25, z: -5.5 };                // the school's doors: where they go in at night
+  const afterDark = () => sky.hour >= 19.25 || sky.hour < 5.75;
+  const TRACK_DOORS = {
+    hall: { x: TRACK.x0, z: -5.5, yaw: PI / 2, w: 2.5, h: 3, leaves: 2, leaf: leafEmblem(0xb8343a, C.fringe, star), frame: frameArch(C.fringe, C.brassD),
+            beyond: { top: 0xf8f2e6, bottom: 0xe6ddca, floor: 0xe6ddca } },
+  };
+  // a bench (seats along x, facing the track), the floodlights, the trees: where they stand
+  const TRACK_BENCHES = [6.5, 10.5];
+  const FLOODS = [[-9.5, 7.5], [19.5, 7.5], [-6.5, -16.5], [19.5, -16.5]];
+  const TRACK_TREES = [[23.25, -15], [23.5, -8.5], [23.25, 8.5], [-17.5, 8.25], [-12.5, 9.0], [-19, -14.5]];
+  function trackTree(c, x, z, s) {
+    c.box(x - 0.25, 0, z - 0.25, x + 0.25, 2.25 * s, z + 0.25, 0x6a4a30);
+    leaves(c, x, 3.0 * s, z, 1.6 * s, 1.3 * s, 1.6 * s);
+    leaves(c, x - 0.9 * s, 2.5 * s, z + 0.4 * s, 1.0 * s, 0.85 * s, 1.0 * s);
+    leaves(c, x + 0.8 * s, 2.6 * s, z - 0.5 * s, 1.0 * s, 0.85 * s, 1.0 * s);
+  }
+  /** The ground and everything built at the building's grain: the track, the levee, the
+      school's side, the grandstand, the shed, the floodlights' poles, the bridge, the trees. */
+  function trackWorks() {
+    const c = canvas(S, 101), { box, clear, jit, rnd } = c, T = TRACK, O = OVAL;
+    // the ground: sand on the oval, darker where they run; a worn infield; grass, worn by the
+    // stand; the sidewalk along the school and the one along the road
+    box(T.x0, -0.25, T.z0, T.x1, 0, T.z1, (X, Y, Z) => {
+      const x = X + S / 2, z = Z + S / 2, d = ovalD(x, z);
+      if (x < -19.75 || (z > 8.5 && z < 10.25)) return jit(0xc8c4b8, 0.03);
+      if (z >= 10.25) return jit(0x8a8a86, 0.03);                                            // the road's edge
+      if (d >= O.rin && d <= O.rout) return jit(Math.abs(d - O.rjog) < 0.6 ? 0xa8845a : 0xc2a276, 0.06);
+      if (d < O.rin) return rnd() < 0.22 ? jit(0x9a8a5a, 0.05) : jit(0x7cb05a, 0.07);
+      if (x < -7 && z < -12) return rnd() < 0.5 ? jit(0x9a8a5a, 0.05) : jit(0x84ac5a, 0.06);
+      return rnd() < 0.1 ? jit(0x8a9a5a, 0.05) : jit(0x7cb25c, 0.06);
+    });
+    // the levee: up from the grass to a paved path along its top, and down to the river
+    for (let z = -18; z > -23.25; z -= S) {
+      const k = -18 - z, h = k < 2 ? 2.25 * k / 2 : k < 3.5 ? 2.25 : 2.25 * Math.max(0, 1 - (k - 3.5) / 1.5);
+      if (h < S / 2) continue;
+      box(-34, 0, z - S, 58, Math.round(h / S) * S, z, (X, Y) =>
+        k >= 2 && k < 3.5 && Y >= 2.0 ? (k < 2.25 || k >= 3.25 ? 0xe8e6de : jit(0x8c8c88, 0.04)) : jit(0x7cb25c, 0.07));
+    }
+    // the school's side: two storeys, windows, a cornice; the Scouting doors (makeDoor)
+    box(T.x0 - 0.25, 0, -18, T.x0, 8.5, T.z1, (X, Y, Z) => {
+      if (Y < 0.5) return 0x8a8478;
+      const u = ((Z + 16) % 3 + 3) % 3, win = u >= 0.75 && u < 2.25 && Math.abs(Z - -5.5) > 2;
+      if (win && ((Y >= 1.25 && Y < 2.75) || (Y >= 5 && Y < 6.5))) return Y % 1.5 < 0.25 ? C.frame : 0x8ab4cc;
+      return Y >= 8.0 ? C.colCap : jit(C.wall, 0.02);
+    });
+    box(T.x0 - 0.25, 8.25, -18, T.x0 + 0.25, 8.5, T.z1, C.colCap);
+    const d = TRACK_DOORS.hall;
+    clear(T.x0 - 0.25, 0, d.z - d.w / 2, T.x0, d.h, d.z + d.w / 2);
+    // the grandstand: four concrete steps up under a tin roof on posts, a wall behind
+    const g0 = -18, g1 = -8;
+    for (let k = 0; k < 4; k++)
+      box(g0, 0, -15.25 - 0.75 * k, g1, 0.5 * (k + 1), -14.5 - 0.75 * k, (X, Y) =>
+        Y >= 0.5 * k + 0.25 ? (rnd() < 0.1 ? 0x9a948a : 0x8a6a4a) : jit(0xb8b4aa, 0.05));
+    box(g0, 0, -17.75, g1, 3.75, -17.5, (X, Y) => Y < 2.25 ? jit(0xb0aca2, 0.05) : jit(0xc8c4b8, 0.04));
+    for (let x = g0; x <= g1 - 0.25; x += 2.5) box(x, 0, -14.5, x + 0.25, 3.75, -14.25, 0x7a8288);
+    box(g0 - 0.25, 3.75, -17.75, g1 + 0.25, 4.0, -14.0, (X, Y, Z) =>
+      Math.round(X / S) % 2 ? (rnd() < 0.15 ? 0x9a5a3a : 0x5a8a86) : (rnd() < 0.15 ? 0x8a4a2a : 0x4e7c78));
+    // the tin shed by the far curve: ribbed walls, a door, a flat roof
+    box(22, 0, 2, 25, 2.75, 5, (X, Y, Z) => (Math.round(X / S) + Math.round(Z / S)) % 2 ? 0x8a9aa0 : 0x7a8a90);
+    box(22, 0, 3, 22.25, 2.0, 4.25, 0x5a4a3a);
+    box(21.75, 2.75, 1.75, 25.25, 3.0, 5.25, (X) => rnd() < 0.2 ? 0x9a5a3a : 0x6a7a80);
+    // the floodlights' poles
+    for (const [x, z] of FLOODS) box(x - 0.125, 0, z - 0.125, x + 0.125, 9, z + 0.125, 0x8a8e94);
+    // over the river: an iron railway bridge, its deck on piers, a truss along each side
+    const bz0 = -52, bz1 = -50;
+    box(-60, 3, bz0, 80, 3.25, bz1, 0x6a6a6a);
+    for (let x = -55; x <= 75; x += 20) box(x - 0.5, -1, bz0, x + 0.5, 3, bz1, 0xa8a49a);
+    for (const z of [bz0, bz1 - 0.25]) {
+      box(-60, 3.25, z, 80, 3.5, z + 0.25, 0x9a3a2e);
+      box(-60, 6.0, z, 80, 6.25, z + 0.25, 0x9a3a2e);
+      for (let x = -60; x < 80; x += 5) {
+        box(x, 3.5, z, x + 0.25, 6.0, z + 0.25, 0x9a3a2e);
+        for (let t = 0; t < 10; t++) box(x + t * 0.5, 3.5 + t * 0.25, z, x + t * 0.5 + 0.5, 3.75 + t * 0.25, z + 0.25, 0x8a3226);
+      }
+    }
+    // trees round the edge
+    for (const [x, z] of TRACK_TREES) trackTree(c, x, z, 1.0 + rnd() * 0.25);
+    return c.mesh((X, Y, Z, nx, ny) => !(ny < 0 && Y < 0) && !(nx < 0 && X < TRACK.x0 - 0.2));
+  }
+  /** The fine work: the rails (worn, gapped), the furlong poles and the winning post, the
+      benches, the recruiting table, the tap, cones in the infield, the floodlights' lamps,
+      the chain-link fence along the far side, a canopy over the school's doors. */
+  function trackFittings() {
+    const c = canvas(F, 1010), { box, rnd } = c, O = OVAL;
+    for (const [r, which] of [[O.rin, "in"], [O.rout, "out"]]) {
+      const P = ovalLen(r);
+      let worn = false, gone = false;
+      for (let s = 0; s < P; s += F) {
+        const p = ovalAt(r, s);
+        if (inGap(which, p.x, p.z)) continue;
+        if (Math.round(s / F) % 24 === 0) { worn = rnd() < 0.18; gone = rnd() < 0.05; }
+        if (gone) continue;
+        const col = worn ? 0xa09a8c : 0xf2f0e8, x = Math.floor(p.x / F) * F, z = Math.floor(p.z / F) * F;
+        box(x, 0.8125, z, x + F, 0.9375, z + F, col);
+        if (Math.round(s / F) % 24 === 0) box(x, 0, z, x + F, 0.8125, z + F, worn ? 0x8a867c : 0xe6e4dc);   // a post
+      }
+    }
+    // furlong poles round the inside, red and white; the winning post on the near straight
+    for (let k = 0; k < 4; k++) {
+      const p = ovalAt(O.rin - 0.25, ovalLen(O.rin - 0.25) * (k + 0.5) / 4), x = Math.floor(p.x / F) * F, z = Math.floor(p.z / F) * F;
+      box(x, 0, z, x + 0.125, 1.625, z + 0.125, (X, Y) => Math.floor(Y / 0.25) % 2 ? 0xd8302a : 0xf6f2e8);
+    }
+    box(6, 0, -0.25, 6.125, 2.125, -0.125, 0xf6f2e8);
+    c.box(5.6875, 1.75, -0.25, 6.4375, 2.5, -0.1875, (X, Y) => {
+      const r = Math.hypot(X + c.h - 6.0625, Y + c.h - 2.125);
+      return r > 0.375 ? undefined : r > 0.25 ? 0xd8302a : 0xf6f2e8;
+    });
+    // the benches by the rail, facing the track: slats on steel, a back on the far side
+    for (const bx of TRACK_BENCHES) {
+      box(bx - 0.8125, 0.375, 5.5, bx + 0.8125, 0.4375, 5.875, (X, Y, Z) => Math.round(Z / F) % 2 ? C.wood : C.woodL);
+      box(bx - 0.8125, 0.5625, 5.8125, bx + 0.8125, 0.875, 5.875, C.woodL);
+      for (const lx of [bx - 0.75, bx + 0.6875]) { box(lx, 0, 5.5625, lx + F, 0.375, 5.8125, C.chromeD); box(lx, 0.4375, 5.8125, lx + F, 0.875, 5.875, C.chromeD); }
+    }
+    // the recruiting table: a folding table of papers, a stopwatch, a box of forms, a chair behind
+    box(-5.625, 0.6875, 5.25, -4.375, 0.75, 5.875, 0xe8e2d0);
+    for (const lx of [-5.5625, -4.4375]) box(lx, 0, 5.3125, lx + F, 0.6875, 5.8125, C.chromeD);
+    for (let i = 0; i < 3; i++) box(-5.4375 + i * 0.25, 0.75, 5.375, -5.25 + i * 0.25, 0.75 + F, 5.625, [0xf6f2e8, 0xf0e6c0, 0xf6f2e8][i]);
+    box(-4.75, 0.75, 5.4375, -4.5, 0.9375, 5.6875, 0xb08a5a);
+    cyl(c, -4.9375, 5.75, 0.0625, 0.75, 0.75 + F, 0xc0c4cc);
+    box(-6.3125, 0, 5.4375, -5.9375, 0.4375, 5.8125, 0x5a6a7a); box(-6.3125, 0.4375, 5.4375, -6.25, 0.875, 5.8125, 0x5a6a7a);   // a folding chair beside it
+    // the outdoor tap by the shed: a concrete post, a trough, three taps
+    box(21.375, 0, 7.75, 21.625, 0.625, 8.0, 0xa8a49a);
+    box(21.0, 0.625, 7.5, 22.0, 0.75, 8.25, 0xb8b4aa);
+    box(21.0625, 0.6875, 7.5625, 21.9375, 0.75, 8.1875, 0x8ab0c8);
+    for (const tx of [21.1875, 21.4375, 21.6875]) box(tx, 0.75, 8.125, tx + F, 0.9375, 8.1875, C.chromeD);
+    // cones in the infield for drills
+    for (let x = 2.5; x <= 7.5; x += 1.25) for (let i = 0; i < 4; i++) {
+      const r = 0.125 - i * F / 2;
+      box(x - r, i * 0.0625, -3.0 - r, x + r + F, (i + 1) * 0.0625, -3.0 + r + F, i === 2 ? 0xf6f2e8 : 0xf07a2a);
+    }
+    // the floodlights' lamps, turned in toward the track
+    for (const [x, z] of FLOODS) {
+      box(x - 0.5, 8.75, z - 0.375, x + 0.5, 9.375, z + 0.375, 0x5a5e66);
+      box(x - 0.4375, 8.8125, z + (z > 0 ? -0.4375 : 0.375), x + 0.4375, 9.3125, z + (z > 0 ? -0.375 : 0.4375), C.lit);
+    }
+    // the chain-link fence along the far side, on posts
+    c.box(25.5, 0, -17.5, 25.5 + F, 1.75, 10.25, (X, Y, Z) => {
+      const i = Math.round(Y / F), j = Math.round(Z / F);
+      if (((Z + 17.5) % 2.5) < F) return 0x8a8e94;
+      if (Y >= 1.6875) return 0x8a8e94;
+      return (i + j) % 4 === 0 || (i - j) % 4 === 0 ? 0xa8acb2 : undefined;
+    });
+    // a canopy over the school's doors
+    box(TRACK.x0, 3.375, -7.0, TRACK.x0 + 1.0, 3.5, -4.0, 0x6a6e76);
+    return c.mesh(notUnder);
+  }
+  /** Far off: the mountains, painted, behind everything. */
+  function mountains() {
+    const cv = document.createElement("canvas"); cv.width = 1024; cv.height = 256;
+    const g = cv.getContext("2d"), rnd = mulberry32(77);
+    for (const [base, col, amp] of [[150, "#8aa4b8", 70], [190, "#6a8a7a", 45]]) {
+      g.fillStyle = col; g.beginPath(); g.moveTo(0, 256);
+      for (let x = 0; x <= 1024; x += 16) g.lineTo(x, base - amp * (0.5 + 0.5 * Math.sin(x / 140 + base) * Math.sin(x / 57 + rnd())));
+      g.lineTo(1024, 256); g.closePath(); g.fill();
+    }
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(420, 105),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, fog: false }));
+    m.position.set(10, 20, -125);
+    return m;
+  }
+  // the floodlights' light on the ground at night (daylight sets how much)
+  const POOL_MAT = new THREE.MeshBasicMaterial({ map: LAMP_MAT.map, color: 0xfff2cc, transparent: true, opacity: 0,
+                                                 depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  function buildTrack(R) {
+    const g = new THREE.Group();
+    for (const geo of [trackWorks(), trackFittings()]) { const m = new THREE.Mesh(geo, OUT_MAT); m.receiveShadow = true; g.add(m); }
+    // the sky all round, the ground beyond, the river, the mountains
+    const skyM = new THREE.Mesh(new THREE.BoxGeometry(420, 80, 420), SKY_MAT); skyM.position.set(0, 38, 0); g.add(skyM);
+    const flat = (w, d, base, x, y, z) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ color: base, fog: true }));
+      m.rotation.x = -PI / 2; m.position.set(x, y, z); g.add(m); outFlats.push({ m, base });
+    };
+    flat(420, 420, 0x84b45e, 0, -0.03, 0);
+    flat(420, 42, 0x5a8ab0, 0, 0.012, -44);                                          // the river, the bridge over it
+    const mt = mountains(); g.add(mt); skyDoors.push(mt);
+    // the floodlights: a glow at each lamp, light on the track below it
+    for (const [x, z] of FLOODS) {
+      glow(g, x, 9.05, z + (z > 0 ? -0.5 : 0.5), 4.0);
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), POOL_MAT);
+      pool.rotation.x = -PI / 2; pool.position.set(x + (x < 5 ? 5 : -5), 0.02, z + (z > 0 ? -5 : 5)); g.add(pool);
+    }
+    R.doors = {};
+    for (const id in TRACK_DOORS) {
+      const d = makeDoor(TRACK_DOORS[id]); R.doors[id] = d; g.add(d.g);
+      d.g.traverse(o => { if (o.material === MAT) o.material = OUT_MAT; });          // out of doors, lit as the grounds are
+    }
+    hangSign(g, "MAIN HALL", TRACK.x0 + 0.03, 3.95, -5.5, PI / 2, 0.6);
+    hangSign(g, "TRAINING TRACK", -13, 4.35, -13.95, 0, 1.1, "#2f6a4e", "#f6efdc");
+    return g;
+  }
+  /* Who works out here: the trainers, each at their post, made like the trainer, each with
+     their own look. One watches with a stopwatch, one takes notes, one coaches the stretching,
+     one recruits at the table; only the old hand stays on after dark. */
+  STAFF.track = [
+    { id: "staff-veteran", name: "Veteran trainer", x: 4.5, z: 4.55, yaw: PI, work: "watch", hold: "stopwatch", night: true,
+      trainer: { sex: "m", style: "slick", hair: 6, skin: 1, attire: "suit", colour: 1, bottoms: "trousers" },
+      lines: ["Forty-one flat down the back. Not bad on this sand.", "Every spring I come out here and tell myself: this is the year.",
+              "A track like this builds tough legs. The city lot never learn that.", "Heard there's a grey-haired girl who eats like ten and runs like the wind."] },
+    { id: "staff-rookie", name: "Rookie trainer", x: 8.5, z: 4.55, yaw: PI, work: "clipboard", hold: "clipboard",
+      trainer: { sex: "f", style: "ponytail", hair: 3, skin: 0, attire: "tracksuit", colour: 6, bottoms: "trousers", glasses: true },
+      lines: ["I'm meant to be writing all this down... how are they all this fast?", "Would any of them sign with a rookie like me, do you think?",
+              "Number three, number three -- she's pulling away again!"] },
+    { id: "staff-coach", name: "Track coach", x: 5.0, z: -4.5, yaw: PI, work: "coach",
+      trainer: { sex: "m", style: "buzz", hair: 0, skin: 3, attire: "tracksuit", colour: 3, bottoms: "trousers" },
+      lines: ["Loosen up those hamstrings! Ten more!", "Knees up! Drive with your arms!", "Good. Now walk it off and get some water."] },
+    { id: "staff-scout", name: "Scout", x: -5.0, z: 6.3, yaw: PI, work: "clipboard", hold: "clipboard",
+      trainer: { sex: "f", style: "bob", hair: 1, skin: 2, attire: "suit", colour: 4, bottoms: "skirt" },
+      lines: ["Looking to recruit? The sign-up sheets are on the table.", "Plenty of hidden talent on a track like this.",
+              "Take your time. Watch how they run, not just how fast."] },
+  ];
+  const TRACK_PLACES = {
+    hall:  { label: "Main hall", sub: "Back in", icon: "door", x: -19.6, z: -5.5, face: -PI / 2, ax: -21.9, ay: 4.5, az: -5.5,
+             door: "hall", room: "hall", arrive: "scout" },
+    table: { station: "scout", label: "Scout", sub: "Recruiting table", x: -5, z: 4.6, face: 0, ax: -5, ay: 2.4, az: 5.6 },
+    rail:  { station: "scout", label: "Scout", sub: "Watch from the rail", x: 13, z: 4.6, face: PI, ax: 13, ay: 2.3, az: 3.75 },
+  };
+  const TRACK_SEATS = TRACK_BENCHES.flatMap(bx => [bx - 0.4, bx + 0.4].map(x => ({ x, z: 5.6875, face: PI, act: "sit", seat: true })));
+  const TRACK_POIS = [
+    // stretching in the infield in front of the coach, and drills along the cones
+    { x: 3.5, z: -6.25, face: 0, act: "stretch" }, { x: 5.0, z: -6.75, face: 0, act: "stretch" }, { x: 6.5, z: -6.25, face: 0, act: "stretch" },
+    { x: 2.5, z: -3.75, face: PI / 2, act: "drill" }, { x: 7.5, z: -3.75, face: -PI / 2, act: "drill" },
+    ...TRACK_SEATS,
+    { x: 21.5, z: 7.0, face: 0, act: "drink", icon: "juice" },
+    // a word with the trainers at the rail
+    { x: 5.3, z: 4.7, face: -PI / 2, act: "chat" }, { x: 9.3, z: 4.7, face: -PI / 2, act: "chat" },
+  ];
+  const TRACK_HUDDLES = [[0.5, -1.75], [14.5, 7.25], [-14, 2]];
+  const TRACK_THINGS = [
+    ...TRACK_SEATS.map((p, i) => ({ kind: "sit", label: "Sit", poi: [5 + i] })),
+    { kind: "fountain", label: "Have a drink", poi: [5 + TRACK_SEATS.length], x: 21.5, z: 7.0, face: 0, ax: 21.5, ay: 1.5, az: 7.9 },
+    { kind: "stretch", label: "Stretch", poi: [0], x: 3.5, z: -6.25, face: 0, ax: 3.5, ay: 2.0, az: -6.25 },
+    { kind: "jog", label: "Jog a lap", x: JOG.entry.x, z: JOG.entry.z, face: -PI / 2, ax: 0, ay: 1.9, az: JOG.entry.z },
+  ];
+  const TRACK_BLOCKS = [
+    [-18.1, -18, -7.9, -14.1],                                                   // the grandstand
+    [21.8, 1.8, 25.3, 5.3],                                                      // the shed
+    [20.9, 7.4, 22.1, 8.35], [-5.7, 5.2, -4.3, 5.95], [-6.35, 5.4, -5.9, 5.85],  // the tap, the table, its chair
+    ...TRACK_BENCHES.map(bx => [bx - 0.85, 5.45, bx + 0.85, 5.95]),
+    ...FLOODS.map(([x, z]) => [x - 0.25, z - 0.25, x + 0.25, z + 0.25]),
+    ...TRACK_TREES.map(([x, z]) => [x - 0.4, z - 0.4, x + 0.4, z + 0.4]),
+  ];
+  function trackWalkable(x, z, r) {
+    if (x < TW.x0 + r || x > TW.x1 - r || z < TW.z0 + r || z > TW.z1 - r) return false;
+    for (const b of TRACK_BLOCKS) if (x > b[0] - r && x < b[2] + r && z > b[1] - r && z < b[3] + r) return false;
+    // the rails, except at their gaps
+    const d = ovalD(x, z);
+    if (Math.abs(d - OVAL.rin) < 0.1 + r && !inGap("in", x, z)) return false;
+    if (Math.abs(d - OVAL.rout) < 0.1 + r && !inGap("out", x, z)) return false;
+    return true;
+  }
+  /** A trainer's stopwatch or clipboard, in their right hand (metres; the arm is in voxels). */
+  function trainerProp(kind) {
+    const g = new THREE.Group(), lam = c => new THREE.MeshLambertMaterial({ color: c });
+    const part = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c)); m.position.set(x, y, z); g.add(m); };
+    if (kind === "stopwatch") { part(0.07, 0.07, 0.025, 0xc0c4cc); part(0.05, 0.05, 0.01, 0xf6f6f2, 0, 0, 0.014); part(0.015, 0.02, 0.015, 0xc0c4cc, 0, 0.045, 0); }
+    else { part(0.22, 0.3, 0.015, 0xb08a5a); part(0.18, 0.24, 0.005, 0xf6f2e8, 0, -0.01, 0.01); part(0.08, 0.025, 0.02, 0xc0c4cc, 0, 0.14, 0.01); }
+    return g;
+  }
+
   // ================================================================ the window between them
   /* The office shares a wall with the hall, and a window in it. Both rooms go on living all
      the time, and the window is a real opening onto the other: each frame it is on screen,
@@ -2129,7 +2810,8 @@
       other way from the hall, a dorm room a quarter turn). */
   const UP = new THREE.Vector3(0, 1, 0), bgC = new THREE.Color(), lightV = new THREE.Vector3();
   function lookOf(R) {
-    bgC.setHex(R.bg).multiply(sky.room);
+    if (R.outdoor) bgC.copy(sky.low);                          // out of doors: the horizon
+    else bgC.setHex(R.bg).multiply(sky.room);
     renderer.setClearColor(bgC);
     scene.fog.color.copy(bgC); scene.fog.near = R.fog[0]; scene.fog.far = R.fog[1];
     lightV.copy(sky.dir).applyAxisAngle(UP, R.yaw || 0).multiplyScalar(45);
@@ -2140,7 +2822,7 @@
     for (const k in ROOMS) {
       const on = ROOMS[k] === R;
       if (ROOMS[k].group) ROOMS[k].group.visible = on;
-      for (const n of crowds[k]) n.m.root.visible = on;
+      for (const n of crowds[k]) n.m.root.visible = on && !n.gone;          // (gone in for the night: not there)
     }
   }
   const viewFrustum = new THREE.Frustum(), viewPV = new THREE.Matrix4(), portalM = new THREE.Matrix4(), portalT = new THREE.Matrix4();
@@ -2194,7 +2876,7 @@
   const ROOMS = {
     hall: { id: "hall", build: buildHall, walkable: hallWalkable, places: HALL_PLACES, pois: HALL_POIS,
             huddles: HALL_HUDDLES, lines: HALL_LINES, peerLines: HALL_PEER_LINES, things: HALL_THINGS, bg: 0xf2ead8, fog: [34, 70],
-            cam: { x: [-21, 21], z: [-9, 5], h: 6.4, d: 10, ly: 1.2, la: 2.4, fov: 40, turn: [13, 21.5, 0.62] },
+            cam: { x: [-21, 21], z: [-9, 5], h: 6.4, d: 10, ly: 1.2, la: 2.4, fov: 40, turn: [13, 21.5, 0.62], wall: HALL.z1 },
             nav: { x0: -24, z0: -15.5, nx: 192, nz: 94 }, spawn: { x: 0, z: 3, yaw: PI },
             roam: { x: [-22, 22], z: [-6.5, 6.5] } },
     office: { id: "office", yaw: PI, build: buildOffice, walkable: officeWalkable, places: OFFICE_PLACES, pois: OFFICE_POIS,
@@ -2219,6 +2901,26 @@
             cam: { x: [-0.6, 0.6], z: [-0.2, 0.6], h: 3.3, d: 6.0, ly: 0.5, la: 1.3, fov: 50, turn: [0.7, 2.6, 0.32] },
             nav: { x0: -3.25, z0: -3, nx: 26, nz: 24 }, spawn: { x: -1.6, z: 1.75, yaw: PI / 2 },
             roam: { x: [-1.4, 1.4], z: [-1.2, 2.4] }, v: 0 },
+    // the school wing's corridor, its doors and timetable showing which lessons are done (dressSchool)
+    school: { id: "school", music: "school", build: buildSchool, dress: dressSchool, v: 0, walkable: schoolWalkable, places: {}, pois: SCHOOL_POIS,
+              huddles: SCHOOL_HUDDLES, lines: HALL_LINES, peerLines: HALL_PEER_LINES, things: SCHOOL_THINGS, bg: 0xf2ead8, fog: [40, 90],
+              cam: { x: [-15, 15], z: [0.6, 1.0], h: 3.55, d: 5.2, ly: 0.9, la: 1.2, fov: 50, turn: [13, 18.5, 0.5] },
+              nav: { x0: -19, z0: -1.5, nx: 152, nz: 19 }, spawn: { x: -16.5, z: 0.75, yaw: PI / 2 },
+              roam: { x: [-17, 17], z: [-0.5, 2.5] } },
+    // one classroom, dressed for the lesson whose door she came in by (dressClass); north of the
+    // corridor, so its frame is the dorm room's: the board to the west, the windows north
+    class: { id: "class", music: "school", yaw: -PI / 2, build: buildClass, dress: dressClass, v: 0, walkable: classWalkable, places: {}, pois: CLASS_POIS,
+             huddles: CLASS_HUDDLES, lines: HALL_LINES, peerLines: HALL_PEER_LINES, things: CLASS_THINGS, bg: 0xf2ead8, fog: [40, 90],
+             cam: { x: [-0.8, 0.8], z: [-0.5, 1.2], h: 3.5, d: 7.2, ly: 0.5, la: 1.6, fov: 52, turn: [1.2, 3.4, 0.3] },
+             nav: { x0: -4.25, z0: -3.75, nx: 34, nz: 32 }, spawn: { x: -2.75, z: 2.25, yaw: PI / 2 },
+             roam: { x: [-3.4, 3.4], z: [-2.2, 3.2] } },
+    // outside: the training track (`outdoor`: what lies beyond it is the sky; `jog`: the line
+    // its racers run laps on)
+    track: { id: "track", music: "track", outdoor: true, build: buildTrack, walkable: trackWalkable, places: TRACK_PLACES, pois: TRACK_POIS,
+             huddles: TRACK_HUDDLES, lines: HALL_LINES, peerLines: HALL_PEER_LINES, things: TRACK_THINGS, bg: 0xbfe0f6, fog: [60, 190],
+             cam: { x: [-12, 16], z: [-9, 4], h: 8, d: 14, ly: 0.5, la: 6, fov: 42, turn: [15, 23, 0.4] },
+             nav: { x0: -22, z0: -18, nx: 192, nz: 116 }, spawn: { x: -19.6, z: -5.5, yaw: PI / 2 },
+             roam: { x: [-18, 22], z: [-12, 8] }, jog: JOG },
   };
   // who has a room in the dorm, for the shell to send some of them home
   const RESIDENTS = DORM_ROOMS.flatMap(r => r.names);
@@ -2353,21 +3055,51 @@
   let room = null;                                       // the room she is in
   let host = null, tagsEl = null, raf = 0, last = 0, opts = null, safeTop = -1;
   let player = null, tags = [], keys = {}, nearId = null, clickGoal = null;
-  const crowds = { hall: [], office: [], cafe: [], dorm: [], room: [] };   // everyone else, room by room
+  const crowds = { hall: [], office: [], cafe: [], dorm: [], room: [], school: [], class: [], track: [] };   // everyone else, room by room
   let npcs = crowds.hall;                                // the company of the room she is in
   let seq = null;                                        // a walk through a door, under way
   let saved = { room: "hall", x: 0, z: 3, yaw: PI, via: null, v: 0 };   // where she was last time
-  // who is where: `home` are the dorm's residents who are in their rooms today
-  const casts = { hall: [], office: [], cafe: [], dorm: [], home: [] };
+  // who is where: `home` are the dorm's residents who are in their rooms today, `classes`
+  // the ones in class, a classroom each by turns
+  const casts = { hall: [], office: [], cafe: [], dorm: [], home: [], school: [], classes: [], track: [] };
   let camYaw = 0, snapCam = true;
   const camTarget = new THREE.Vector3(), tmp = new THREE.Vector3(), ray = new THREE.Raycaster();
   const PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+  /* A phone (a touch screen, or few cores) starts on a smaller budget: fewer pixels and a
+     coarser shadow map. Then the governor watches the frames; if they keep running long it
+     steps the budget down, one notch each time, and never back up -- a picture that keeps
+     sharpening and blurring is worse than one that is a little soft. */
+  const LOW_POWER = !!(root.matchMedia && matchMedia("(pointer:coarse)").matches) || (navigator.hardwareConcurrency || 8) <= 4;
+  const gov = { level: 0, slow: 0, t: 0 };
+  function budget() {
+    const dpr = root.devicePixelRatio || 1;
+    renderer.setPixelRatio(Math.min(dpr, [LOW_POWER ? 1.25 : 1.5, 1, 1, 0.8][gov.level]));
+    if (sunLight) {
+      const size = gov.level >= 2 ? 512 : LOW_POWER ? 1024 : 2048;
+      if (sunLight.shadow.mapSize.x !== size) {
+        sunLight.shadow.mapSize.set(size, size);
+        if (sunLight.shadow.map) { sunLight.shadow.map.dispose(); sunLight.shadow.map = null; }
+      }
+    }
+  }
+  function govern(dt) {
+    if (!dt || document.hidden || gov.level >= 3) return;
+    // the share of recent frames slower than 24 a second: not 30, which is where a phone on
+    // battery saver holds every page however little it draws
+    gov.slow += ((dt > 1 / 24 ? 1 : 0) - gov.slow) * 0.05;
+    gov.t += dt;
+    if (gov.t < 2.5 || gov.slow < 0.5) return;
+    gov.level++; gov.t = 0; gov.slow = 0;
+    budget();
+    renderer.setSize(host.clientWidth, host.clientHeight, false);
+    sizePortals();
+  }
 
   function ensure() {
     if (renderer) return true;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" }); }
     catch (e) { renderer = null; return false; }
-    renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.className = "lobby-gl";
@@ -2387,6 +3119,7 @@
     const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 24; sc.bottom = -24; sc.near = 1; sc.far = 110;
     sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03;
     scene.add(sun, sun.target);
+    budget();
     // the gold circle under the player, the way the race marks her
     ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.55, 32),
       new THREE.MeshBasicMaterial({ color: 0xf2b705, transparent: true, opacity: 0.85 }));
@@ -2409,13 +3142,23 @@
     const names = R.id === "room" ? DORM_ROOMS[R.v].names : null;
     const defs = names ? casts.home.filter(d => names.includes(bareName(d.name)))
       : R.id === "dorm" ? casts.dorm.filter(d => floorOf(bareName(d.name)) === R.v)     // in the corridor of her own floor
+      : R.id === "class" ? casts.classes.filter((d, i) => i % LESSONS.length === R.v)   // in this lesson's class
+      : R.jog && LOW_POWER ? casts[R.id].slice(0, 2)                                   // the big outdoors: fewer out on a phone
       : casts[R.id] || [];
     crowds[R.id] = defs.map(d => {
       const n = makeNpc(d, R);
       if (names) n.home = names.indexOf(bareName(d.name));          // her side of the room
+      if (R.jog && afterDark()) goneIn(n);                           // out on the track after dark: already gone in
       return n;
     }).concat((STAFF[R.id] || []).map(st => staffNpc(st, R)));
     R.peopled = true;
+  }
+  /** In for the night, off the track: at the school's doors, out of sight, until morning. */
+  function goneIn(n) {
+    if (n.slot) { n.R.taken.delete(n.slot); n.slot = null; }
+    n.gone = true; n.state = "gone"; n.path = null; n.goal = null; n.perch = 0;
+    n.x = n.rx = TRACK_EXIT.x; n.z = n.rz = TRACK_EXIT.z;
+    n.m.root.visible = false; n.bubble.hidden = true;
   }
 
   /** Into a room (`v`: which room of the dorms, or which floor): its doors shut, its tags, its company. The room
@@ -2427,12 +3170,14 @@
     nearThing = null;
     for (const n of npcs) n.bubble.hidden = true;
     room = built(ROOMS[id] || ROOMS.hall);
+    if (opts && opts.onMusic) opts.onMusic(room.music || null);         // a place with music of its own, or the home theme
+    if (root.Quests) Quests.record("lobbyRoom", { room: room.id, v });  // "make the rounds", which dorm room (quests.js)
     if (room.dress) room.dress(room, v || 0);
     if (!room.peopled || room.dress) people(room);
     npcs = crowds[room.id];
     showRoom(room);
     lookOf(room);
-    camera.fov = room.cam.fov; camera.updateProjectionMatrix();
+    fitCamera();
     for (const k in room.doors) { const d = room.doors[k]; d.open = d.target = 0; swingDoor(d, 0); }
     placeTags();
     if (room.greet) for (const n of npcs) n.greeted = false;    // a word for her each time she comes in
@@ -2502,7 +3247,7 @@
 
   /** A bubble over her -- only where the player can see it. */
   function say(n, html, ms) {
-    if (n.R !== room) return;
+    if (n.R !== room || n.gone) return;
     n.bubble.innerHTML = html;
     n.bubble.hidden = false;
     n.bubbleUntil = performance.now() + (ms || 2600);
@@ -2519,6 +3264,11 @@
     // a place of her own (Oguri's, at the end of the table): most of the time, she is there
     const own = R.pois.findIndex(p => p.who && p.who === bareName(n.def.name));
     if (own >= 0 && !taken.has("p" + own) && Math.random() < 0.8) return goPoi(n, { p: R.pois[own], i: own });
+    // out on the track, a good share of the time she goes for a jog: over to the line, and round
+    if (R.jog && Math.random() < 0.4) {
+      n.goal = { x: R.jog.entry.x + (Math.random() - 0.5) * 2, z: R.jog.entry.z, act: "jog", jog: true, stay: 0 };
+      n.state = "walk"; return;
+    }
     const r = Math.random();
     if (r < 0.38) {
       // a huddle: prefer one somebody is already standing in
@@ -2586,15 +3336,40 @@
   function staffNpc(st, R) {
     const n = makeNpc(st, R);
     n.x = n.rx = st.x; n.z = n.rz = st.z; n.yaw = st.yaw; n.fixed = st; n.state = "staff";
+    if (st.hold) {                                            // a trainer's stopwatch or clipboard, in her hand
+      const p = trainerProp(st.hold);
+      p.scale.setScalar(1 / n.m.rig.scale.x); p.position.set(0, -6.6, 1.0); p.rotation.x = -0.9;
+      n.m.armR.add(p);
+    }
     return n;
   }
   function updateStaff(n, dt, now) {
     const st = n.fixed, m = n.m, t = now / 1000 + m.seed;
+    // out on the track, only the old hand stays on after dark
+    if (n.R.jog) {
+      const away = !st.night && afterDark();
+      if (away !== !!n.gone) { n.gone = away; m.root.visible = !away && n.R === room; if (away) n.bubble.hidden = true; }
+      if (away) return;
+    }
     const d = player && n.R === room ? Math.hypot(player.x - st.x, player.z - st.z) : 99;
     m.root.position.set(st.x, 0, st.z);
     m.root.rotation.y = st.yaw;
     pose(m, 0, now / 1000, {});
-    if (now < (n.serving || 0)) {
+    if (st.work === "watch" || st.work === "clipboard" || st.work === "coach") {
+      // trainers at the track: an eye on whoever is running nearest, or on the player close by
+      let tx = null, tz = null, best = 14;
+      for (const o of n.R === room ? npcs : crowds[n.R.id]) {
+        if (o.fixed || o.gone) continue;
+        const dd = Math.hypot(o.rx - st.x, o.rz - st.z);
+        if ((o.state === "jog" || st.work === "coach") && dd < best) { best = dd; tx = o.rx; tz = o.rz; }
+      }
+      if (d < 3.5) { tx = player.x; tz = player.z; }
+      if (tx != null) m.head.rotation.y = clamp(turn(0, Math.atan2(tx - st.x, tz - st.z) - st.yaw, 1), -0.9, 0.9);
+      if (st.work === "watch") { m.armR.rotation.x = -1.35; m.armR.rotation.z = 0.15; m.head.rotation.x = -0.05; }    // the stopwatch up
+      else if (st.work === "clipboard") {                                                                              // taking notes
+        m.armR.rotation.x = -1.2; m.armL.rotation.x = -1.0 + Math.sin(t * 6) * 0.05; m.head.rotation.x = Math.sin(t * 0.7) > 0.3 ? 0.35 : 0;
+      } else if (Math.sin(t * 0.9) > 0.2) { m.armR.rotation.x = -1.6 + Math.sin(t * 5) * 0.3; m.armR.rotation.z = 0.3; }  // calling it out
+    } else if (now < (n.serving || 0)) {
       // handing a tray over the counter
       m.armL.rotation.x = m.armR.rotation.x = -1.35;
       m.head.rotation.x = 0.1;
@@ -2625,6 +3400,29 @@
     if (n.fixed) return updateStaff(n, dt, now);
     let run = 0;
     const here = n.R === room;
+    // out on the track: in at dusk (off the seat, to the school's doors, gone), out again in the morning
+    if (n.R.jog) {
+      const dark = afterDark();
+      if (n.gone) {
+        if (dark) return;
+        n.gone = false; n.state = "idle"; n.until = now + Math.random() * 6000;
+        n.x = n.rx = TRACK_EXIT.x; n.z = n.rz = TRACK_EXIT.z; n.m.root.visible = here;
+      } else if (dark && !(n.goal && n.goal.home)) {
+        if (n.slot) { n.R.taken.delete(n.slot); n.slot = null; }
+        n.perch = 0; n.act = null; n.path = null;
+        n.goal = { x: TRACK_EXIT.x, z: TRACK_EXIT.z, act: "idle", home: true, stay: 0 }; n.state = "walk";
+      }
+    }
+    if (n.state === "jog") {
+      // a lap of the oval at her own pace, the sand flying
+      const J = n.R.jog, v = n.jogV;
+      n.lap.s += v * dt; n.lap.left -= v * dt;
+      const p = ovalAt(J.r, n.lap.s), q = ovalAt(J.r, n.lap.s + 0.4);
+      n.x = p.x; n.z = p.z; n.yaw = turn(n.yaw, Math.atan2(q.x - p.x, q.z - p.z), dt * 10);
+      run = 0.62;
+      if (here && Math.random() < dt * 5) mote(n.x + (Math.random() - 0.5) * 0.3, 0.08, n.z + (Math.random() - 0.5) * 0.3, 0xcaa878, 0.07, 0.7, 0.35);
+      if (n.lap.left <= 0) plan(n, now);
+    }
     if (n.state === "idle" || n.state === "stay") {
       // getting up off a seat comes first: off it, back onto the floor in front
       if (now > n.until) { if (n.perch > 0) n.state = "rise"; else plan(n, now); }
@@ -2646,7 +3444,11 @@
         if (Math.hypot(n.x - n.last.x, n.z - n.last.z) < 0.15) { plan(n, now); }
         n.last = { x: n.x, z: n.z, t: now };
       }
-      if (arrived) {
+      if (arrived && n.goal.home) { goneIn(n); return; }                      // in for the night
+      if (arrived && n.goal.jog) {                                               // on the line: off she goes, a lap or two
+        n.state = "jog"; n.jogV = 2.8 + Math.random() * 1.0;
+        n.lap = { s: n.R.jog.s0 - n.x, left: n.R.jog.P * (1 + Math.floor(Math.random() * 2)) };   // (the entry is on the near straight)
+      } else if (arrived) {
         n.state = "stay"; n.act = n.goal.act; n.until = now + n.goal.stay;
         if (n.goal.icon && Math.random() < 0.8) say(n, root.Icon ? Icon(n.goal.icon) : "", 2400);
       }
@@ -2709,6 +3511,13 @@
     else { m.armR.rotation.x = -1.1; m.armR.rotation.z = 0.12; m.head.rotation.x = 0.24 + Math.sin(t * 9) * 0.02; }
     m.armL.rotation.x = -0.95;
   }
+  /** High knees on the spot, arms pumping: a drill at the cones. */
+  function drillPose(m, t) {
+    const s = Math.sin(t * 9);
+    m.legL.rotation.x = -Math.max(0, s) * 1.3; m.legR.rotation.x = -Math.max(0, -s) * 1.3;
+    m.armL.rotation.x = s * 0.9; m.armR.rotation.x = -s * 0.9;
+    m.rig.position.y = Math.abs(s) * 0.06;
+  }
   /** Bent over her desk, writing. */
   function studyPose(m, t) {
     m.armR.rotation.x = -1.05 + Math.sin(t * 7) * 0.06; m.armR.rotation.z = 0.1;
@@ -2768,6 +3577,7 @@
         m.body.rotation.z = s * 0.12;
         break;
       }
+      case "drill": drillPose(m, t); break;
     }
   }
 
@@ -2810,6 +3620,7 @@
     if (seq || act || !player || !usable(room, th)) return;
     clickGoal = null; keys = {};
     act = { th, kind: th.kind, phase: "go", t: 0 };
+    if (root.Quests) Quests.record("lobbyThing", { kind: th.kind });    // a thing done in the academy (quests.js)
     const now = performance.now();
     for (const i of th.poi || []) {
       const n = room.taken.get("p" + i);
@@ -2975,6 +3786,22 @@
         if (t > 2.6 && !a.ahh) { a.ahh = true; sayMe("Ahh. Cold.", 1800); }
         if (t > 3.2) { release(); act = null; }
         break;
+      case "stretch":
+        // arms up and a lean either way, a few times over
+        if (t > 3.2 && !a.ahh) { a.ahh = true; sayMe(["Ahh, that's better.", "Loosened up!", "Okay, legs, wake up."][Math.floor(Math.random() * 3)], 2000); }
+        if (t > 4.2) { release(); act = null; }
+        break;
+      case "jog": {
+        // a lap of the oval, the way the others run it, the sand flying
+        const J = room.jog;
+        if (a.s == null) { a.s = J.s0 - player.x; a.left = J.P; }
+        a.s += 3.4 * dt; a.left -= 3.4 * dt;
+        const p = ovalAt(J.r, a.s), q = ovalAt(J.r, a.s + 0.4);
+        player.x = p.x; player.z = p.z; player.yaw = turn(player.yaw, Math.atan2(q.x - p.x, q.z - p.z), dt * 10);
+        if (Math.random() < dt * 5) mote(p.x + (Math.random() - 0.5) * 0.3, 0.08, p.z + (Math.random() - 0.5) * 0.3, 0xcaa878, 0.07, 0.7, 0.35);
+        if (a.left <= 0) { sayMe(["Phew! This sand really works the legs.", "One lap down!", "That felt good."][Math.floor(Math.random() * 3)], 2400); release(); act = null; return 0; }
+        return 0.62;
+      }
       case "juke":
         // a press of the buttons, and the choice is the shell's (it has the music)
         if (t > 0.55 && !a.asked) {
@@ -3040,6 +3867,12 @@
         if (t > 0.3 && t < 2.6) { m.body.rotation.x = 0.75; m.head.rotation.x = 0.1; m.armL.rotation.x = m.armR.rotation.x = -0.6; }
         break;
       case "juke": m.armR.rotation.x = -1.25 + Math.sin(t * 18) * 0.06; m.body.rotation.x = 0.12; m.head.rotation.x = 0.15; break;
+      case "stretch": {
+        const k = Math.sin(s * 1.6);
+        m.armL.rotation.x = m.armR.rotation.x = -2.9 + k * 0.08;
+        m.armL.rotation.z = -0.25; m.armR.rotation.z = 0.25; m.body.rotation.z = k * 0.2;
+        break;
+      }
       case "vend":
         if (t < 0.7) { m.armR.rotation.x = -1.3; m.armR.rotation.z = 0.35; }          // coins in
         else if (t > 0.9 && t < 1.6) { m.body.rotation.x = 0.42; m.armR.rotation.x = -0.5; }   // down for it
@@ -3165,13 +3998,16 @@
     // a mode: the shell takes it from here, and she comes back out of this same door
     saved = { room: room.id, x: p.x, z: p.z, yaw: p.face + PI, via: door ? s.id : null, v: room.v };
     s.done = true;
-    if (opts && opts.onEnter) opts.onEnter(p.station || s.id);
+    // a classroom's board starts its lesson; anywhere else, a mode
+    if (p.lesson && opts && opts.onLesson) opts.onLesson(p.lesson);
+    else if (opts && opts.onEnter) opts.onEnter(p.station || s.id);
     return 0;
   }
 
   function updatePlayer(dt, now, seqRun) {
     let run = 0;
-    const stepping = keys.ArrowLeft || keys.KeyA || keys.ArrowRight || keys.KeyD || keys.ArrowUp || keys.KeyW || keys.ArrowDown || keys.KeyS;
+    const stepping = keys.ArrowLeft || keys.KeyA || keys.ArrowRight || keys.KeyD || keys.ArrowUp || keys.KeyW || keys.ArrowDown || keys.KeyS ||
+                     !!(stick && stick.on);
     if (seqRun !== null) {
       run = seqRun;
       if (run) player.m.phase += dt * (1.6 + 2.2 * 0.45) * PI * 2;
@@ -3189,7 +4025,13 @@
       if (keys.ArrowRight || keys.KeyD) mx += 1;
       if (keys.ArrowUp || keys.KeyW) mz -= 1;
       if (keys.ArrowDown || keys.KeyS) mz += 1;
-      const running = keys.ShiftLeft || keys.ShiftRight;
+      let running = keys.ShiftLeft || keys.ShiftRight;
+      if (stick && stick.on) {
+        // the stick points on the screen; the floor's directions turn with the camera
+        const sy = Math.sin(camYaw), cy = Math.cos(camYaw);
+        mx = cy * stick.dx - sy * stick.dy; mz = sy * stick.dx + cy * stick.dy;
+        running = stick.run;
+      }
       if (mx || mz) {
         clickGoal = null; player.path = null;
         const l = Math.hypot(mx, mz), v = running ? 5.5 : 2.8;
@@ -3269,6 +4111,26 @@
     return { x: (tmp.x * 0.5 + 0.5) * w, y: (-tmp.y * 0.5 + 0.5) * h, vis: tmp.z < 1 && tmp.z > -1 };
   }
 
+  /* An upright phone sees a third of the width a monitor does at the same field of view:
+     the hall was one door wide, and she walked out of the picture to either side. Under
+     ASPECT the view widens a little (fov) and the camera stands back along its line of
+     sight the rest of the way (camBack), until the room shows as much across as it would
+     on a squarer screen. A desktop window never gets here. */
+  const ASPECT = 0.95;
+  let camBack = 1;
+  function fitCamera() {
+    const f = room.cam.fov, a = camera.aspect;
+    let fov = f;
+    camBack = 1;
+    if (a < ASPECT) {
+      const want = Math.tan(f * PI / 360) * ASPECT;              // tan of half the width it should see
+      fov = Math.min(f * 1.3, 2 * Math.atan(want / a) * 180 / PI);
+      camBack = Math.min(1.75, want / (Math.tan(fov * PI / 360) * a));
+    }
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+  }
+
   function placeCamera(dt) {
     const cam = room.cam;
     const tx = clamp(player.x, cam.x[0], cam.x[1]), tz = clamp(player.z, cam.z[0], cam.z[1]);
@@ -3278,8 +4140,16 @@
     camTarget.x += (tx - camTarget.x) * k; camTarget.z += (tz - camTarget.z) * k;
     camYaw += (side - camYaw) * k;
     const sy = Math.sin(camYaw), cy = Math.cos(camYaw);
-    let px = camTarget.x - sy * cam.d, py = cam.h, pz = camTarget.z + cy * cam.d;
     let lx = camTarget.x + sy * cam.la, ly = cam.ly, lz = camTarget.z - cy * cam.la;
+    // back along the line from what it looks at (camBack, for a narrow screen); in a room with
+    // a wall behind the camera (`wall`: its z) it climbs instead of backing through it, but
+    // not so far that she is seen from overhead
+    let hb = (cam.d + cam.la) * camBack, vb = (cam.h - cam.ly) * camBack;
+    if (cam.wall) {
+      const fit = Math.max((cam.wall - lz) / Math.max(cy, 0.2), cam.d + cam.la);
+      if (hb > fit) { vb = Math.min(Math.sqrt(hb * hb + vb * vb - fit * fit), fit * 0.7); hb = fit; }
+    }
+    let px = lx - sy * hb, py = ly + vb, pz = lz + cy * hb;
     // through a door, the camera comes down in front of it
     if (seq && seq.door && seq.cam > 0) {
       const d = seq.door, e = ease(seq.cam), fx = Math.sin(d.yaw), fz = Math.cos(d.yaw);
@@ -3335,7 +4205,8 @@
     const w = host.clientWidth, h = host.clientHeight;
     if (!w || !h) return;
     const sz = renderer.getSize(new THREE.Vector2());
-    if (sz.x !== w || sz.y !== h) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); safeTop = -1; sizePortals(); }
+    if (sz.x !== w || sz.y !== h) { renderer.setSize(w, h, false); camera.aspect = w / h; fitCamera(); safeTop = -1; sizePortals(); }
+    govern(dt);
     // the strip along the top (resources, sign out) is the shell's; the signs keep below it
     if (safeTop < 0) safeTop = opts.safeTop ? Math.max(0, opts.safeTop() - host.getBoundingClientRect().top) : 0;
 
@@ -3400,15 +4271,83 @@
       if (e.code.indexOf("Arrow") === 0) e.preventDefault();
     }
   }
-  function onBlur() { keys = {}; }
-  function onPointer(e) {
-    if (!host || e.button > 0 || seq) return;
+  function onBlur() { keys = {}; endPress(); }
+
+  /* The mouse and a finger alike. A press that lets go where it began is a tap: go there, or
+     to the door, the thing or the racer under it. A press that travels is a thumb stick: it
+     appears where the press began and steers her the way it points, she runs once it is
+     pushed to its rim, and the rim follows the thumb, so a long drag never runs out of room.
+     Taps are taken on release, so steering never also sends her off somewhere. */
+  const STICK_R = 56, DRAG_PX = 10;
+  let press = null, stick = null, stickEl = null, tapEl = null;
+  function onDown(e) {
+    if (!host || seq || press || (e.pointerType === "mouse" && e.button > 0)) return;
+    press = { id: e.pointerId, x0: e.clientX, y0: e.clientY, bx: e.clientX, by: e.clientY, touch: e.pointerType !== "mouse", drag: false };
+    try { renderer.domElement.setPointerCapture(e.pointerId); } catch (err) { /* not capturable: moves still arrive */ }
+  }
+  function onMove(e) {
+    if (!press || e.pointerId !== press.id) return;
+    if (!press.drag) {
+      if (Math.hypot(e.clientX - press.x0, e.clientY - press.y0) < DRAG_PX || seq) return;
+      press.drag = true;
+      stick = { on: false, dx: 0, dy: 0, run: false };
+    }
+    let dx = e.clientX - press.bx, dy = e.clientY - press.by;
+    const d = Math.hypot(dx, dy);
+    if (d > STICK_R) {                                             // the rim follows the thumb
+      press.bx = e.clientX - dx / d * STICK_R; press.by = e.clientY - dy / d * STICK_R;
+      dx = e.clientX - press.bx; dy = e.clientY - press.by;
+    }
+    const m = Math.min(d, STICK_R) / STICK_R;
+    stick.on = m > 0.15;
+    stick.dx = dx / (d || 1); stick.dy = dy / (d || 1);
+    stick.run = stick.run ? m > 0.8 : m > 0.95;                    // a little give, so it does not flicker
+    drawStick(dx, dy);
+  }
+  function onUp(e) {
+    if (!press || e.pointerId !== press.id) return;
+    const p = press;
+    endPress();
+    if (e.type === "pointerup" && !p.drag) onTap(p.x0, p.y0, p.touch);
+  }
+  function endPress() {
+    press = null; stick = null;
+    if (stickEl) stickEl.hidden = true;
+  }
+  function drawStick(dx, dy) {
+    if (!stickEl) {
+      stickEl = document.createElement("div");
+      stickEl.className = "lb-stick"; stickEl.innerHTML = "<i></i>";
+      host.appendChild(stickEl);
+    }
+    const r = host.getBoundingClientRect();
+    stickEl.hidden = false;
+    stickEl.classList.toggle("run", stick.run);
+    stickEl.style.transform = `translate(${(press.bx - r.left).toFixed(1)}px,${(press.by - r.top).toFixed(1)}px)`;
+    stickEl.firstChild.style.transform = `translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px)`;
+  }
+  /** A gold ring where a tap sent her, so a finger that covers the spot still sees it land. */
+  function tapMark(x, y) {
+    if (!tapEl) {
+      tapEl = document.createElement("div");
+      tapEl.className = "lb-tap";
+      host.appendChild(tapEl);
+    }
+    const r = host.getBoundingClientRect();
+    tapEl.style.left = (x - r.left).toFixed(1) + "px"; tapEl.style.top = (y - r.top).toFixed(1) + "px";
+    tapEl.classList.remove("on"); void tapEl.offsetWidth; tapEl.classList.add("on");
+  }
+
+  function onTap(x, y, touch) {
+    if (!host || seq) return;
     if (act) {
       if (act.phase === "go") cancelAct();
       else { if (act.phase === "do" && STAYS[act.kind]) endAct(); return; }
     }
+    // a fingertip covers more than a cursor does: on a touch screen everything is easier to hit
+    const loose = touch ? 1.35 : 1;
     const r = renderer.domElement.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    const ndc = new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     // a racer first: clicking one has her say something
     let hitN = null, bestD = Infinity;
@@ -3416,7 +4355,7 @@
       tmp.set(n.rx, 1.1, n.rz);
       const d = ray.ray.distanceToPoint(tmp);
       const along = tmp.clone().sub(ray.ray.origin).dot(ray.ray.direction);
-      if (d < 0.6 && along < bestD) { bestD = along; hitN = n; }
+      if (d < (touch ? 0.75 : 0.6) && along < bestD) { bestD = along; hitN = n; }
     }
     if (hitN) {
       sayLine(hitN);
@@ -3428,20 +4367,30 @@
     // a click on a thing (a bench, the machine...) means "go and do it"
     for (const th of room.things) {
       spotOf(room, th);
-      if (usable(room, th) && (Math.hypot(th.ax - p.x, th.az - p.z) < 0.9 || Math.hypot(th.x - p.x, th.z - p.z) < 0.5)) return startThing(th);
+      if (usable(room, th) && (Math.hypot(th.ax - p.x, th.az - p.z) < 0.9 * loose || Math.hypot(th.x - p.x, th.z - p.z) < 0.5 * loose)) return startThing(th);
     }
-    // a click by a door means "go in there"
+    // a click on a door, anywhere up it (the floor behind it is not what was meant), or on
+    // the floor by one, means "go in there"
+    const toFloor = ray.ray.origin.distanceTo(p);
     for (const id in room.places) {
       const pl = room.places[id];
       if (pl.station && !(opts.stations || {})[pl.station]) continue;
-      if (Math.hypot(pl.x - p.x, pl.z - p.z) < 1.4) return goTo(id);
+      if (pl.ax == null) continue;
+      const top = new THREE.Vector3(pl.ax, Math.max(1, Math.min(pl.ay - 0.6, 3)), pl.az), on = new THREE.Vector3();
+      const d2 = ray.ray.distanceSqToSegment(tmp.set(pl.ax, 0.2, pl.az), top, on);
+      if (d2 < (0.9 * loose) ** 2 && ray.ray.origin.distanceTo(on) < toFloor + 0.5) return goTo(id);
+    }
+    for (const id in room.places) {
+      const pl = room.places[id];
+      if (pl.station && !(opts.stations || {})[pl.station]) continue;
+      if (Math.hypot(pl.x - p.x, pl.z - p.z) < 1.4 * loose) return goTo(id);
     }
     // anywhere else on the floor: there, or as near it as she can stand
     const c = nearestOpen(room, p.x, p.z);
     if (c >= 0) {
       const ox = cellX(room, c % room.nav.nx), oz = cellZ(room, (c / room.nav.nx) | 0);
-      if (walkable(p.x, p.z, NAV_R)) walkTo(p.x, p.z);
-      else if (Math.hypot(ox - p.x, oz - p.z) < 2.5) walkTo(ox, oz);
+      if (walkable(p.x, p.z, NAV_R)) { walkTo(p.x, p.z); tapMark(x, y); }
+      else if (Math.hypot(ox - p.x, oz - p.z) < 2.5 * loose) { walkTo(ox, oz); tapMark(x, y); }
     }
   }
 
@@ -3460,6 +4409,8 @@
     casts.hall = others(opts.cast);
     casts.office = others(opts.office).slice(0, 3);
     casts.cafe = others(opts.cafe); casts.dorm = others(opts.corridor); casts.home = others(opts.home);
+    casts.school = others(opts.school); casts.classes = others(opts.classes); casts.track = others(opts.track);
+    LESSONS = opts.lessons && opts.lessons.length ? opts.lessons.slice(0, 7) : LESSONS_PLAIN;
     room = ROOMS[saved.room] || ROOMS.hall;
     // the hall and the office have their company from the start (the window shows the one she
     // is not in); the others when she first goes in
@@ -3492,7 +4443,9 @@
     camTarget.set(player.x, 0, player.z); camYaw = 0; snapCam = true;
     last = 0;
     addEventListener("keydown", onKey); addEventListener("keyup", onKey); addEventListener("blur", onBlur);
-    renderer.domElement.addEventListener("pointerdown", onPointer);
+    const cv = renderer.domElement;
+    cv.addEventListener("pointerdown", onDown); cv.addEventListener("pointermove", onMove);
+    cv.addEventListener("pointerup", onUp); cv.addEventListener("pointercancel", onUp);
     raf = requestAnimationFrame(frame);
     return true;
   }
@@ -3538,7 +4491,14 @@
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
     removeEventListener("keydown", onKey); removeEventListener("keyup", onKey); removeEventListener("blur", onBlur);
-    if (renderer) renderer.domElement.removeEventListener("pointerdown", onPointer);
+    if (renderer) {
+      const cv = renderer.domElement;
+      cv.removeEventListener("pointerdown", onDown); cv.removeEventListener("pointermove", onMove);
+      cv.removeEventListener("pointerup", onUp); cv.removeEventListener("pointercancel", onUp);
+    }
+    endPress();
+    if (stickEl) { stickEl.remove(); stickEl = null; }
+    if (tapEl) { tapEl.remove(); tapEl = null; }
     for (const k in crowds) { for (const n of crowds[k]) dropNpc(n); crowds[k] = []; ROOMS[k].peopled = false; }
     npcs = crowds.hall;
     if (scene && player) scene.remove(player.m.root);

@@ -49,6 +49,7 @@
         T.set(key, t); close.add(key);
         if (t >= (final ? HOLD_FINAL : HOLD)) {
           a.rivalDone = b.rivalDone = true; a.rival = b; b.rival = a;
+          a.rivalFinal = b.rivalFinal = final;           // in the final third (quests.js counts those)
           out.push({ a, b, final });
         }
       }

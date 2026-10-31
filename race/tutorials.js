@@ -10,8 +10,11 @@
  *     enter    runs before the step -- this is where a step changes screen
  *     spot     CSS selector to ring; re-measured on resize
  *     wait     "click", or an event name passed to Tutorials.notify()
- *     timeout  ms before an event-gated step gives up and moves on, so a tutorial can
+ *     timeout  ms before an event-gated step offers the click anyway, so a tutorial can
  *              never strand the player waiting for something that will not happen
+ *
+ * No step ever moves on by itself: every one ends on the player's click. A step waiting
+ * for an event asks for that click once the event has happened.
  *
  * The career tutorial runs on a racer the player does NOT own and pays out nothing to
  * the stable -- it is a demonstration. The only reward is the tutorial's own carrots.
@@ -44,20 +47,26 @@
                 "awards — and you spend them here.",
           spot: ".res.carrot", wait: "click" },
         { text: "Two scouts. Cards first: every card in the game can turn up. A second " +
-                "copy is not wasted — it lets you run that card twice in the same fifteen.",
+                "copy is not wasted — it lets you run that card twice in the same fifteen. " +
+                "Two is the most a deck can hold.",
           spot: ".scout-tabs", wait: "click" },
         { text: "A ten-scout costs the price of nine and guarantees at least one Rare " +
-                "or better. If you are saving, save for that.",
+                "or better. If you are saving, save for that. Quests and the Dream Trophy " +
+                "also pay Scout Tickets and Scout Passes — free scouts, spent here.",
           spot: ".scout-actions", wait: "click" },
         { text: "Now the racer scout. This is the important rule: it only ever offers " +
                 "racers you have UNLOCKED.",
           enter: () => { const t = $('[data-tab="racer"]'); if (t) t.click(); },
           spot: ".scout-tabs", wait: "click" },
-        { text: "You unlock racers by finishing careers. Complete a run with someone and " +
+        { text: "You start with the five starters unlocked. Finish a career with someone and " +
                 "the next few in her line appear here. That is how the roster opens up.",
           spot: ".scout-info", wait: "click" },
-        { text: "Pull a racer you already have and the copy feeds straight into her — " +
-                "duplicates are how she earns her passive skills. Nothing is ever wasted.",
+        { text: "It brings racers you do not have yet first. Once you have every unlocked " +
+                "racer, it brings copies — you cannot pick whose.",
+          spot: ".scout-info", wait: "click" },
+        { text: "A copy feeds straight into her: duplicates are how she earns her passive " +
+                "skills, up to three, and they run with her in every race. Once she has all " +
+                "three, copies turn into carrots. Nothing is ever wasted.",
           spot: ".scout-info", wait: "click" },
         { text: "That is the scout. Unlock through careers, recruit with carrots, and " +
                 "keep the duplicates coming.",
@@ -69,29 +78,69 @@
     deck: {
       name: "Deck Building",
       steps: [
-        { enter: () => { Shell.show("scr-game"); Game.showDeck(); },
+        { enter: () => Shell.go("scr-decks", UIDecks.listBuild),
           text: "This is the part you actually control. You do not play cards during a " +
-                "race — you decide which fifteen she carries into it.",
+                "race — you decide which fifteen she carries into it. Every racer keeps her " +
+                "own decks here.",
           wait: "click" },
-        { text: "Fifteen cards in the deck. When the gate opens she draws five of them, " +
-                "and she decides when to spend them. Your say is which fifteen.",
-          spot: "#sheet", wait: "click" },
-        { text: "Every card costs spirit, and spirit fills as she runs. A deck of " +
-                "expensive cards looks strong and sits in her hand unplayed.",
-          spot: "#sheet", wait: "click" },
-        { text: "Cheap cards get played. That is the whole lesson — a fifteen she can " +
-                "afford beats a fifteen she cannot.",
-          spot: "#sheet", wait: "click" },
-        { text: "Kinds matter too. Bursts are pace, Recovery buys stamina back, Counters " +
-                "take from whoever is ahead, Gambles pay big and can backfire.",
-          spot: "#sheet", wait: "click" },
-        { text: "Mix them. A deck that only does one thing has nothing to offer when the " +
-                "race asks a different question.",
-          spot: "#sheet", wait: "click" },
-        { text: "Build the fifteen, then let her run. Come back and change it whenever a " +
-                "race tells you something new.",
+        { enter: openDeckPage,
+          text: "Each racer can keep several decks. The one equipped is the one she races " +
+                "with, in exhibitions and careers alike.",
+          wait: "click" },
+        { text: "Fifteen cards to a deck, and two copies of any one card at most. In a " +
+                "normal race she is dealt five at the gate; in a Dream race all fifteen are " +
+                "in reach.",
+          spot: '[data-act="create"]', wait: "click" },
+        { text: "Every card costs spirit, fifteen for the whole race. Cheap cards get played " +
+                "often; rare ones land harder. Which wins depends on the race.",
+          wait: "click" },
+        { text: "Kinds: Bursts are pace. Recovery and Tempo keep her going. Counters and " +
+                "Support work on whoever is ahead. Gambles pay big and can backfire.",
+          wait: "click" },
+        { text: "The quickest way to a good fifteen: let her decide. Her simple thoughts " +
+                "build for her best race in one tap; a planned strategy asks how to spend, " +
+                "her running style, the distance and the track.",
+          spot: '[data-act="auto"]', wait: "click" },
+        { text: "It knows what wins where. Long races, and races her stamina will not last, " +
+                "want heals. Sprints want pace. On ground she is weak on, Counters pay. And " +
+                "it doubles up her best cards.",
+          spot: '[data-act="auto"]', wait: "click" },
+        { text: "Build for the race in front of her, and come back whenever a race tells " +
+                "you something new.",
           wait: "click", last: true },
       ],
+    },
+
+    // ------------------------------------------------------------ exhibition
+    exhibition: {
+      name: "Exhibition",
+      steps: [
+        { enter: () => { Shell.show("scr-game"); Game.showStable(); },
+          text: "Exhibition is one race with any racer you own: no calendar, no goals. " +
+                "Pick her here — her level, style and temperament are on her ticket.",
+          spot: "#sheet .grid", wait: "click" },
+        { enter: () => Game.showDeck(),
+          text: "This is the sheet before the gate: the deck she has equipped, her passives, " +
+                "the mode and the course.",
+          spot: "#sheet", wait: "click" },
+        { text: "Her passives come from duplicates in the racer scout. The ones she has " +
+                "unlocked run with her here too.",
+          spot: ".passrow", wait: "click" },
+        { text: "Two modes. Normal deals five cards from her fifteen, and a Callout bins " +
+                "them for five more. Dream puts every racer's whole deck in reach, and a " +
+                "Callout plays the card that is due — free.",
+          spot: ".modes", wait: "click" },
+        { text: "Four courses, sprint to stayer. Which cards win depends on the distance, " +
+                "so build the deck for the course you pick.",
+          spot: ".courses", wait: "click" },
+        { text: "A race costs 5 stamina, and the price is on the button. Stamina comes back " +
+                "a point every four minutes, or fifty at a time with Carrot Juice.",
+          spot: "#toRace", wait: "click" },
+        { text: "At the gate every runner draws her stall at random — the gate card tells " +
+                "you hers. Then it is the race, and the rest is hers.",
+          wait: "click", last: true },
+      ],
+      onEnd: () => { const m = document.getElementById("modal"); if (m) m.style.display = "none"; },
     },
 
     // ------------------------------------------------------------ career
@@ -102,6 +151,10 @@
         { enter: startDemoCareer,
           text: "Career mode is three years of her life. Seventy-two turns, then the URA " +
                 "Finale. This is a demonstration — she is not yours and nothing here is kept.",
+          wait: "click" },
+        { text: "There are two scenarios. The Beginning: URA Finale costs 30 stamina. The " +
+                "Summit: Dream Trophy costs 40 — every race with her whole deck, rivals with " +
+                "decks of their own, and prizes far bigger. Bring a real deck to that one.",
           wait: "click" },
         { text: "Here is where you are. Each month is two turns, and the year runs " +
                 "Junior, Classic, Senior.",
@@ -148,6 +201,12 @@
     },
   };
 
+  /** Her deck page, for the first racer the trainer owns (the list stays up if none). */
+  function openDeckPage() {
+    const id = Stable.ownedIds()[0], el = document.getElementById("scr-decks");
+    if (id && el && root.UIDecks) UIDecks.racerBuild(el, id);
+  }
+
   /** A racer the player does NOT own, so the demo cannot be mistaken for a real run. */
   function startDemoCareer() {
     const owned = Stable.ownedIds();
@@ -187,7 +246,7 @@
       const s = current();
       if (!s) return;
       if (run.typing && !run.typing.isDone()) { run.typing.skip(); return; }
-      if (s.wait === "click") next();
+      if (s.wait === "click" || run.ready) next();
     };
   }
 
@@ -212,6 +271,7 @@
   function next() {
     if (!run || run.done) return;
     run.i++;
+    run.ready = false;
     const s = current();
     if (!s) return finish(true);
 
@@ -233,19 +293,24 @@
       if (s.timeout) {
         const at = run.i;
         run.timer = setTimeout(() => {
-          if (run && !run.done && run.i === at) next();
+          if (!run || run.done || run.i !== at) return;
+          run.ready = true;
+          if (cta) cta.textContent = (cta.textContent ? cta.textContent + ", or " : "") + "click to continue";
         }, s.timeout);
       }
-      if (s.last) run.timer = setTimeout(() => { if (run && !run.done) finish(true); }, 11000);
     }, delay);
   }
 
-  /** Anything the game does that a tutorial step might be waiting on. */
+  /** Anything the game does that a tutorial step might be waiting on: once it has
+      happened, the step waits for the player's click. */
   function notify(evt) {
-    if (!run || run.done) return;
+    if (!run || run.done || run.ready) return;
     const s = current();
     if (!s || s.wait !== evt) return;
-    setTimeout(next, 600);
+    run.ready = true;
+    clearTimeout(run.timer);
+    const cta = document.getElementById("tutCta");
+    if (cta) cta.textContent = "click to continue";
   }
 
   function start(id) {
@@ -270,16 +335,18 @@
     if (c) { c.className = "coach"; c.onclick = null; }
     if (script && script.onEnd) { try { script.onEnd(); } catch (e) {} }
 
-    let paid = null;
+    let paid = null, allItems = null;
     if (completed) {
       const res = Stable.completeTutorial(id);
-      if (res.ok) paid = res.carrots;
+      if (res.ok) { paid = res.carrots; allItems = res.items; }
       Quests.record("tutorial");
       const got = Quests.checkAwards();
       if (got.length) UIMeta.toastAwards(got);
       FX.confetti({ count: 90 });
     }
     setTimeout(async () => {
+      // a tutorial started in the meantime has the screen now: do not pull it back to the board
+      if (active()) return;
       Shell.go("scr-tutorials", listBuild);
       /* Say what was won, rather than leaving the player to notice the carrot counter
          moved. A replay pays nothing and gets no box -- there is nothing to celebrate. */
@@ -287,8 +354,9 @@
         await UIMeta.reward({
           kicker: "Tutorial complete",
           title: script ? script.name : "Tutorial",
-          message: "That one only pays the first time through.",
-          reward: { carrots: paid },
+          message: allItems ? "That is every tutorial done — and a Scout Pass on top, for finishing them all."
+                          : "That one only pays the first time through.",
+          reward: { carrots: paid, items: allItems || undefined },
         });
       }
     }, completed ? 800 : 150);
@@ -297,7 +365,7 @@
   const active = () => !!(run && !run.done);
 
   // ---------------------------------------------------------------- the menu
-  /* One screen listing all four, so a player can find the one they need rather than
+  /* One screen listing every one, so a player can find the one they need rather than
      being offered a tutorial once and never again. */
   function listBuild(el) {
     const done = id => Stable.tutorialDone(id);
@@ -309,7 +377,10 @@
           <div class="panel-hd">${Icon("cap")}Tutorials</div>
           <div class="tut-body">
             <p class="fine">Each one pays out once. They can be replayed any time,
-               but the carrots only come the first time through.</p>
+               but the carrots only come the first time through.
+               ${Stable.tutorialsAllDone && Stable.tutorialsAllDone()
+                 ? "Every one finished: the Scout Pass for that is claimed."
+                 : "Finish every one of them and a <b>Scout Pass</b> comes on top."}</p>
             <div class="tut-list">
               ${Stable.TUTORIALS.map((t, i) => `
                 <div class="tut ${done(t.id) ? "done" : ""}">
@@ -331,8 +402,8 @@
     UIMeta.wireResourceBar(el);
     el.querySelectorAll("[data-tut]").forEach(b => b.onclick = () => {
       const id = b.dataset.tut;
-      // the in-race tutorial belongs to shell.js; the rest are ours
-      if (id === "race") return Shell.startRaceTutorial();
+      // the ones run in a race belong to shell.js; the rest are ours
+      if (!SCRIPTS[id]) return Shell.startRaceTutorial(id);
       start(id);
     });
   }

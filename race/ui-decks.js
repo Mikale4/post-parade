@@ -15,6 +15,11 @@
  * A deck may hold a card twice (Stable.COPY_MAX), if two copies are owned -- that is what
  * a duplicate pull buys, so the grid counts rather than toggles.
  *
+ * The builder itself is a collection and a deck side by side: the pool sorted, filtered
+ * and searched on the left, the deck with its board (count, cost curve, kind mix) down
+ * the right, staying in view while the pool scrolls. A click adds; holding a card opens
+ * what it does (carddetail.js, the same view the race HUD uses).
+ *
  * Exposes UIDecks.
  */
 (function (root) {
@@ -395,17 +400,16 @@
   }
 
   // ================================================================ the builder
-  /* `working` is a LIST, not a set: the same card can appear twice, if two are owned. */
+  /* `working` is a LIST, not a set: the same card can appear twice, if two are owned.
+     `saved` and `savedName` are the deck as the builder opened it, so leaving can ask
+     before it throws changes away; `undo` holds every earlier list, newest last. */
   let working = null;
 
   function edit(racerId, id) {
     const d = id ? Stable.deckById(id) : null;
-    working = {
-      racerId,
-      id: d ? d.id : null,
-      name: d ? d.name : suggestName(racerId),
-      cards: d ? d.cards.slice() : [],
-    };
+    const cards = d ? d.cards.slice() : [];
+    const name = d ? d.name : suggestName(racerId);
+    working = { racerId, id: d ? d.id : null, name, cards, saved: cards.slice(), savedName: name, undo: [] };
     go("scr-deckedit", editBuild);
   }
 
@@ -418,23 +422,101 @@
     return "New Deck";
   }
 
+  const dirty = () => !!working && (working.name.trim() !== working.savedName.trim() ||
+    working.cards.slice().sort().join() !== working.saved.slice().sort().join());
+
+  // ---------------------------------------------------------------- sorting and filtering
+  /* The pool is every card she could put in. It is sorted, filtered and searched here and
+     never changed. How it is shown lasts the session; the sort is also remembered on this
+     device, since a trainer who sorts by cost wants it that way every time. */
+  const KINDS = ["Burst", "Gamble", "Recovery", "Tempo", "Counter", "Support"];
+  const RARITY = { C: "Common", R: "Rare", E: "Epic" };
+  const RANK = { C: 1, R: 2, E: 3 };
+  const TIMING = { any: "Any phase", opening: "Opening only", final: "Final only" };
+  const SORT_KEY = "postparade.deckSort";
+
+  /* Each sort's own order (cheapest, rarest, most owned first), then one tie-break for
+     all of them, so cards that sort equal never shuffle between redraws. */
+  const SORTS = {
+    cost:   { name: "Cost", dirs: ["Low first", "High first"],
+              cmp: (a, b) => a.cost - b.cost },
+    kind:   { name: "Kind", dirs: ["Burst first", "Support first"],
+              cmp: (a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) },
+    rarity: { name: "Rarity", dirs: ["Epic first", "Common first"],
+              cmp: (a, b) => RANK[b.rarity] - RANK[a.rarity] },
+    name:   { name: "Name", dirs: ["A to Z", "Z to A"],
+              cmp: (a, b) => a.ability.localeCompare(b.ability) || a.name.localeCompare(b.name) },
+    owned:  { name: "Copies owned", dirs: ["Most first", "Fewest first"],
+              cmp: (a, b) => Stable.cardCount(b.id) - Stable.cardCount(a.id) },
+    deck:   { name: "In deck first", dirs: ["In deck first", "In deck last"],
+              cmp: (a, b, used) => (used[b.id] || 0) - (used[a.id] || 0) },
+  };
+  const tieBreak = (a, b) => a.cost - b.cost || KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) ||
+    a.ability.localeCompare(b.ability) || a.id.localeCompare(b.id);
+
+  const view = { q: "", sort: "cost", dir: 1, kinds: [], costs: [], rars: [], timings: [], notIn: false, open: null };
+  try {
+    const s = JSON.parse(localStorage.getItem(SORT_KEY) || "null");
+    if (s && SORTS[s.sort]) { view.sort = s.sort; view.dir = s.dir === -1 ? -1 : 1; }
+  } catch (e) {}
+  const keepSort = () => {
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({ sort: view.sort, dir: view.dir })); } catch (e) {}
+  };
+
+  const timingOf = c => !c.phases || c.phases.length >= 3 ? "any"
+    : c.phases.every(p => p === 0) ? "opening" : c.phases.every(p => p === 2) ? "final" : "other";
+  const filterCount = () => [view.kinds.length, view.costs.length, view.rars.length,
+    view.timings.length, view.notIn].filter(Boolean).length;
+  const flip = (arr, v) => { const i = arr.indexOf(v); if (i < 0) arr.push(v); else arr.splice(i, 1); };
+  const countIn = cards => { const m = {}; for (const id of cards) m[id] = (m[id] || 0) + 1; return m; };
+  const costsOf = () => Array.from(new Set(Cards.CARDS.map(c => c.cost))).sort((a, b) => a - b);
+  const touchFirst = () => !!(root.matchMedia && matchMedia("(hover: none)").matches);
+
+  /* What a search reads: the face of the card, and the plain words of its details, so
+     "slipstream" or "stamina back" finds the cards that do it. Built once per card. */
+  const hayCache = {};
+  function searchText(c) {
+    if (hayCache[c.id]) return hayCache[c.id];
+    const d = root.CardDetail ? CardDetail.describe(c) : { does: [], when: [], traits: [] };
+    const words = [c.ability, c.name, c.kind, RARITY[c.rarity], c.blurb]
+      .concat(d.does, d.when, d.traits).join(" ").replace(/<[^>]+>/g, "");
+    return (hayCache[c.id] = words.toLowerCase());
+  }
+
+  function shown(used) {
+    const words = view.q.toLowerCase().split(/\s+/).filter(Boolean);
+    const S = SORTS[view.sort] || SORTS.cost;
+    return Stable.ownedCards().filter(c => {
+      if (view.kinds.length && view.kinds.indexOf(c.kind) < 0) return false;
+      if (view.costs.length && view.costs.indexOf(c.cost) < 0) return false;
+      if (view.rars.length && view.rars.indexOf(c.rarity) < 0) return false;
+      if (view.timings.length && view.timings.indexOf(timingOf(c)) < 0) return false;
+      if (view.notIn && used[c.id]) return false;
+      if (words.length) {
+        const hay = searchText(c);
+        if (!words.every(w => hay.indexOf(w) >= 0)) return false;
+      }
+      return true;
+    }).sort((a, b) => view.dir * S.cmp(a, b, used) || tieBreak(a, b));
+  }
+
+  // ---------------------------------------------------------------- drawing
+  /* The screen is laid out once; after that only the parts a change touches are redrawn.
+     Rebuilding the whole screen per click (as the first builder did) threw away the
+     scroll position, the caret in the search box and the focused card every time. */
+  let shownIds = [];
+
   function editBuild(el) {
     if (!working) return listBuild(el);
     const def = Stable.defOf(working.racerId);
-    const owned = Stable.ownedCards();
-    const inDeck = {};
-    for (const id of working.cards) inDeck[id] = (inDeck[id] || 0) + 1;
-
-    const cards = working.cards.map(i => Cards.byId[i]).filter(Boolean);
-    const cost = cards.reduce((a, c) => a + c.cost, 0);
-    const avg = cards.length ? (cost / cards.length).toFixed(1) : "0.0";
-    const err = Stable.checkDeck(working.name, working.cards);
+    if (view.open == null) view.open = !(root.matchMedia && matchMedia("(max-width: 859px)").matches);
+    shownIds = [];
 
     el.innerHTML = `
       ${Bg.layer("stable")}
       <div class="scr-wrap">
         ${UIMeta.resourceBar({ back: false })}
-        <div class="panel pop">
+        <div class="panel pop de-panel">
           <div class="panel-hd blue">${Icon("cards")}${working.id ? "Edit deck" : "New deck"}${
             def ? " &middot; " + esc(def.name) : ""}</div>
 
@@ -442,102 +524,155 @@
             <label class="de-name">
               <span>Deck name</span>
               <input id="deName" type="text" maxlength="24" value="${esc(working.name)}"
-                     placeholder="Name this deck">
+                     placeholder="Name this deck" autocomplete="off">
             </label>
-            <div class="de-count ${err ? "bad" : "ok"}">
-              <b>${working.cards.length}</b> / ${MAX()}
-              <small>${err ? esc(err) : "avg cost " + avg + " &middot; " + kindMix(cards)}</small>
-            </div>
           </div>
 
-          <div class="de-strip">
-            ${working.cards.length ? working.cards.map((cid, i) => {
-              const c = Cards.byId[cid];
-              return `<button class="de-chip" data-drop="${i}" title="Remove ${esc(c.ability)}">
-                <img src="assets/cards/${c.id}.png" alt="">
-                <span class="de-cost">${c.cost}</span>
-                <span class="de-x">&times;</span></button>`;
-            }).join("") : `<span class="fine">Empty &mdash; pick at least ${MIN()} cards below.</span>`}
-          </div>
+          <div class="de-cols">
+            <section class="de-side" aria-label="This deck">
+              <div class="de-board" id="deBoard"></div>
+              <div class="de-strip" id="deStrip"></div>
+              <div class="de-side-acts">
+                <button class="btn ghost sm" id="deUndo" title="Undo (Ctrl+Z)">Undo</button>
+                <button class="btn ghost sm" id="deClear">Clear</button>
+              </div>
+              <button class="btn gold" id="deAuto">Let ${def ? esc(def.name) : "her"} decide</button>
+              <div class="de-save">
+                <button class="btn" id="deSave">${working.id ? "Save changes" : "Create deck"}</button>
+                <button class="btn ghost" id="deCancel">Cancel</button>
+              </div>
+            </section>
 
-          <h3 class="de-h3">Your cards <span class="fine">click to add, again for a second copy</span></h3>
-          <div class="dgrid de-pool">
-            ${owned.map(c => {
-              const have = Stable.copiesAllowed(c.id), used = inDeck[c.id] || 0;
-              const full = used >= have || working.cards.length >= MAX();
-              return `
-              <div class="dcard ${used ? "in" : ""} ${full ? "maxed" : ""}" data-add="${c.id}">
-                <span class="tick">&times;${used} in deck</span>
-                <div class="cost">${c.cost}</div>
-                <img src="assets/cards/${c.id}.png" alt="">
-                <div class="ci">
-                  <div class="kind">${c.kind} &middot;
-                    ${c.rarity === "E" ? "Epic" : c.rarity === "R" ? "Rare" : "Common"}</div>
-                  <div class="cn">${esc(c.ability)}</div>
-                  <div class="cb cw">${esc(c.name)}</div>
-                  <div class="cb">${esc(c.blurb)}</div>
-                  <div class="de-own">you own ${have}${used ? " &middot; using " + used : ""}</div>
+            <section class="de-main" aria-label="Your cards">
+              <div class="de-tools" id="deFilters">
+                <div class="de-trow">
+                  <input class="de-search" id="deSearch" type="search" placeholder="Search cards"
+                         aria-label="Search cards" autocomplete="off" value="${esc(view.q)}">
+                  <label class="de-sort"><span>Sort</span>
+                    <select id="deSort">${Object.keys(SORTS).map(k =>
+                      `<option value="${k}" ${k === view.sort ? "selected" : ""}>${SORTS[k].name}</option>`).join("")}
+                    </select></label>
+                  <button class="de-dir" id="deSortDir" type="button"></button>
+                  <button class="de-ftog" id="deFiltTog" type="button" aria-controls="deFGroups"></button>
                 </div>
-              </div>`;
-            }).join("")}
-          </div>
-
-          <div class="deck-acts">
-            <button class="btn" id="deSave" ${err ? "disabled" : ""}>
-              ${working.id ? "Save changes" : "Create deck"}</button>
-            <button class="btn gold" id="deAuto">Let ${
-              def ? esc(def.name) : "her"} decide</button>
-            <button class="btn" id="deClear">Clear</button>
-            <span class="spacer"></span>
-            <button class="btn ghost" id="deCancel">Cancel</button>
+                <div class="de-fgroups" id="deFGroups">
+                  <div class="de-fg"><span class="de-fl">Kind</span><div class="de-seg">${KINDS.map(k =>
+                    `<button type="button" data-fk="${k}"><i class="kdot k${k}"></i>${k}</button>`).join("")}</div></div>
+                  <div class="de-fg"><span class="de-fl">Cost</span><div class="de-seg">${costsOf().map(n =>
+                    `<button type="button" class="num" data-fc="${n}">${n}</button>`).join("")}</div></div>
+                  <div class="de-fg"><span class="de-fl">Rarity</span><div class="de-seg">${["C", "R", "E"].map(r =>
+                    `<button type="button" data-fr="${r}">${RARITY[r]}</button>`).join("")}</div></div>
+                  <div class="de-fg"><span class="de-fl">Timing</span><div class="de-seg">${Object.keys(TIMING).map(t =>
+                    `<button type="button" data-ft="${t}">${TIMING[t]}</button>`).join("")}</div></div>
+                  <div class="de-fg"><span class="de-fl">Deck</span><div class="de-seg"><button
+                    type="button" data-fn="1">Not in deck</button></div></div>
+                </div>
+                <div class="de-showing" id="deShowing"></div>
+              </div>
+              <div class="dgrid de-pool" id="dePool"></div>
+            </section>
           </div>
         </div>
       </div>`;
 
     UIMeta.wireResourceBar(el);
+    paintTools(el);
+    paint(el);
 
-    /* Typing re-validates without rebuilding: a rebuild would take the caret with it. */
+    /* Typing re-validates without a redraw: a redraw would take the caret with it. */
     const nameEl = el.querySelector("#deName");
-    nameEl.oninput = () => {
-      working.name = nameEl.value;
-      const e2 = Stable.checkDeck(working.name, working.cards);
-      el.querySelector("#deSave").disabled = !!e2;
-      const box = el.querySelector(".de-count");
-      box.className = "de-count " + (e2 ? "bad" : "ok");
-      box.querySelector("small").textContent = e2 || ("avg cost " + avg + " · " + kindMix(cards));
+    nameEl.oninput = () => { working.name = nameEl.value; paintBoard(el); };
+
+    // the pool: a click adds, the minus drops one, Enter / Delete do the same from the keys
+    const pool = el.querySelector("#dePool");
+    pool.onclick = e => {
+      if (e.target.closest("[data-reset]")) return resetFilters(el);
+      const minus = e.target.closest("[data-minus]");
+      if (minus) return dropCard(el, minus.dataset.minus);
+      const t = e.target.closest("[data-card]");
+      if (t) addCard(el, t.dataset.card);
+    };
+    pool.onkeydown = e => {
+      const t = e.target.closest("[data-card]");
+      if (!t) return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); addCard(el, t.dataset.card); }
+      else if (e.key === "Delete" || e.key === "Backspace" || e.key === "-") {
+        e.preventDefault(); dropCard(el, t.dataset.card);
+      } else if (/^Arrow/.test(e.key)) { e.preventDefault(); moveFocus(pool, t, e.key); }
+    };
+    // the deck: a click drops that card's last copy
+    const strip = el.querySelector("#deStrip");
+    strip.onclick = e => { const b = e.target.closest("[data-drop]"); if (b) dropCard(el, b.dataset.drop); };
+    // hold, right-click or I: the card's details (carddetail.js), never an add
+    if (root.CardDetail) {
+      CardDetail.hold(pool, { open: id => detail(el, id, false) });
+      CardDetail.hold(strip, { open: id => detail(el, id, true) });
+    }
+
+    const tools = el.querySelector("#deFilters");
+    tools.onclick = e => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      const d = b.dataset;
+      if (d.fk) flip(view.kinds, d.fk);
+      else if (d.fc) flip(view.costs, +d.fc);
+      else if (d.fr) flip(view.rars, d.fr);
+      else if (d.ft) flip(view.timings, d.ft);
+      else if (d.fn) view.notIn = !view.notIn;
+      else if (d.reset) return resetFilters(el);
+      else if (b.id === "deFiltTog") { view.open = !view.open; return paintTools(el); }
+      else if (b.id === "deSortDir") { view.dir = -view.dir; keepSort(); }
+      else return;
+      paintTools(el);
+      paintPool(el);
+    };
+    const sortEl = el.querySelector("#deSort");
+    sortEl.onchange = () => { view.sort = sortEl.value; view.dir = 1; keepSort(); paintTools(el); paintPool(el); };
+    const search = el.querySelector("#deSearch");
+    search.oninput = () => { view.q = search.value; paintPool(el); };
+    search.onkeydown = e => {
+      if (e.key === "Escape" && search.value) {
+        e.preventDefault(); e.stopPropagation();
+        search.value = view.q = "";
+        paintPool(el);
+      }
+    };
+    // Ctrl+Z undoes a card (not typing, which has its own undo); / jumps to the search
+    el.onkeydown = e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      if (typing) return;
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); undo(el); }
+      else if (e.key === "/") { e.preventDefault(); search.focus(); }
     };
 
-    el.querySelectorAll("[data-add]").forEach(n => n.onclick = () => {
-      const id = n.dataset.add;
-      const used = working.cards.filter(x => x === id).length;
-      if (working.cards.length >= MAX())
-        return UIMeta.notify("A deck holds " + MAX() + " cards. Drop one first.");
-      if (used >= Stable.COPY_MAX)
-        return UIMeta.notify("A deck holds at most " + Stable.COPY_MAX + " copies of a card.");
-      if (used >= Stable.cardCount(id))
-        return UIMeta.notify("You own " + Stable.cardCount(id) + " cop" +
-          (Stable.cardCount(id) === 1 ? "y" : "ies") + " of that card. Scout another to run more.");
-      working.cards.push(id);
-      editBuild(el);
-    });
-    el.querySelectorAll("[data-drop]").forEach(n => n.onclick = () => {
-      working.cards.splice(+n.dataset.drop, 1);
-      editBuild(el);
-    });
+    el.querySelector("#deUndo").onclick = () => undo(el);
+    el.querySelector("#deClear").onclick = () => {
+      if (!working.cards.length) return;
+      change(el, []);
+      toast(el, "Cleared. Undo puts them back.");
+    };
 
     /* In the builder it fills the working set rather than creating a deck, so the pick
-       is a starting point you can still edit. */
+       is a starting point you can still edit -- and Undo takes it back. */
     el.querySelector("#deAuto").onclick = async () => {
       if (!def) return;
+      if (!Stable.ownedCards().length) return UIMeta.notify("You own no cards yet. Scout some first.");
       const pick = await askBuild(def);
-      if (!pick) return;
+      if (!pick || !working) return;
       const opts = { distance: pick.distance, surface: pick.surface, simple: !!pick.simple };
-      working.cards = Stable.suggestDeck(working.racerId, pick.focus, pick.runStyle, opts);
-      if (!working.id) working.name = Stable.suggestDeckName(working.racerId, pick.focus, pick.runStyle, opts);
-      editBuild(el);
+      change(el, Stable.suggestDeck(working.racerId, pick.focus, pick.runStyle, opts));
+      if (!working.id) {
+        working.name = nameEl.value = Stable.suggestDeckName(working.racerId, pick.focus, pick.runStyle, opts);
+        paintBoard(el);
+      }
+      toast(el, def.name + " picked " + working.cards.length + ". Undo puts yours back.");
     };
-    el.querySelector("#deClear").onclick = () => { working.cards = []; editBuild(el); };
-    el.querySelector("#deCancel").onclick = () => {
+    el.querySelector("#deCancel").onclick = async () => {
+      if (dirty() && !await UIMeta.ask({
+        title: "Leave the builder", danger: true,
+        message: "Throw away your changes to this deck?",
+        confirm: "Discard", cancel: "Keep building",
+      })) return;
       const r = working.racerId; working = null;
       go("scr-decks", e2 => racerBuild(e2, r));
     };
@@ -551,6 +686,261 @@
       working = null;
       go("scr-decks", e2 => racerBuild(e2, r));
     };
+  }
+
+  function paint(el) { paintBoard(el); paintStrip(el); paintPool(el); }
+
+  /* The board: how full, how dear, the cost curve, the kind mix and when the cards can be
+     played -- the shape of the deck at a glance, and Stable's verdict on it. */
+  function paintBoard(el) {
+    const cards = working.cards.map(id => Cards.byId[id]).filter(Boolean);
+    const n = cards.length;
+    const err = Stable.checkDeck(working.name, working.cards);
+    const avg = n ? (cards.reduce((a, c) => a + c.cost, 0) / n).toFixed(1) : "–";
+    const costs = costsOf();
+    const curve = costs.map(k => cards.filter(c => c.cost === k).length);
+    const peak = Math.max(1, ...curve);
+    const mix = KINDS.map(k => [k, cards.filter(c => c.kind === k).length]).filter(x => x[1]);
+    const t = { any: 0, opening: 0, final: 0 };
+    for (const c of cards) { const k = timingOf(c); if (k in t) t[k]++; }
+
+    el.querySelector("#deBoard").innerHTML = `
+      <div class="db-top">
+        <div class="db-count ${err ? "bad" : "ok"}"><b>${n}</b><i>/ ${MAX()}</i></div>
+        <div class="db-avg"><b>${avg}</b><i>avg cost</i></div>
+        <div class="db-curve" role="img" aria-label="Cost curve: ${
+          costs.map((k, i) => curve[i] + " costing " + k).join(", ")}">${costs.map((k, i) => `
+          <span><em>${curve[i] || ""}</em><i style="height:${Math.round(curve[i] / peak * 28)}px"></i><u>${k}</u></span>`).join("")}
+        </div>
+      </div>
+      <div class="db-mix">${mix.length ? mix.map(([k, m]) => `<i class="kdot k${k}" style="flex:${m}"></i>`).join("")
+        : `<i class="none"></i>`}</div>
+      <div class="db-legend">${mix.length ? mix.map(([k, m]) => `<span><i class="kdot k${k}"></i>${m} ${k}</span>`).join("")
+        : "<span>No cards yet</span>"}</div>
+      <div class="db-time">${n ? [t.any && t.any + " any time", t.opening && t.opening + " opening only",
+        t.final && t.final + " final only"].filter(Boolean).join(" &middot; ") : "&nbsp;"}</div>
+      <div class="db-msg ${err ? "bad" : "ok"}">${err ? esc(err) : "Ready to race."}</div>`;
+
+    el.querySelector("#deSave").disabled = !!err;
+    el.querySelector("#deUndo").disabled = !working.undo.length;
+    el.querySelector("#deClear").disabled = !n;
+  }
+
+  /** The deck's cards once each, cheapest first, the way the board reads them. */
+  function stripIds() {
+    const seen = {};
+    return working.cards.filter(id => !seen[id] && (seen[id] = true))
+      .map(id => Cards.byId[id]).filter(Boolean).sort(tieBreak).map(c => c.id);
+  }
+
+  /* The deck itself: one entry per card, its copies counted on it. A list down the side on
+     a wide screen, a row of chips on a phone -- the same buttons, laid out by CSS. */
+  function paintStrip(el) {
+    const strip = el.querySelector("#deStrip");
+    const used = countIn(working.cards);
+    const ids = stripIds();
+    // keep the keyboard where it was: on the same card, or the one that took its place
+    const act = document.activeElement;
+    const had = act && strip.contains(act) ? act.dataset.card : null;
+    const hadAt = had ? [...strip.querySelectorAll("[data-card]")].indexOf(act) : -1;
+
+    strip.innerHTML = ids.length ? ids.map(id => {
+      const c = Cards.byId[id], n = used[id];
+      return `<button class="de-item" type="button" data-card="${id}" data-drop="${id}"
+          aria-label="${esc(c.ability)}, cost ${c.cost}${n > 1 ? ", " + n + " copies" : ""}. Remove one.">
+        <span class="de-cost">${c.cost}</span>
+        <img src="assets/cards/${id}.png" alt="" draggable="false">
+        <span class="de-nm"><b>${esc(c.ability)}</b><i>${esc(c.name)}</i></span>
+        ${n > 1 ? `<span class="de-n">&times;${n}</span>` : ""}
+        <span class="de-x" aria-hidden="true">&minus;</span>
+      </button>`;
+    }).join("") : `<p class="de-none">Empty. Add at least ${MIN()} cards from your collection.</p>`;
+
+    if (had) {
+      const items = strip.querySelectorAll("[data-card]");
+      const back = strip.querySelector('[data-card="' + had + '"]') || items[Math.min(hadAt, items.length - 1)];
+      if (back) back.focus({ preventScroll: true });
+    }
+  }
+
+  const tileClass = (n, allowed) => "dcard" + (n ? " in" : "") + (n && n >= allowed ? " cap" : "") +
+    (!n && (working.cards.length >= MAX() || allowed < 1) ? " full" : "");
+  const tileLabel = (c, n, allowed) =>
+    `${c.ability}, ${c.kind}, ${RARITY[c.rarity]}, cost ${c.cost}. ${n} of ${allowed} in deck.`;
+  const minusHTML = c => `<button class="de-minus" type="button" data-minus="${c.id}" data-nohold="1" tabindex="-1"
+    aria-label="Remove a copy of ${esc(c.ability)}">&minus;</button>`;
+
+  function ownHTML(n, allowed, have) {
+    const slots = Array.from({ length: Math.max(1, allowed) }, (_, i) =>
+      `<i class="${i < n ? "on" : ""}"></i>`).join("");
+    return `<span class="de-slots">${slots}</span>${n} of ${allowed} in deck${
+      have > allowed ? ` <em>&middot; own ${have}</em>` : ""}`;
+  }
+
+  function tileHTML(c, used) {
+    const n = used[c.id] || 0, allowed = Stable.copiesAllowed(c.id);
+    return `
+      <div class="${tileClass(n, allowed)}" role="button" tabindex="0" data-card="${c.id}"
+           aria-label="${esc(tileLabel(c, n, allowed))}">
+        <div class="cost">${c.cost}</div>
+        <img src="assets/cards/${c.id}.png" alt="" draggable="false">
+        ${n ? minusHTML(c) : ""}
+        <div class="ci">
+          <div class="kind"><i class="kdot k${c.kind}"></i>${c.kind} &middot; ${RARITY[c.rarity]}</div>
+          <div class="cn">${esc(c.ability)}</div>
+          <div class="cb cw">${esc(c.name)}</div>
+          <div class="cb">${esc(c.blurb)}</div>
+          <div class="de-own">${ownHTML(n, allowed, Stable.cardCount(c.id))}</div>
+        </div>
+      </div>`;
+  }
+
+  /* A tile whose card is still shown in the same place is patched where it stands, so
+     the art is not reloaded and the focus stays on it. */
+  function patchTile(node, c, used) {
+    const n = used[c.id] || 0, allowed = Stable.copiesAllowed(c.id);
+    node.className = tileClass(n, allowed);
+    node.setAttribute("aria-label", tileLabel(c, n, allowed));
+    node.querySelector(".de-own").innerHTML = ownHTML(n, allowed, Stable.cardCount(c.id));
+    const m = node.querySelector(".de-minus");
+    if (n && !m) node.querySelector("img").insertAdjacentHTML("afterend", minusHTML(c));
+    else if (!n && m) m.remove();
+  }
+
+  function paintPool(el) {
+    const pool = el.querySelector("#dePool");
+    const used = countIn(working.cards);
+    const list = shown(used);
+    const ids = list.map(c => c.id);
+    if (ids.length && ids.join() === shownIds.join() && pool.children.length === ids.length) {
+      for (const node of pool.children) patchTile(node, Cards.byId[node.dataset.card], used);
+    } else {
+      const act = document.activeElement;
+      const had = act && pool.contains(act) ? act.dataset.card : null;
+      pool.innerHTML = list.length ? list.map(c => tileHTML(c, used)).join("")
+        : `<p class="de-none">No cards match.${filterCount() || view.q
+            ? ` <button type="button" class="btn ghost sm" data-reset="1">Clear filters</button>` : ""}</p>`;
+      shownIds = ids;
+      const back = had && pool.querySelector('[data-card="' + had + '"]');
+      if (back) back.focus({ preventScroll: true });
+    }
+    const all = Stable.ownedCards().length;
+    el.querySelector("#deShowing").innerHTML =
+      `<span>Showing <b>${list.length}</b> of ${all}</span>` +
+      (filterCount() || view.q ? `<button type="button" class="de-reset" data-reset="1">Clear filters</button>` : "") +
+      `<span class="de-hint">${touchFirst() ? "Tap to add &middot; hold to read"
+        : "Click to add &middot; hold or right-click to read"}</span>`;
+  }
+
+  function paintTools(el) {
+    const mark = (sel, on) => el.querySelectorAll(sel).forEach(b => {
+      const v = !!on(b);
+      b.classList.toggle("on", v);
+      b.setAttribute("aria-pressed", v ? "true" : "false");
+    });
+    mark("[data-fk]", b => view.kinds.indexOf(b.dataset.fk) >= 0);
+    mark("[data-fc]", b => view.costs.indexOf(+b.dataset.fc) >= 0);
+    mark("[data-fr]", b => view.rars.indexOf(b.dataset.fr) >= 0);
+    mark("[data-ft]", b => view.timings.indexOf(b.dataset.ft) >= 0);
+    mark("[data-fn]", () => view.notIn);
+    const S = SORTS[view.sort] || SORTS.cost;
+    const dir = el.querySelector("#deSortDir");
+    dir.textContent = S.dirs[view.dir > 0 ? 0 : 1];
+    dir.title = "Reverse: " + S.dirs[view.dir > 0 ? 1 : 0];
+    const n = filterCount(), tog = el.querySelector("#deFiltTog");
+    tog.innerHTML = "Filters" + (n ? ` <b>${n}</b>` : "");
+    tog.classList.toggle("on", !!view.open);
+    tog.setAttribute("aria-expanded", view.open ? "true" : "false");
+    el.querySelector("#deFGroups").hidden = !view.open;
+  }
+
+  function resetFilters(el) {
+    view.kinds = []; view.costs = []; view.rars = []; view.timings = []; view.notIn = false; view.q = "";
+    el.querySelector("#deSearch").value = "";
+    paintTools(el);
+    paintPool(el);
+  }
+
+  function moveFocus(pool, t, key) {
+    const tiles = [...pool.querySelectorAll("[data-card]")];
+    const i = tiles.indexOf(t);
+    const cols = Math.max(1, getComputedStyle(pool).gridTemplateColumns.split(" ").length);
+    const j = key === "ArrowRight" ? i + 1 : key === "ArrowLeft" ? i - 1
+            : key === "ArrowDown" ? i + cols : i - cols;
+    if (tiles[j]) tiles[j].focus();
+  }
+
+  // ---------------------------------------------------------------- changing the deck
+  /* Every rule is Stable's: an add is refused for whatever Stable.cantAdd says, the same
+     reasons Stable.checkDeck gives for a whole deck. */
+  function change(el, next) {
+    working.undo.push(working.cards);
+    if (working.undo.length > 80) working.undo.shift();
+    working.cards = next;
+    paint(el);
+  }
+
+  function addCard(el, id) {
+    const why = Stable.cantAdd(working.cards, id);
+    if (why) return toast(el, why);
+    change(el, working.cards.concat(id));
+    if (root.Shell && Shell.notify) Shell.notify("deckAdd");
+  }
+
+  function dropCard(el, id) {
+    const i = working.cards.lastIndexOf(id);
+    if (i < 0) return;
+    const next = working.cards.slice();
+    next.splice(i, 1);
+    change(el, next);
+    if (root.Shell && Shell.notify) Shell.notify("deckDrop");
+  }
+
+  function undo(el) {
+    if (!working || !working.undo.length) return;
+    working.cards = working.undo.pop();
+    paint(el);
+  }
+
+  /* A refusal is a line at the foot of the screen, not a dialog to dismiss: on a phone
+     the deck is scrolled out of sight, and this is the only sign the add did not land. */
+  let toastTimer = 0;
+  function toast(el, msg) {
+    let t = el.querySelector(".de-toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.className = "de-toast";
+      t.setAttribute("role", "status");
+      el.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.remove("on");
+    void t.offsetWidth;
+    t.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("on"), 2600);
+  }
+
+  /* The card's details, with Add and Remove on them, stepping through the cards in the
+     order they were opened from: the pool as sorted and filtered, or the deck. */
+  function detail(el, id, fromDeck) {
+    CardDetail.open(id, {
+      list: fromDeck ? stripIds() : shownIds.slice(),
+      info: cid => {
+        const why = Stable.cantAdd(working.cards, cid);
+        return {
+          deck: { owned: Stable.cardCount(cid), allowed: Stable.copiesAllowed(cid),
+                  inDeck: working.cards.filter(x => x === cid).length, copyMax: Stable.COPY_MAX },
+          // the copy limits are on the slots already; a full deck is the one to spell out
+          note: why && working.cards.length >= MAX() ? why : null,
+        };
+      },
+      actions: cid => [
+        { value: "add", label: "Add a copy", disabled: !!Stable.cantAdd(working.cards, cid) },
+        { value: "drop", label: "Remove a copy", cls: "ghost", disabled: working.cards.indexOf(cid) < 0 },
+      ],
+      onAction: (v, cid) => v === "add" ? addCard(el, cid) : dropCard(el, cid),
+    });
   }
 
   const api = { listBuild, racerBuild, editBuild };

@@ -78,6 +78,7 @@
         '<div class="title-live"></div>' +
         '<div class="title-fg">' +
           '<div class="title-logo pop">' +
+            '<div class="uma-title logo-kicker">UMAMUSUME</div>' +
             '<div class="uma-title logo-main">POST PARADE</div>' +
             '<div class="logo-rule"></div>' +
             '<div class="logo-sub">A RACING STORY</div>' +
@@ -336,11 +337,11 @@
   const PLACES = running => ({
     career:   { label: running ? "Continue career" : "Career", sub: "Trainer's office", icon: "trophy" },
     race:     { label: "Exhibition", sub: "To the track", icon: "flag" },
-    scout:    { label: "Scout", sub: "Scouting office", icon: "ticket" },
+    scout:    { label: "Scout", sub: "Training track", icon: "ticket" },
     stable:   { label: "Stable", sub: "Dormitory", icon: "horseshoe" },
     deck:     { label: "Decks", sub: "Library", icon: "cards" },
     quests:   { label: "Quests", sub: "Notice board", icon: "clipboard" },
-    tutorial: { label: "Tutorials", sub: "Classroom", icon: "cap" },
+    tutorial: { label: "Tutorials", sub: "School wing", icon: "cap" },
     howto:    { label: "How to play", sub: "Information", icon: "book" },
     settings: { label: "Settings", sub: "Terminal", icon: "gear" },
   });
@@ -370,7 +371,8 @@
   }
   /** Where everyone else is: Oguri in the cafeteria (where else), a few of the dorm's
       residents at home in their rooms, her own racers and the rest of the academy in the hall,
-      some at lunch, a few in the dorm corridor. */
+      some at lunch, some warming up on the training track, some in class or in the school
+      corridor, a few in the dorm corridor. */
   function whereabouts(me, office) {
     const away = new Set([me.id, ...office.map(d => d.id)]);
     const mine = Stable.ownedRacers().filter(d => !away.has(d.id));
@@ -380,7 +382,16 @@
     const oguri = mine.concat(rest).find(d => d.name === "Oguri Cap");
     const left = mine.concat(rest.filter(d => !home.includes(d))).filter(d => d !== oguri);
     // (the corridor's company each keep to their own dorm's floor)
-    return { cast: left.slice(0, 10), cafe: (oguri ? [oguri] : []).concat(left.slice(10, 15)), corridor: left.slice(15), home };
+    return { cast: left.slice(0, 7), cafe: (oguri ? [oguri] : []).concat(left.slice(7, 11)), track: left.slice(11, 15),
+             school: left.slice(15, 16), classes: left.slice(16, 19), corridor: left.slice(19), home };
+  }
+  /** The tutorials as the school wing's lessons, a classroom each, and which are done. */
+  const lessons = () => Stable.TUTORIALS.map(t => ({ id: t.id, name: t.name, text: t.text, carrots: t.carrots, done: Stable.tutorialDone(t.id) }));
+  /** A lesson started at its classroom's board: the way the Tutorials list starts it -- the
+      ones run in a race are ours (startTutorial), the rest are Tutorials' own scripts. */
+  function startLesson(id) {
+    if (Tutorials.SCRIPTS[id]) Tutorials.start(id);
+    else startTutorial(id);
   }
 
   function lobbyBuild(el) {
@@ -400,8 +411,9 @@
         ${p.trainer ? `<button class="btn ghost sm" id="lbLooks" title="Change how your trainer looks">${Icon("eye")}Your trainer</button>` : ""}
         <button class="btn ghost sm" id="signOut">${Icon("door")}Sign out</button>
       </div>
-      <div class="lobby-help">${Icon("info")}<span><b>WASD</b> or arrows to walk, <b>Shift</b> to run,
-        <b>E</b> to go in &mdash; or click where to go</span></div>
+      <div class="lobby-help">${Icon("info")}<span class="keys"><b>WASD</b> or arrows to walk, <b>Shift</b> to run,
+        <b>E</b> to go in &mdash; or click where to go</span><span class="touch"><b>Tap</b> where to go, or <b>drag</b>
+        to steer &mdash; tap a sign to go in</span></div>
       <nav class="lobby-dock">${DOCK.map(id => `<button class="${id === "career" ? "career" : ""}" data-menu="${id}">
         ${Icon(places[id].icon)}<span>${esc(places[id].label)}</span>${places[id].badge ? `<em class="badge">${places[id].badge}</em>` : ""}</button>`).join("")}</nav>`;
     const office = officeCast(me);
@@ -409,6 +421,8 @@
       me, ...whereabouts(me, office), office, stations: places, tags: el.querySelector(".lobby-tags"),
       onEnter: id => menuPick(id),
       onJukebox: () => UIMeta.jukebox(),
+      onMusic: role => Sound.area(role),
+      lessons: lessons(), onLesson: id => startLesson(id),
       safeTop: () => el.querySelector(".menu-top").getBoundingClientRect().bottom,
     });
     if (!ok) return false;
@@ -489,6 +503,7 @@
         </div>
         <div class="home-side">
           <div class="home-brand pop">
+            <div class="uma-title menu-kicker">UMAMUSUME</div>
             <div class="uma-title menu-logo">POST PARADE</div>
             <div class="menu-tag">Prepare her. Then find out.</div>
           </div>
@@ -576,8 +591,61 @@
   }
 
   // ---------------------------------------------------------------- tutorial
-  /* Steps advance on a condition rather than a timer, so the coach never talks over
-     something the player has not seen yet. `spot` highlights an element by selector. */
+  /* Steps never advance on their own: every one ends on the player's click. A step that
+     waits for something in the race (`wait: "cardPlayed"` / `"callout"`) lets it run until
+     that happens, then holds the race on that moment and asks for the click -- it used to
+     move on by itself, cutting the player off mid-look. `timeout` is how long before such
+     a step offers the click anyway, so it can never strand anyone. `spot` highlights an
+     element by selector; `unlock` releases the Callout button, held until she asks for one;
+     `enter` runs as the step begins.
+
+     Three of the tutorials are run in a race: Race Basics, Dream Rules (a whole-deck race:
+     when a Callout pays) and Rivalries (a race where she is sure to meet one). `race` is
+     what Game.startTutorialRace sets up for each. */
+  const toOneX = () => { const b = document.querySelector('.rate button[data-rate="1"]'); if (b) b.click(); };
+  const RACE_TUTS = {
+    race: { race: {}, steps: null },
+    dream: {
+      race: { fullDeck: true, course: "mile" },
+      steps: [
+        { text: "This is a Dream race: the rule the Dream Trophy runs on, and the Dream Exhibition. Same Special Week, same fifteen cards.",
+          wait: "click" },
+        { text: "Nothing is dealt. Her whole deck is in reach from the gate: the cards she can play right now are shown whole, the rest as faces.",
+          spot: "#played", wait: "click" },
+        { text: "Spirit is still the limit, fifteen across the race. With every card to choose from she never runs out of cards, only of spirit.",
+          spot: "#spBar", wait: "click" },
+        { text: "So the Callout means something else here. There is nothing to redraw: call it and she plays the card that is right for this moment, and it costs no spirit.",
+          spot: ".callout", wait: "click" },
+        { text: "Two per race, and timing is everything. Called early, it spends pace she cannot afford later. The moment that pays is the run-in: the last tenth of the race.",
+          spot: ".callout", wait: "click" },
+        { text: "Let her run. Speed it up here if you like — I will stop the race when the run-in starts.",
+          spot: ".rate", wait: "runIn", timeout: 300000 },
+        { text: "This is the run-in. The button is lit and names the card she should play. Call it.",
+          enter: toOneX, spot: ".callout", wait: "callout", timeout: 25000, unlock: true },
+        { text: "That is the whole trick. In the Dream Trophy her rivals race by the same rule, and they call theirs in the run-in too.",
+          wait: "click" },
+        { text: "Save it, then spend it at the end. That is a Dream race.",
+          wait: "click", last: true },
+      ],
+    },
+    rival: {
+      race: { course: "mile", forceRival: true },
+      steps: [
+        { text: "Races have rivalries. When two contenders run close for long enough after halfway, they lock eyes, and both their signature skills go off at once.",
+          wait: "click" },
+        { text: "It happens on its own: within a few metres of each other, from halfway on, for a few seconds — sooner in the last third. Once per racer, per race.",
+          wait: "click" },
+        { text: "Let the race run, and speed it up here if you like. I will see to it that Special Week finds a rival today.",
+          spot: ".rate", wait: "rivalry", timeout: 300000 },
+        { text: "Both their signature skills fired, whatever their usual conditions, and it does not use them up: a skill that had not fired yet can still fire on its own later.",
+          wait: "click" },
+        { text: "In the last third it is the Zone: the sky darkens and the clash is bigger. A rivalry of yours brings in its own music, all the way to the line.",
+          wait: "click" },
+        { text: "You cannot call one, but a racer who runs with the contenders will find one. That is a rivalry.",
+          wait: "click", last: true },
+      ],
+    },
+  };
   const TUT = [
     { text: "This is Tokyo, 2400 metres. Special Week is yours today — watch her, not the buttons.",
       wait: "click" },
@@ -594,17 +662,21 @@
     { text: "It turns amber the moment her hand goes dead. That is the only signal you need — and the cards you bin are gone, so never call it on a good hand.",
       spot: ".callout", wait: "click" },
     { text: "Watch the hint under the button. When it says she is stuck, call it. Go on — I'll wait.",
-      spot: ".callout", wait: "callout", timeout: 45000 },
+      spot: ".callout", wait: "callout", timeout: 45000, unlock: true },
     { text: "That is the job. Build the deck, read the race, call her when it counts. The rest is hers.",
       wait: "click", last: true },
   ];
 
+  RACE_TUTS.race.steps = TUT;
+
   let tut = null;
-  function startTutorial() {
+  function startTutorial(id) {
+    const def = RACE_TUTS[id] || RACE_TUTS.race;
+    id = RACE_TUTS[id] ? id : "race";
     FX.wipe(() => {
       show("scr-game");
-      Game.startTutorialRace();
-      tut = { i: -1, done: false };
+      Game.startTutorialRace(def.race);
+      tut = { id, steps: def.steps, i: -1, done: false };
       buildCoach();
       nextStep();
     });
@@ -630,10 +702,10 @@
     c.addEventListener("click", () => {
       /* The listener outlives the run: the coach bar is rebuilt, not rebound, so a click
          after the tutorial ends found `tut` null and threw. */
-      const s = tut && TUT[tut.i];
+      const s = tut && tut.steps[tut.i];
       if (!s) return;
       if (tut.typing && !tut.typing.isDone()) { tut.typing.skip(); return; }
-      if (s.wait === "click") nextStep();
+      if (s.wait === "click" || tut.ready) nextStep();
     });
   }
 
@@ -668,8 +740,11 @@
   function nextStep() {
     if (!tut || tut.done) return;
     tut.i++;
-    const s = TUT[tut.i];
+    tut.ready = false;
+    const s = tut.steps[tut.i];
     if (!s) return endTutorial(true);
+    if (s.unlock && window.Game && Game.lockCallout) Game.lockCallout(false);
+    if (s.enter) { try { s.enter(); } catch (e) {} }
 
     /* The race is a live simulation and the player is reading. Without this it gallops
        on while she talks -- by the third step the field is a third of the way round and
@@ -683,58 +758,56 @@
     cta.textContent = s.wait === "click" ? "click to continue"
       : s.wait === "cardPlayed" ? "waiting for her to play one…"
       : s.wait === "callout" ? "press the Callout button"
+      : s.wait === "runIn" ? "waiting for the run-in…"
+      : s.wait === "rivalry" ? "waiting for her rival…"
       : "";
     tut.typing = FX.typeText(document.getElementById("coachText"), s.text, { speed: 18 });
 
-    /* An event-gated step must not be able to hang. If the race never produces the
-       thing we are waiting for, move on rather than stranding the player. */
+    /* An event-gated step must not be able to hang: if the race never produces the thing
+       it waits for, it offers the click anyway. The Callout step still takes a Callout
+       after that -- the click is only a way out. */
     clearTimeout(tut.timer);
     if (s.timeout) {
       const at = tut.i;
       tut.timer = setTimeout(() => {
-        if (tut && !tut.done && tut.i === at) nextStep();
+        if (!tut || tut.done || tut.i !== at) return;
+        tut.ready = true;
+        cta.textContent = s.wait === "callout" ? "press the Callout button, or click to continue"
+                                               : "she is holding on to them — click to continue";
       }, s.timeout);
     }
-    if (s.last) tut.timer = setTimeout(() => { if (tut && !tut.done) endTutorial(true); }, 9000);
   }
 
-  /** The race app calls this when something the tutorial might be waiting on happens. */
+  /** The race app calls this when something the tutorial might be waiting on happens:
+      hold the race on that moment and wait for the player's click. */
   function notify(evt) {
-    if (!tut || tut.done) return;
-    const s = TUT[tut.i];
+    if (!tut || tut.done || tut.ready) return;
+    const s = tut.steps[tut.i];
     if (!s || s.wait !== evt) return;
-
-    /* The race often does the thing she is describing WHILE she is still describing it
-       -- the racer spends a card a second or two in, and the step used to advance on the
-       spot, cutting the sentence in half. Let her finish, then move on. */
-    const at = tut.i;
-    const advance = () => { if (tut && !tut.done && tut.i === at) nextStep(); };
-    if (tut.typing && !tut.typing.isDone()) {
-      const poll = setInterval(() => {
-        if (!tut || tut.done || tut.i !== at) return clearInterval(poll);
-        if (tut.typing.isDone()) { clearInterval(poll); setTimeout(advance, 750); }
-      }, 120);
-      return;
-    }
-    setTimeout(advance, 550);
+    tut.ready = true;
+    clearTimeout(tut.timer);
+    if (window.Game && Game.isRacing && Game.isRacing()) Game.setPaused(true);
+    const cta = document.getElementById("coachCta");
+    if (cta) cta.textContent = evt === "cardPlayed" ? "she played one — click to continue" : "click to continue";
   }
 
   function endTutorial(completed) {
     if (!tut) return;
+    const id = tut.id;
     tut.done = true; clearTimeout(tut.timer); tut = null;
     $$(".spot-ring").forEach(n => n.remove());
     // never hand the race back still frozen
     if (window.Game && Game.isPaused && Game.isPaused()) Game.setPaused(false);
     const c = document.getElementById("coach");
     if (c) c.className = "coach";
-    /* This tutorial predates the tutorial board and never paid out or returned to it --
-       the other three do both through Tutorials.finish(). Same treatment here. */
-    let paid = 0;
+    /* Paid and returned to the board the way the screen tutorials are, through
+       Stable.completeTutorial -- each pays once, by its own id. */
+    let paid = 0, allItems = null;
     if (completed) {
-      Auth.update({ seenTutorial: true }); refresh();
+      if (id === "race") { Auth.update({ seenTutorial: true }); refresh(); }
       if (window.Stable) {
-        const res = Stable.completeTutorial("race");     // first time only; a repeat pays 0
-        if (res.ok) paid = res.carrots;
+        const res = Stable.completeTutorial(id);           // first time only; a repeat pays 0
+        if (res.ok) { paid = res.carrots; allItems = res.items; }
       }
       if (window.Quests) {
         Quests.record("tutorial");
@@ -750,9 +823,10 @@
       if (paid) {
         await UIMeta.reward({
           kicker: "Tutorial complete",
-          title: "Race Basics",
-          message: "That one only pays the first time through.",
-          reward: { carrots: paid },
+          title: ((window.Stable && Stable.TUTORIALS.find(t => t.id === id)) || { name: "Race Basics" }).name,
+          message: allItems ? "That is every tutorial done — and a Scout Pass on top, for finishing them all."
+                          : "That one only pays the first time through.",
+          reward: { carrots: paid, items: allItems || undefined },
         });
       }
     }, completed ? 900 : 200);
@@ -912,7 +986,7 @@
             '<button class="btn lg" id="pResume">Resume</button>' +
             (tut ? '' : '<button class="btn ghost" id="pRestart">Restart race</button>') +
             '<button class="btn ghost" id="pSettings">' + Icon("gear") + 'Settings</button>' +
-            '<button class="btn ghost" id="pQuit">' + (tut ? 'End tutorial' : 'Quit to menu') + '</button>' +
+            '<button class="btn ghost" id="pQuit">' + (tut ? 'End tutorial' : 'Quit to the lobby') + '</button>' +
           '</div>' +
           '<div class="pause-set" id="pSet" hidden>' + settingsHtml() + '</div>' +
         '</div>' +
@@ -938,7 +1012,7 @@
     el.querySelector("#pQuit").onclick = async () => {
       const shouldAsk = !tut && Settings.get("confirmQuit");
       if (shouldAsk && !await UIMeta.ask({ title: "Abandon the race", danger: true,
-        message: "Leave this race and return to the menu?", confirm: "Abandon" })) return;
+        message: "Leave this race and return to the lobby?", confirm: "Abandon" })) return;
       closePause();
       if (tut) { endTutorial(false); return; }
       Game.quitRace();

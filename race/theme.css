@@ -56,10 +56,17 @@
 }
 
 *{box-sizing:border-box}
-html,body{height:100%}
+/* On a phone: no double-tap zoom (two quick taps on Rest zoomed the whole game in), no
+   grey flash over a tapped button (the blocks have their own press), and no pull-to-
+   refresh or rubber-band on the page itself -- a list flicked past its top reloaded the
+   game. Pinch zoom stays. A rule with a class (the lobby's canvas) still overrides
+   this, since * weighs nothing. */
+*{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overscroll-behavior:none}
 body{
   margin:0; overflow:hidden; background:#10200f; color:var(--ink);
   font:500 14px/1.5 var(--font-ui); -webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;
 }
 button,input,select,textarea{font-family:inherit}
 
@@ -80,6 +87,11 @@ button,input,select,textarea{font-family:inherit}
    scroll at all. hidden stays first as the fallback for older engines. */
 .screen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
         overflow:hidden;overflow:clip}
+/* Heights that fit a panel to the screen are given twice: vh, then dvh. On a phone 100vh is
+   the height with the address bar hidden, and since this page never scrolls the bar never
+   hides -- a 94vh panel was taller than the screen, centred, and lost its top (the Back
+   button) and its last rows off both edges. dvh is the height actually showing; a browser
+   without it keeps the vh line. */
 .screen.on{display:flex}
 /* the race screen is a full-bleed column, not a centred card -- centring it collapsed
    .wrap to zero width and the whole HUD vanished */
@@ -255,6 +267,9 @@ button,input,select,textarea{font-family:inherit}
 .tl-lead em{font:800 10px/1 var(--font-ui);font-style:normal;color:var(--led)}
 @media (max-width:520px){ .tl-lead{display:none} }
 .title-fg{position:absolute;left:0;right:0;bottom:7vh;display:flex;flex-direction:column;align-items:center;text-align:center}
+/* "Umamusume" sits over the title the way the series name sits over "Pretty Derby" */
+.logo-kicker{font-size:clamp(20px,3.1vw,42px);line-height:1;margin-bottom:.22em;letter-spacing:.14em;
+  -webkit-text-stroke-width:5px;text-shadow:0 4px 0 var(--turf-deep),0 8px 18px rgba(0,0,0,.4)}
 .logo-main{font-size:clamp(46px,8vw,112px);line-height:.92}
 /* the logo's ribbon: a turf band with the line under it a finish-line check */
 .logo-rule{width:min(64vw,560px);height:8px;margin:18px auto 0;
@@ -276,7 +291,7 @@ button,input,select,textarea{font-family:inherit}
 .acct b{font-size:14px;color:var(--ink)}
 .acct i{font-style:normal;font-size:12px;color:var(--ink-3);margin-left:auto}
 
-.login-panel{max-height:92vh;display:flex;flex-direction:column}
+.login-panel{max-height:92vh;max-height:92dvh;display:flex;flex-direction:column}
 .login-body{overflow:auto}
 .menu-top{align-items:center}
 
@@ -306,10 +321,12 @@ button,input,select,textarea{font-family:inherit}
 .emb:active{transform:translateY(1px)}
 .emb.sel{border-color:var(--turf);background:var(--turf-pale)}
 /* the trainer creator (trainer.js): the figure on its round of turf, the choices beside it */
-.tc-panel{position:relative;width:min(96vw,880px);padding:0;max-height:94vh;display:flex;flex-direction:column}
+.tc-panel{position:relative;width:min(96vw,880px);padding:0;max-height:94vh;max-height:94dvh;display:flex;flex-direction:column}
 .tc-body{display:grid;grid-template-columns:minmax(220px,320px) 1fr;min-height:0;overflow:hidden}
 .tc-prev{position:relative;min-height:420px;background:var(--paper-2);border-right:1px solid var(--rule)}
-.tc-prev canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+/* pan-y, not none: on a phone the preview is the top of the scrolling column, and a swipe
+   that started on her could not scroll the choices below. Sideways still turns her. */
+.tc-prev canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:pan-y}
 .tc-prev canvas:active{cursor:grabbing}
 .tc-hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;font:700 11px var(--font-ui);color:var(--ink-3);font-style:normal;pointer-events:none}
 .tc-opts{padding:18px 22px 16px;overflow:auto}
@@ -363,7 +380,11 @@ button,input,select,textarea{font-family:inherit}
    others' speech bubbles, the resource bar, and a dock with every mode in it, as the
    game's own bottom bar. */
 #scr-menu.lobby-on{background:#f2ead8}
-.lobby{position:absolute;inset:0;overflow:hidden}
+/* touch-action:none over the whole lobby, signs and dock included: a thumb steering her
+   that strays onto a sign must not start a page pan or a pinch zoom (lobby.js) */
+.lobby{position:absolute;inset:0;overflow:hidden;touch-action:none;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.lobby *{touch-action:none}
 .lobby-3d{position:absolute;inset:0}
 .lobby-3d canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:pointer;touch-action:none}
 .lobby-tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -402,6 +423,12 @@ button,input,select,textarea{font-family:inherit}
 .lb-clock b{font:400 15px var(--font-display);font-variant-numeric:tabular-nums}
 .lb-clock i{font-style:normal;font:700 10.5px var(--font-ui);color:var(--ink-3)}
 @media (max-width:760px){ .lb-clock{bottom:96px} }
+/* a phone on its side: the hall is a strip between the top bar and the dock, so the help
+   goes and the clock drops to the corner beside the dock */
+@media (max-height:500px) and (min-width:761px){ .lobby-help{display:none} .lb-clock{bottom:14px} }
+/* a phone upright: the dock wraps to two rows (about 164px), which hid the clock and half
+   of the "Get up" key behind it */
+@media (max-width:560px){ .lb-clock,.lb-tag.lb-hint.pinned{bottom:176px} }
 /* the dorm's room doors: just the number, and who lives there once she is at the door */
 .lb-tag.quiet:not(.near) i{display:none}
 /* the hint over a thing she can use: E and what it does */
@@ -438,6 +465,28 @@ button,input,select,textarea{font-family:inherit}
   font:700 11.5px/1.4 var(--font-ui);color:var(--ink-2);background:rgba(255,253,246,.9);padding:7px 11px;border-radius:var(--r);
   box-shadow:inset 0 0 0 1px var(--rule)}
 .lobby-help .ico{width:18px;height:18px;flex:none;color:var(--sky)}
+/* the thumb stick (lobby.js): drag anywhere on the floor and it appears under the thumb, a
+   paper disc with a block in it; past the disc's edge she runs, and the disc follows the thumb */
+.lb-stick{position:absolute;left:0;top:0;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;
+  pointer-events:none;z-index:2;background:rgba(255,253,246,.42);
+  box-shadow:inset 0 0 0 2px rgba(255,253,246,.9),0 4px 14px rgba(20,24,16,.18)}
+.lb-stick[hidden]{display:none}
+.lb-stick i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:var(--r);
+  background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule-2),0 4px 0 var(--rule-2),0 6px 14px rgba(20,24,16,.22)}
+.lb-stick.run i{background:var(--gold-pale);box-shadow:inset 0 0 0 2px var(--gold),0 4px 0 var(--gold-lo),0 6px 14px rgba(20,24,16,.22)}
+/* where a tap sent her: a gold ring on the floor, briefly */
+.lb-tap{position:absolute;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;pointer-events:none;
+  box-shadow:inset 0 0 0 3px var(--gold);opacity:0}
+.lb-tap.on{animation:lb-tap .45s ease-out}
+@keyframes lb-tap{from{opacity:1;transform:scale(.5)}to{opacity:0;transform:scale(1.3)}}
+/* the help line says what a finger does on a touch screen, and E is not a key there */
+.lobby-help .touch{display:none}
+@media (hover:none) and (pointer:coarse){
+  .lobby-help .keys{display:none}
+  .lobby-help .touch{display:inline}
+  .lb-tag kbd,.lb-tag.near kbd,.lb-tag.lb-hint kbd{display:none}
+  .lb-tag.lb-hint{padding:7px 14px;min-height:40px}
+}
 @media (max-width:1100px){ .lobby-dock button{min-width:54px;font-size:10px} .lobby-dock button span{max-width:58px;text-align:center} }
 @media (max-width:760px){
   .lobby-help{display:none}
@@ -447,7 +496,7 @@ button,input,select,textarea{font-family:inherit}
 .home{position:relative;z-index:2;flex:1;min-height:0;display:grid;
   grid-template-columns:minmax(0,1fr) minmax(330px,420px);gap:24px;padding:0 4vw 3vh}
 .home-stage{position:relative;min-height:0;display:flex;align-items:flex-end;justify-content:center}
-.home-hero{max-height:100%;max-width:100%;height:calc(100vh - 120px);object-fit:contain;object-position:bottom;
+.home-hero{max-height:100%;max-width:100%;height:calc(100vh - 120px);height:calc(100dvh - 120px);object-fit:contain;object-position:bottom;
   filter:drop-shadow(0 14px 30px rgba(0,0,0,.45));pointer-events:none}
 /* her number cloth: the gate-coloured square, then her name and level */
 .home-cloth{position:absolute;left:50%;bottom:5vh;transform:translateX(-50%);display:flex;align-items:stretch;
@@ -460,6 +509,8 @@ button,input,select,textarea{font-family:inherit}
 .home-cloth .who i{display:block;font-style:normal;font:700 12px var(--font-ui);color:var(--ink-2);margin-top:2px}
 .home-side{min-height:0;display:flex;flex-direction:column;gap:12px;padding-top:4px;overflow:auto}
 .home-brand{flex:none}
+.menu-kicker{font-size:clamp(13px,1.4vw,18px);line-height:1;margin-bottom:5px;letter-spacing:.14em;
+  -webkit-text-stroke-width:4px;text-shadow:0 3px 0 var(--turf-deep)}
 .menu-logo{font-size:clamp(28px,3.2vw,42px);line-height:1;-webkit-text-stroke-width:5px;text-shadow:0 4px 0 var(--turf-deep),0 8px 18px rgba(0,0,0,.4)}
 .menu-tag{display:inline-block;margin-top:9px;padding:4px 10px 3px;border-radius:var(--r-sm);
   background:rgba(14,30,18,.7);color:#fff;font:700 12px var(--font-ui);letter-spacing:.06em;text-shadow:none}
@@ -556,7 +607,7 @@ button,input,select,textarea{font-family:inherit}
 /* =========================================================================
    SETTINGS
    ========================================================================= */
-.set-panel{width:min(94vw,620px);max-height:92vh;display:flex;flex-direction:column;position:relative;z-index:2}
+.set-panel{width:min(94vw,620px);max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;position:relative;z-index:2}
 /* flex:1 with min-height:0 -- a flex item's min-height defaults to `auto`, so a
    scrolling body refuses to shrink below its content and the actions bar below it
    ends up painted over the last rows. Adding settings made this visible. */
@@ -596,7 +647,7 @@ button,input,select,textarea{font-family:inherit}
 #pause{position:fixed;inset:0;z-index:840;display:none;align-items:center;justify-content:center;
   padding:20px;background:rgba(8,18,10,.6);backdrop-filter:blur(2px)}
 #pause.on{display:flex}
-.pause-card{width:min(94vw,460px);max-height:90vh;display:flex;flex-direction:column;
+.pause-card{width:min(94vw,460px);max-height:90vh;max-height:90dvh;display:flex;flex-direction:column;
   background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r-lg);overflow:hidden;
   box-shadow:0 18px 50px rgba(0,0,0,.5)}
 .pause-body{padding:18px;overflow:auto}

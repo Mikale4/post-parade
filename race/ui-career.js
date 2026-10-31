@@ -34,11 +34,25 @@
      runs the Dream Trophy does not have to pick it again every time. */
   const SCN_KEY = "postparade.scenario";
   function pickedScenario() {
-    try { const v = localStorage.getItem(SCN_KEY); if (Career.SCENARIOS[v]) return v; } catch (e) {}
+    // one this trainer has not opened yet is never the selection
+    try { const v = localStorage.getItem(SCN_KEY); if (Career.SCENARIOS[v] && !lockOf(v)) return v; } catch (e) {}
     return "ura";
   }
   function setPickedScenario(id) { try { localStorage.setItem(SCN_KEY, id); } catch (e) {} }
   const staminaFor = id => Stable.STAMINA[Career.scenarioOf(id).stamina];
+
+  /* URA Finale championships on this account: what opens the Dream Trophy. The count is
+     the one quests.js keeps (`life.champions`, recorded for URA Finale wins only). The
+     veterans' records are read as well, so a trainer whose wins predate that counter is
+     not locked out; whichever says more is right, since neither can over-count. */
+  function uraChampions() {
+    const counted = root.Quests && Quests.load ? (Quests.load().life.champions || 0) : 0;
+    const filed = root.Legacy ? Legacy.veterans().filter(v => v.ending === "champion" &&
+      (v.scenario || "ura") === "ura").length : 0;
+    return Math.max(counted, filed);
+  }
+  /** Null when this scenario can be started now, else what it still takes. */
+  const lockOf = id => Career.scenarioLock(id, { uraChampions: uraChampions() });
 
   // ---------------------------------------------------------------- persistence
   function persist() {
@@ -69,6 +83,19 @@
     if (!tutorial && !Stable.owns(racerId))
       return UIMeta.notify(`You do not have ${def.name} yet. Scout her first.`);
 
+    /* Which scenario. The picker always says; a career started from anywhere else (her
+       page in the stable) asks. The tutorial is always a URA Finale. Settled before the
+       run in progress is offered up, so nobody abandons a run for one they cannot start. */
+    let scenario = tutorial ? "ura" : opts.scenario;
+    if (!scenario) {
+      scenario = await chooseScenario();
+      if (!scenario) return;
+    }
+    const scen = Career.scenarioOf(scenario);
+    const lock = tutorial ? null : lockOf(scenario);
+    if (lock) return UIMeta.notify(`${lock.text} to open ${scen.title}. ` +
+      `URA Finale wins so far: ${lock.have} of ${lock.need}.`, { title: "Not open yet" });
+
     const existing = saved();
     if (!tutorial && existing) {
       const who = Stable.defOf(existing.racerId);
@@ -79,15 +106,6 @@
       if (!fresh) return resume();
       clearSaved();
     }
-
-    /* Which scenario. The picker always says; a career started from anywhere else (her
-       page in the stable) asks. The tutorial is always a URA Finale. */
-    let scenario = tutorial ? "ura" : opts.scenario;
-    if (!scenario) {
-      scenario = await chooseScenario();
-      if (!scenario) return;
-    }
-    const scen = Career.scenarioOf(scenario);
 
     if (!tutorial) {
       const cost = staminaFor(scenario);
@@ -129,7 +147,10 @@
       Legacy.applyToCareer(S, plan, def);
       S.legacyPlan = plan;
     }
-    if (!tutorial) { Quests.record("careerStart"); persist(); }
+    if (!tutorial) {
+      Quests.record("careerStart", { scenario: scn().id, parents: (opts.parents || []).filter(Boolean).length });
+      persist();
+    }
     /* A career is three years of someone's life and it used to open on a spreadsheet.
        The tutorial career skips it -- that run has its own narration. */
     if (tutorial) return go("scr-career", careerBuild);
@@ -147,10 +168,11 @@
   function chooseScenario() {
     const sel = pickedScenario();
     return UIMeta.choose({ title: "Which career?", options: Object.keys(Career.SCENARIOS).map(id => {
-      const c = Career.SCENARIOS[id];
-      return { value: id, label: c.title, sel: id === sel,
-               note: `${c.blurb} ${staminaFor(id)} stamina.` };
-    }) }).then(v => { if (v) setPickedScenario(v); return v; });
+      const c = Career.SCENARIOS[id], lock = lockOf(id);
+      return { value: id, label: c.title + (lock ? " (locked)" : ""), sel: id === sel,
+               note: lock ? `${lock.text} to open it. URA Finale wins: ${lock.have} of ${lock.need}.`
+                          : `${c.blurb} ${staminaFor(id)} stamina.` };
+    }) }).then(v => { if (v && !lockOf(v)) setPickedScenario(v); return v; });
   }
 
   // ---------------------------------------------------------------- moments
@@ -344,8 +366,17 @@
 
   function parentsBuild(el, racerId, scenario) {
     const def = Stable.defOf(racerId);
-    const vets = Legacy.veterans();
-    pickedParents = pickedParents.filter(id => Legacy.byId(id));
+    /* A racer inherits from someone else: a past run of herself is no parent of hers, and
+       the two parents are two different racers (Legacy.parentBlock). Those veterans stay
+       on the board, greyed and saying why, after the ones she can take. The picks carry
+       over between trainees, so they are re-checked against this one. */
+    pickedParents = Legacy.validParents(def, pickedParents.filter(id => Legacy.byId(id)));
+    const blockOf = v => {
+      const other = pickedParents.find(id => id !== v.id && Legacy.byId(id).racerId === v.racerId);
+      return Legacy.parentBlock(def, v.id, other);
+    };
+    const vets = Legacy.veterans().map(v => ({ v, block: blockOf(v) }))
+                      .sort((a, b) => !!a.block - !!b.block).map(x => Object.assign({}, x.v, { block: x.block }));
     const plan = pickedParents.length
       ? Legacy.inheritanceFor(def, pickedParents[0], pickedParents[1]) : null;
 
@@ -358,7 +389,8 @@
           <div class="par-body">
             <p class="fine">Pick up to two veterans. Their own parents come along with
               them, so a settled line contributes six racers in all. Affinity decides how
-              much of it lands &mdash; a matched line beats two strong strangers.</p>
+              much of it lands &mdash; a matched line beats two strong strangers. Parents are
+              other racers: never ${esc(def.name)} herself, and never the same racer twice.</p>
 
             ${plan ? `
               <div class="par-preview">
@@ -390,7 +422,8 @@
               ${vets.map(v => {
                 const on = pickedParents.indexOf(v.id) >= 0;
                 return `
-                <button class="vetcard ${on ? "sel" : ""}" data-vet="${v.id}">
+                <button class="vetcard ${on ? "sel" : ""} ${v.block ? "blocked" : ""}" data-vet="${v.id}"
+                        ${v.block ? `aria-disabled="true" title="${esc(v.block)}"` : ""}>
                   <div class="vc-art">${root.Voxel && Voxel.ok && Voxel.bustHTML ? Voxel.bustHTML(v, "", art(v.sprite)) : `<img src="${art(v.sprite)}" alt="">`}</div>
                   <div class="vc-main">
                     <b>${esc(v.name)}</b>
@@ -401,7 +434,8 @@
                         <span class="spark k${sp.kind}">${esc(sp.label)}
                           <em>${"★".repeat(sp.stars)}</em></span>`).join("")}
                     </div>
-                    ${(v.parents || []).length
+                    ${v.block ? `<small class="vc-block">${Icon("lock")}${esc(v.block)}</small>`
+                      : (v.parents || []).length
                       ? `<small class="vc-line">carries ${v.parents.length} ancestor${v.parents.length > 1 ? "s" : ""}</small>`
                       : `<small class="vc-line">first generation</small>`}
                   </div>
@@ -422,6 +456,8 @@
     UIMeta.wireResourceBar(el, () => go("scr-careerpick", pickerBuild));
     el.querySelectorAll("[data-vet]").forEach(b => b.onclick = () => {
       const id = b.dataset.vet, i = pickedParents.indexOf(id);
+      const v = vets.find(x => x.id === id);
+      if (i < 0 && v && v.block) return UIMeta.notify(v.block, { title: "Not a parent for her" });
       if (i >= 0) pickedParents.splice(i, 1);
       else if (pickedParents.length < 2) pickedParents.push(id);
       else pickedParents = [pickedParents[1], id];      // oldest drops off
@@ -472,8 +508,11 @@
        of white dashboard cards. */
     const [yr, day] = String(Career.turnLabel(S.turn, S)).split(" · ");
     const energyPct = Math.round(S.energy / S.maxEnergy * 100);
+    // the season and the day's weather: on the calendar, over the art, and in her race
+    const wx = Career.weatherOf ? Career.weatherOf(S, S.turn) : null;
     el.innerHTML = `
       ${Bg.layer(raceBoard ? "raceday" : "career", { month: Career.turnMonth(S.turn), time: (S.turn % 2) ? "sunset" : "day",   crowd: raceBoard })}
+      <div class="wx-layer" id="carWx"></div>
       <div class="cv career">
         <div class="cv-res">${UIMeta.resourceBar({ back: false })}</div>
         <div class="cv-head pop">
@@ -481,6 +520,7 @@
             <span class="cal-yr">${esc(yr || "")}</span>
             ${scn().fullDeck && S.turn < Career.TRAINING_TURNS ? `<span class="cal-scn">${esc(scn().name)}</span>` : ""}
             <span class="cal-day">${esc(day || yr || "")}</span>
+            ${wx && root.Weather ? `<span class="cal-wx">${esc(Weather.label(wx))}</span>` : ""}
             <span class="cal-turn"><b>${S.turn + 1}</b>/${Career.TOTAL_TURNS}${camp ? " · Summer camp" : ""}</span>
             <span class="cal-bar"><i style="width:${pctYear}%"></i></span>
           </div>
@@ -763,12 +803,15 @@
     const cal = el.querySelector("#carCal");
     if (cal) cal.onclick = () => go("scr-schedule", scheduleBuild);
 
+    const wx = Career.weatherOf && root.Weather ? Career.weatherOf(S, S.turn) : null;
+    if (wx) Weather.mount(el.querySelector("#carWx"), wx, { evening: S.turn % 2 === 1 });
+
     el.querySelector("#carQuit").onclick = async () => {
       const ok = await UIMeta.ask({ title: tutorial ? "End the demonstration" : "Leave this career",
         message: tutorial ? "End the tutorial career?"
                           : "Leave this career for now?",
         detail: tutorial ? "Nothing here is saved anyway."
-                         : "It is saved — you can pick it up again from the menu.",
+                         : "It is saved — you can pick it up again from the lobby.",
         confirm: tutorial ? "End it" : "Leave" });
       if (!ok) return;
       if (tutorial) { S = null; tutorial = false; return Shell.toMenu(); }
@@ -868,7 +911,8 @@
   function checkCareerAwards() {
     if (tutorial) return;
     const best = Math.max(...Career.STATS.map(k => S.stats[k]));
-    const got = Quests.record("careerTick", { stat: best, fans: S.fans });
+    const got = Quests.record("careerTick", { stat: best, fans: S.fans,
+                                              low: Math.min(...Career.STATS.map(k => S.stats[k])) });
     if (Career.turnYear(S.turn) >= 1) Quests.record("classic");
     if (S.turn >= Career.TRAINING_TURNS && scn().id === "ura") Quests.record("ura");
     if (got && got.awards && got.awards.length) UIMeta.toastAwards(got.awards);
@@ -905,156 +949,454 @@
      it asks for, whether she can enter it, and how well it suits her -- next to the goals
      that decide whether the run survives.
 
+     Folded like a racing paper's fixture list, because 400 races do not fit on a screen
+     and nobody should scroll past them to find the way out. Each year is a heading with
+     its goals as progress chips; each month is one line naming its biggest race; a tap
+     opens a month to its races (a line each) and a race to what it pays and asks. The bar
+     on top -- Back, the jumps, the filters -- stays put while the list scrolls, and Esc
+     leaves from anywhere.
+
      Everything here is read from Career.RACE_CAL and Career.GOALS. There is no second
      copy of the schedule. */
   /* `aptOf` is defined with the training board above -- one grade scale, not two. */
   const raceFit = r => (r.adaptive ? 12 : aptOf(r.dist) + aptOf(r.surface));
+  const GRADES = ["G1", "G2", "G3", "OP", "Pre-OP", "Debut"];
+  const GRADE_RANK = { G1: 6, G2: 5, G3: 4, OP: 3, "Pre-OP": 2, Debut: 1 };
+  const gradeCls = g => "g" + String(g).replace(/\W/g, "");
 
-  let scheduleAll = false;
+  /* What the schedule shows. Kept between visits, so coming back from a turn finds it the
+     way it was left; which months and races are open belongs to one run. */
+  const sched = { all: false, grade: {}, dist: {}, surface: {}, goals: false, enter: false,
+                  tray: false, run: null, open: {} };
+  let schedBack = null;
 
   function scheduleBuild(el) {
     if (!S) return go("scr-menu", Shell.menuBuild);
+    const run = S.started || S.seed;
+    if (sched.run !== run) { sched.run = run; sched.open = {}; }
+    let leaving = false;
+    const back = schedBack = () => {
+      if (leaving) return;
+      leaving = true;
+      go("scr-career", careerBuild);
+    };
 
+    const T = Career.TRAINING_TURNS;
     const ran = {};
     for (const h of S.raceHistory || []) ran[h.id] = h.placing;
-    const goals = Career.goalStatus(S);
+    const goals = Career.goalStatus(S).map((g, i) => Object.assign(g, { i }));
     const goalRaces = {};
     for (const g of goals) for (const id of g.races || []) goalRaces[id] = g;
-
-    /* The real calendar runs to 200-odd races, so this opens on the ones that matter to
-       her -- her goals, the G1s, and whatever suits her -- with the full card a click away. */
     const cal = Career.calOf(S).map(r => Career.resolveRace(S, r));
+    const byId = {};
+    for (const r of cal) byId[r.id] = r;
+    const wxOf = t => (Career.weatherOf && root.Weather ? Career.weatherOf(S, t) : null);
+    const whenOf = t => t >= T ? Career.turnLabel(t, S).split(" · ").pop()
+      : `${Career.turnHalf(t)} ${Career.MONTHS[Career.turnMonth(t)]}, ${Career.YEARS[Career.turnYear(t)]} year`;
+
+    /* The real calendar runs to 400-odd races, so this opens on the ones that matter to
+       her -- her goals, the G1s, and whatever suits her -- with the full card a tap away.
+       The filters narrow either; a group with nothing picked lets everything through. */
     const forHer = r => goalRaces[r.id] || r.adaptive || ran[r.id] || r.grade === "G1" || raceFit(r) >= 9;
-    const shown = cal.filter(r => scheduleAll || forHer(r));
+    const canEnterNow = r => r.turn >= S.turn && !ran[r.id] && Career.canEnter(S, r);
+    const picked = set => Object.keys(set).filter(k => set[k]);
+    const inSet = (set, v) => { const p = picked(set); return !p.length || p.indexOf(v) >= 0; };
+    const passes = r => (sched.all || forHer(r)) && inSet(sched.grade, r.grade) &&
+      inSet(sched.dist, r.dist) && inSet(sched.surface, r.surface) &&
+      (!sched.goals || goalRaces[r.id]) && (!sched.enter || canEnterNow(r));
+    const filterCount = () => picked(sched.grade).length + picked(sched.dist).length +
+      picked(sched.surface).length + (sched.goals ? 1 : 0) + (sched.enter ? 1 : 0);
+    const clearFilters = () => {
+      sched.grade = {}; sched.dist = {}; sched.surface = {}; sched.goals = sched.enter = false;
+    };
 
-    /* One row per race turn, in order, plus the finale at the end. */
-    const turns = [...new Set(shown.map(r => r.turn))].sort((a, b) => a - b);
-
-    const yearOf = t => Career.turnYear(t);
-    let lastYear = -1;
-    const rows = [];
-
-    /* Most turns are training turns, so `S.turn` usually is not a race turn at all. The
-       marker has to answer "where am I in this?", which means the next fixture she can
-       still reach, not an exact match that is only true one turn in four. */
-    const nextTurn = turns.find(t => t >= S.turn);
-
-    for (const t of turns) {
-      const y = yearOf(t);
-      if (y !== lastYear) {
-        lastYear = y;
-        const goalsHere = goals.filter(g => Career.turnYear(g.by) === y);
-        rows.push(`
-          <div class="cal-year">
-            <span class="cy-name">${esc(Career.YEARS[y] || "Year " + (y + 1))}</span>
-            ${goalsHere.map(g => `<span class="cy-goal ${g.met ? "met" : g.overdue ? "late" : ""}">
-              ${g.met ? Icon("check") : ""}${esc(g.text)}</span>`).join("")}
-          </div>`);
-      }
-
-      const here = shown.filter(r => r.turn === t);
-      const isNow = t === nextTurn;
-      const exactly = t === S.turn;
-      const past = t < S.turn;
-      rows.push(`
-        <div class="cal-turn ${isNow ? "now" : ""} ${past ? "past" : ""}">
-          <div class="ct-when">
-            <b>${esc(Career.turnLabel(t, S).split(" · ").pop())}</b>
-            <i>turn ${t + 1}</i>
-            ${isNow ? `<span class="ct-tag">${exactly ? "race day" : "next up"}</span>` : ""}
-          </div>
-          <div class="ct-races">
-            ${here.map(r => {
-              const goal = goalRaces[r.id];
-              const placed = ran[r.id];
-              const canEnter = !past && Career.canEnter(S, r);
-              const fit = raceFit(r);
-              const fitTxt = r.adaptive ? "runs at her best trip"
-                : fit >= 9 ? "suits her" : fit >= 6 ? "runnable" : "wrong trip";
-              const fitCls = r.adaptive ? "f3" : fit >= 9 ? "f3" : fit >= 6 ? "f2" : "f1";
-              return `
-              <div class="calrace ${placed ? "done" : ""} ${goal ? "goal" : ""}">
-                <span class="cr-grade g${esc(String(r.grade).replace(/\W/g, ""))}">${esc(r.grade)}</span>
-                <span class="cr-main">
-                  <b>${esc(r.name)}${goal ? ` <em class="cr-must">goal</em>` : ""}</b>
-                  <i>${Career.raceMetres(r)}m ${esc(r.surface)} · ${esc(Career.DIST_LABEL[r.dist])}${
-                     r.adaptive ? " · her debut" : ""}</i>
-                </span>
-                <span class="cr-pay">${Icon("person")}${num(r.fans)}</span>
-                <span class="cr-note ${placed ? "ok" : canEnter ? fitCls : "lock"}">${
-                  placed ? (placed === 1 ? "won" : placed + ord(placed))
-                  : past ? "missed"
-                  : goal ? (goal.place >= 18 ? "run in it" : goal.place === 1 ? "must win" : "top " + goal.place)
-                  : r.need && S.fans < r.need ? "needs " + num(r.need) + " fans"
-                  : fitTxt}</span>
-              </div>`;
-            }).join("")}
-          </div>
-        </div>`);
-    }
+    /* Where she is. Most turns are training turns, so `S.turn` is usually not a race turn:
+       "now" sits on the turn itself, and "next up" on the next fixture she can reach. */
+    const inFinale = S.turn >= T;
+    const nowYear = inFinale ? Career.YEARS.length : Career.turnYear(S.turn);
+    const nowMonth = inFinale ? -1 : S.turn >> 1;
+    /* Her next goal: its race when it is a race (the first of them still to come), else the
+       turn it is due by -- a marker row in that month. With every goal met, the finale. */
+    const nextGoal = goals.find(g => !g.met) || null;
+    const goalRaceOf = g => {
+      const rs = (g.races || []).map(id => byId[id]).filter(Boolean);
+      return rs.find(r => r.turn >= S.turn) || rs[0] || null;
+    };
+    const goalTarget = g => (goalRaceOf(g) ? "sc-" + goalRaceOf(g).id : "sc-goal" + g.i);
+    const goalTurn = nextGoal ? (goalRaceOf(nextGoal) ? goalRaceOf(nextGoal).turn : nextGoal.by) : null;
+    const goalMonth = goalTurn != null && goalTurn < T ? goalTurn >> 1 : -1;
 
     /* The finale is not in RACE_CAL -- it is generated per run -- so it is described from
        the same source the run itself uses. */
-    const finTurns = [];
-    for (let t = Career.TRAINING_TURNS; t < Career.TOTAL_TURNS; t++) {
+    const finWon = (S.finale && S.finale.won) || [];
+    const finRaces = [];
+    for (let t = T; t < Career.TOTAL_TURNS; t++) {
       const which = Career.finaleRaceAt(t);
-      if (which) finTurns.push({ t, which });
-    }
-    const dream = scn().fullDeck;
-    rows.push(`
-      <div class="cal-year finale ${dream ? "dream" : ""}"><span class="cy-name">${esc(scn().finale)}</span>
-        <span class="cy-goal">Win all three</span>
-        ${dream ? `<span class="cy-goal">Whole decks &middot; the strongest field there is</span>` : ""}</div>`);
-    for (const f of finTurns) {
-      const won = (S.finale && S.finale.won || []).indexOf(f.which) >= 0;
-      const stage = Career.stageName(S, f.which);
-      rows.push(`
-        <div class="cal-turn ${S.turn === f.t ? "now" : ""} ${S.turn > f.t ? "past" : ""}">
-          <div class="ct-when"><b>${esc(stage)}</b><i>turn ${f.t + 1}</i>
-            ${S.turn === f.t ? `<span class="ct-tag">you are here</span>` : ""}</div>
-          <div class="ct-races">
-            <div class="calrace ${won ? "done" : ""} goal">
-              <span class="cr-grade gG1">G1</span>
-              <span class="cr-main"><b>${esc(scn().finale)} ${esc(stage)}
-                <em class="cr-must">must win</em></b>
-                <i>${Career.DIST_METRES[Career.finaleDistance(S)]}m ${esc(Career.finaleSurface(S))}
-                   · chosen from the trips she ran most</i></span>
-              <span class="cr-pay">${Icon("person")}${num(scn().finaleFans[f.which])}</span>
-              <span class="cr-note ${won ? "ok" : "f1"}">${won ? "won" : "must win"}</span>
-            </div>
-          </div>
-        </div>`);
+      if (!which) continue;
+      const dist = Career.finaleDistance(S);
+      finRaces.push({ id: "fin-" + which, finale: true, which, turn: t, grade: "G1",
+        name: scn().finale + " " + Career.stageName(S, which), dist,
+        metres: Career.DIST_METRES[dist], surface: Career.finaleSurface(S),
+        fans: scn().finaleFans[which], need: 0 });
     }
 
+    // ---- one race: a line, and what opens under it
+    const rmap = {};
+    const isOpen = (key, dflt) => (key in sched.open ? sched.open[key] : dflt);
+    const caret = `<span class="sc-caret">${Icon("down")}</span>`;
+    const trip = r => `${Career.raceMetres(r)}m ${esc(r.surface)} · ${esc(Career.DIST_LABEL[r.dist] || "")}`;
+
+    function noteOf(r) {
+      const placed = ran[r.id], goal = goalRaces[r.id];
+      if (r.finale) return finWon.indexOf(r.which) >= 0 ? ["ok", "won"] : ["goal", "must win"];
+      if (placed) return ["ok", placed === 1 ? "won" : placed + ord(placed)];
+      if (r.turn < S.turn) return ["lock", "missed"];
+      if (goal) return ["goal", goal.place >= 18 ? "run in it" : goal.place === 1 ? "must win" : "top " + goal.place];
+      if (r.need && S.fans < r.need) return ["lock", `needs ${num(r.need)}<span class="sc-nf"> fans</span>`];
+      if (r.adaptive) return ["f3", "her best trip"];
+      const fit = raceFit(r);
+      return fit >= 9 ? ["f3", "suits her"] : fit >= 6 ? ["f2", "runnable"] : ["f1", "wrong trip"];
+    }
+
+    function raceRow(r) {
+      const key = "r" + r.id;
+      rmap[key] = r;
+      const goal = r.finale || goalRaces[r.id];
+      const done = r.finale ? finWon.indexOf(r.which) >= 0 : ran[r.id];
+      const open = isOpen(key, false);
+      const [nc, nt] = noteOf(r);
+      return `
+        <div class="sc-race ${goal ? "goal" : ""} ${done ? "done" : ""} ${r.turn < S.turn && !done ? "past" : ""} ${open ? "open" : ""}"
+             id="sc-${esc(r.id)}" data-key="${esc(key)}">
+          <button class="sc-rrow" data-tog aria-expanded="${open}">
+            <span class="cr-grade ${gradeCls(r.grade)}">${esc(r.grade)}</span>
+            <span class="sc-rname"><b>${esc(r.name)}${goalRaces[r.id] ? ` <em class="cr-must">goal</em>` : ""}</b><i>${trip(r)}</i></span>
+            <span class="sc-fans">${Icon("person")}${num(r.fans)}</span>
+            <span class="sc-note ${nc}">${nt}</span>
+            ${caret}
+          </button>
+          <div class="sc-rdet">${open ? detail(r) : ""}</div>
+        </div>`;
+    }
+
+    const aptTag = k => {
+      const g = (S.aptitude || {})[k];
+      return g ? ` <b class="g g${esc(g)}">${esc(g)}</b>` : "";
+    };
+    function detail(r) {
+      const goal = goalRaces[r.id], placed = ran[r.id];
+      const wx = wxOf(r.turn);
+      const away = r.turn - S.turn;
+      const pay = r.pay || [r.fans];
+      const fit = raceFit(r);
+      const cells = [
+        ["When", `<b>${esc(whenOf(r.turn))}</b> &middot; turn ${r.turn + 1}${
+          away > 0 ? ` &middot; in ${away} turn${away === 1 ? "" : "s"}` : away === 0 ? " &middot; this turn" : ""}`],
+        wx && ["Forecast", esc(Weather.label(wx))],
+        ["Trip", r.finale ? `<b>${trip(r)}</b> &middot; chosen from the trips she ran most`
+          : `<b>${Career.raceMetres(r)}m ${esc(r.surface)}</b> &middot; her ${esc(Career.DIST_LABEL[r.dist] || "")}${aptTag(r.dist)},
+             ${r.surface === "dirt" ? "Dirt" : "Turf"}${aptTag(r.surface)} &middot; ${
+             r.adaptive ? "set at the trip she runs best" : fit >= 9 ? "suits her" : fit >= 6 ? "runnable" : "the wrong trip for her"}`],
+        ["Fans", pay.length > 1
+          ? `<span class="sc-pay">${pay.map((p, i) => `<span><em>${i + 1}${ord(i + 1)}</em>${num(p)}</span>`).join("")}</span>`
+          : `<b>${num(pay[0])}</b> for a win`],
+        ["Entry", r.finale ? "Reached by meeting every goal"
+          : goal ? "Her goal race: she is in it whatever her fan count"
+          : !r.need ? "Open to every racer"
+          : S.fans >= r.need ? `Needs ${num(r.need)} fans. She has ${num(S.fans)}`
+          : `Needs ${num(r.need)} fans. She has ${num(S.fans)}, <b class="bad">${num(r.need - S.fans)} short</b>`],
+        placed && ["Result", `<b>${placed === 1 ? "Won" : placed + ord(placed)}</b>`],
+        goal && ["Why it is a goal", `<b>${esc(goal.text)}</b> by ${esc(whenOf(goal.by))}. ${
+          goal.met ? "Done." : "Miss it and the run ends there."}`, "wide"],
+        r.finale && ["Why it is a goal", `Win all three to win the ${esc(scn().finale)}. A loss ends the run.`, "wide"],
+      ].filter(Boolean);
+      return cells.map(([k, v, cls]) => `<div class="sc-d ${cls || ""}"><i>${k}</i><span>${v}</span></div>`).join("");
+    }
+
+    // ---- goals: chips on the year, a marker row where one falls due
+    const goalProg = g => g.met ? ""
+      : g.kind === "fans" ? `<span class="sc-prog"><i style="width:${Math.min(100, S.fans / g.fans * 100).toFixed(0)}%"></i></span>`
+      : g.kind === "g1place" ? `<span class="sc-gnum">${g.have}/${g.count}</span>` : "";
+    function goalChip(g) {
+      const r = goalRaceOf(g);
+      const what = r ? (g.place >= 18 ? "Run" : g.place === 1 ? "Win" : "Top " + g.place) + " · " +
+                       g.races.map(id => (byId[id] || { name: id }).name).join(" / ")
+                     : g.text;
+      const next = g === nextGoal;
+      const when = g.met ? "done" : g.overdue ? "missed"
+        : next ? (g.turnsLeft <= 0 ? "this turn" : `in ${g.turnsLeft} turn${g.turnsLeft === 1 ? "" : "s"}`)
+        : Career.turnHalf(g.by) + " " + Career.MONTHS[Career.turnMonth(g.by)];
+      const tip = g.text + (g.kind === "fans" ? ` (${num(S.fans)} of ${num(g.fans)})` : "");
+      return `
+        <button class="sc-goal ${g.met ? "met" : g.overdue ? "late" : next ? "next" : ""}" data-jump="${goalTarget(g)}" title="${esc(tip)}">
+          <span class="sc-gmark">${g.met ? Icon("check") : g.overdue ? Icon("cross") : ""}</span>
+          <span class="sc-gtxt">${esc(what)}</span>${goalProg(g)}<span class="sc-gwhen">${esc(when)}</span>
+        </button>`;
+    }
+    const dlRow = g => `
+      <div class="sc-dl ${g.met ? "met" : ""}" id="sc-goal${g.i}">
+        ${Icon(g.met ? "check" : "flag")}<b>Goal due</b><span>${esc(g.text)}</span>${goalProg(g)}
+      </div>`;
+
+    // ---- a half-month, a month, a year
+    function halfBlock(h, nextTurn) {
+      const wx = wxOf(h.t);
+      const now = h.t === S.turn;
+      return `
+        <div class="sc-half ${now ? "now" : ""}" ${now ? 'id="sc-now"' : ""}>
+          <div class="sc-hlab"><b>${esc(h.label || Career.turnHalf(h.t))}</b><i>turn ${h.t + 1}</i>${
+            wx ? `<em>${esc(Weather.WEATHER_NAME[wx.weather] || "")}</em>` : ""}${
+            now ? `<span class="sc-tag">now</span>` : h.t === nextTurn ? `<span class="sc-tag next">next up</span>` : ""}</div>
+          <div class="sc-races">
+            ${h.dls.map(dlRow).join("")}
+            ${h.races.map(raceRow).join("")}
+            ${!h.races.length && now ? `<div class="sc-quiet">A training turn: no races${
+              sched.all && !filterCount() ? "" : " in this view"}.</div>` : ""}
+          </div>
+        </div>`;
+    }
+
+    /* The race a closed month is named by: one she ran, else her goal, else the biggest. */
+    const lead = list => list.slice().sort((a, b) =>
+      (!!ran[b.id] - !!ran[a.id]) || (!!goalRaces[b.id] - !!goalRaces[a.id]) ||
+      (GRADE_RANK[b.grade] || 0) - (GRADE_RANK[a.grade] || 0) || raceFit(b) - raceFit(a) || b.fans - a.fans)[0];
+
+    function monthBlock(mi, halves, nextTurn, nextMonth) {
+      const m = mi % 12;
+      const list = [].concat(...halves.map(h => h.races));
+      const top = lead(list);
+      const key = "m" + mi;
+      const now = mi === nowMonth;
+      const open = isOpen(key, now || mi === nextMonth || mi === goalMonth);
+      const goalHere = list.some(r => goalRaces[r.id]) || halves.some(h => h.dls.length);
+      const result = list.filter(r => ran[r.id]).map(r => ran[r.id] === 1 ? "won" : ran[r.id] + ord(ran[r.id]));
+      const season = root.Weather ? Weather.SEASON_NAME[Career.SEASONS[m]] || "" : "";
+      return `
+        <div class="sc-month ${open ? "open" : ""} ${now ? "now" : ""} ${mi * 2 + 1 < S.turn ? "past" : ""}" id="sc-m${mi}" data-key="${key}">
+          <button class="sc-mhd" data-tog aria-expanded="${open}">
+            <span class="sc-mwhen"><b>${esc(Career.MONTHS[m])}</b><i>${esc(season)}</i></span>
+            <span class="sc-mtop">${top ? `<span class="cr-grade ${gradeCls(top.grade)}">${esc(top.grade)}</span><b>${esc(top.name)}</b>${
+              list.length > 1 ? `<em>+${list.length - 1}</em>` : ""}` : `<i>${now ? "No races this month" : "A goal falls due"}</i>`}</span>
+            <span class="sc-flags">${result.length ? `<span class="sc-res">${esc(result.join(", "))}</span>` : ""}${
+              goalHere ? `<em class="cr-must">goal</em>` : ""}${now ? `<span class="sc-tag">now</span>` : ""}</span>
+            ${caret}
+          </button>
+          <div class="sc-mbody">${halves.filter(h => h.races.length || h.dls.length || h.t === S.turn)
+            .map(h => halfBlock(h, nextTurn)).join("")}</div>
+        </div>`;
+    }
+
+    function yearBlock(y, shown, nextTurn) {
+      const yGoals = goals.filter(g => g.by < T && Career.turnYear(g.by) === y);
+      const nextMonth = nextTurn != null && nextTurn < T ? nextTurn >> 1 : -1;
+      const parts = [];
+      let gap = [], count = 0;
+      /* months with nothing in this view fold into one quiet line */
+      const flush = () => {
+        if (!gap.length) return;
+        const a = Career.MONTHS[gap[0] % 12], b = Career.MONTHS[gap[gap.length - 1] % 12];
+        parts.push(`<div class="sc-gap">${esc(a)}${gap.length > 1 ? " &ndash; " + esc(b) : ""}<i>no races in this view</i></div>`);
+        gap = [];
+      };
+      for (let mi = y * 12; mi < y * 12 + 12; mi++) {
+        const halves = [mi * 2, mi * 2 + 1].map(t => ({ t,
+          races: shown.filter(r => r.turn === t),
+          dls: yGoals.filter(g => g.by === t && !goalRaceOf(g)) }));
+        const n = halves[0].races.length + halves[1].races.length;
+        count += n;
+        if (!n && !halves.some(h => h.dls.length) && mi !== nowMonth) { gap.push(mi); continue; }
+        flush();
+        parts.push(monthBlock(mi, halves, nextTurn, nextMonth));
+      }
+      flush();
+      const key = "y" + y;
+      const open = isOpen(key, y >= nowYear);
+      const hist = (S.raceHistory || []).filter(h => h.turn < T && Career.turnYear(h.turn) === y);
+      const wins = hist.filter(h => h.placing === 1).length;
+      return `
+        <section class="sc-year ${open ? "open" : ""} ${y < nowYear ? "past" : ""}" id="sc-y${y}" data-key="${key}">
+          <button class="sc-yhd" data-tog aria-expanded="${open}">
+            <span class="sc-yname">${esc(Career.YEARS[y])}</span>
+            <span class="sc-ystat">${count} race${count === 1 ? "" : "s"}${
+              hist.length ? ` &middot; ran ${hist.length}, won ${wins}` : ""}</span>
+            ${caret}
+          </button>
+          ${yGoals.length ? `<div class="sc-goals">${yGoals.map(goalChip).join("")}</div>` : ""}
+          <div class="sc-ybody">${parts.join("")}</div>
+        </section>`;
+    }
+
+    /* The finale always shows: whatever the filters say, it is where the run ends. */
+    function finaleBlock(nextTurn) {
+      const dream = scn().fullDeck;
+      const open = isOpen("yF", true);
+      return `
+        <section class="sc-year fin ${dream ? "dream" : ""} ${open ? "open" : ""}" id="sc-yF" data-key="yF">
+          <button class="sc-yhd" data-tog aria-expanded="${open}">
+            <span class="sc-yname">${esc(scn().finale)}</span>
+            <span class="sc-ystat">Win all three${dream ? " &middot; whole decks, the strongest field there is" : ""}</span>
+            ${caret}
+          </button>
+          <div class="sc-ybody"><div class="sc-mbody">
+            ${finRaces.map(r => halfBlock({ t: r.turn, label: Career.stageName(S, r.which), races: [r], dls: [] },
+                                          nextTurn)).join("")}
+          </div></div>
+        </section>`;
+    }
+
+    const dream = scn().fullDeck;
     el.innerHTML = `
       ${Bg.layer("career", { turn: S.turn })}
-      <div class="scr-wrap">
-        <div class="panel pop">
-          <div class="panel-hd">${Icon("calendar")}Career schedule</div>
-          <p class="cal-lead">The real three years, race by race. Her <b>goals</b> are what the
-             run is judged on &mdash; miss one and it ends there &mdash; and everything else is
-             yours to choose. Plan the trips she is being built for, then train toward them.</p>
-          <div class="cal-filter">
-            <button class="btn sm ${scheduleAll ? "ghost" : ""}" data-cal="her">Races for her</button>
-            <button class="btn sm ${scheduleAll ? "" : "ghost"}" data-cal="all">All races (${cal.length})</button>
+      <div class="scr-wrap sc-wrap">
+        <div class="sc-head ${dream ? "dream" : ""}">
+          <div class="sc-bar">
+            <button class="btn ghost sm" id="calBack" title="Back to training (Esc)">${Icon("back")}Back</button>
+            <div class="sc-title"><b>Career schedule</b><i>${dream ? `<em>${esc(scn().name)}</em> &middot; ` : ""}${
+              S.turn >= Career.TOTAL_TURNS ? "Career complete"
+              : `Turn ${S.turn + 1} of ${Career.TOTAL_TURNS} &middot; ${esc(whenOf(S.turn))}`}</i></div>
+            <div class="sc-seg">
+              <button class="btn sm" data-scope="her">For her</button>
+              <button class="btn sm" data-scope="all">All races</button>
+            </div>
+            <button class="btn ghost sm" id="scTray" aria-controls="scTrayBody"></button>
           </div>
-          <div class="cal-list">${rows.join("")}</div>
-          <div class="deck-acts">
-            <span class="spacer"></span>
-            <button class="btn" id="calBack">Back to training</button>
+          <div class="sc-jump">
+            <i>Jump to</i>
+            <button class="btn ghost sm" data-jump="now">Now</button>
+            <button class="btn ghost sm" data-jump="goal">Next goal</button>
+            ${Career.YEARS.map((n, y) => `<button class="btn ghost sm" data-jump="sc-y${y}">${esc(n)}</button>`).join("")}
+            <button class="btn ghost sm" data-jump="sc-yF">Finale</button>
           </div>
+          <div class="sc-tray" id="scTrayBody" hidden></div>
+        </div>
+        <div class="panel pop sc-panel">
+          <div class="sc-sum">
+            <span class="sc-count" id="scCount"></span>
+            <span class="sc-hint">Her <b>goals</b> decide the run: miss one and it ends there. Everything else is yours to choose.</span>
+            <span class="sc-acts">
+              <button class="btn ghost sm" data-all="1">Open all</button>
+              <button class="btn ghost sm" data-all="0">Close all</button>
+            </span>
+          </div>
+          <div class="sc-list" id="scList"></div>
         </div>
       </div>`;
 
-    el.querySelector("#calBack").onclick = () => go("scr-career", careerBuild);
-    el.querySelectorAll("[data-cal]").forEach(b => b.onclick = () => {
-      scheduleAll = b.dataset.cal === "all";
-      scheduleBuild(el);
+    const wrap = el.querySelector(".sc-wrap");
+    const head = el.querySelector(".sc-head");
+    const list = el.querySelector("#scList");
+
+    function drawTray() {
+      const n = filterCount();
+      const btn = el.querySelector("#scTray");
+      btn.innerHTML = `Filters${n ? `<b class="sc-n">${n}</b>` : ""}`;
+      btn.setAttribute("aria-expanded", String(sched.tray));
+      btn.classList.toggle("ghost", !sched.tray);
+      const tray = el.querySelector("#scTrayBody");
+      tray.hidden = !sched.tray;
+      const tg = (grp, v, label, cls) => `<button class="sc-tg ${cls || ""}" data-f="${grp}" data-v="${esc(v)}"
+        aria-pressed="${!!sched[grp][v]}">${esc(label)}</button>`;
+      const flag = (k, label) => `<button class="sc-tg" data-flag="${k}" aria-pressed="${sched[k]}">${label}</button>`;
+      tray.innerHTML = !sched.tray ? "" : `
+        <div class="sc-fg"><i>Grade</i>${GRADES.map(g => tg("grade", g, g, gradeCls(g))).join("")}</div>
+        <div class="sc-fg"><i>Trip</i>${Career.DIST_ORDER.map(d => tg("dist", d, Career.DIST_LABEL[d])).join("")}</div>
+        <div class="sc-fg"><i>Ground</i>${tg("surface", "turf", "Turf")}${tg("surface", "dirt", "Dirt")}</div>
+        <div class="sc-fg"><i>Show</i>${flag("goals", "Goals only")}${flag("enter", "Can enter now")}
+          <button class="btn ghost sm sc-clear" data-clear ${n ? "" : "disabled"}>Clear filters</button></div>`;
+    }
+
+    function draw() {
+      for (const k in rmap) delete rmap[k];
+      const shown = cal.filter(passes);
+      let nextTurn = null;
+      for (const r of shown.concat(finRaces))
+        if (r.turn >= S.turn && (nextTurn == null || r.turn < nextTurn)) nextTurn = r.turn;
+      list.innerHTML = Career.YEARS.map((n, y) => yearBlock(y, shown, nextTurn)).join("") + finaleBlock(nextTurn);
+      el.querySelector("#scCount").innerHTML = `<b>${shown.length}</b> of ${cal.length} races`;
+      el.querySelectorAll("[data-scope]").forEach(b =>
+        b.classList.toggle("ghost", (b.dataset.scope === "all") !== sched.all));
+      drawTray();
+    }
+
+    function setOpen(box, on) {
+      if (!box || !box.dataset.key) return;
+      box.classList.toggle("open", on);
+      sched.open[box.dataset.key] = on;
+      const b = box.querySelector(":scope > [data-tog]");
+      if (b) b.setAttribute("aria-expanded", String(on));
+      const det = on && box.querySelector(":scope > .sc-rdet");
+      if (det && !det.innerHTML.trim()) det.innerHTML = detail(rmap[box.dataset.key]);
+    }
+
+    /* Jump: open whatever holds the target, then bring it up under the sticky bar. A goal
+       the filters hide is still her goal, so a jump that finds nothing clears them. */
+    const still = root.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function jump(where, user) {
+      const idOf = () => where === "now"
+          ? (list.querySelector("#sc-now") ? "sc-now" : inFinale ? "sc-yF" : "sc-m" + nowMonth)
+        : where === "goal" ? (nextGoal ? goalTarget(nextGoal) : "sc-yF") : where;
+      const find = () => list.querySelector("#" + idOf());
+      let t = find();
+      if (!t && user && filterCount()) { clearFilters(); draw(); t = find(); }
+      if (!t && user && !sched.all) { sched.all = true; draw(); t = find(); }
+      if (!t) return;
+      for (let p = t; p && p !== list; p = p.parentElement) if (p.dataset && p.dataset.key) setOpen(p, true);
+      const at = x => x.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
+      /* opening on a turn shows the headings over it too -- its year and goals if they fit
+         above it, else its month */
+      const room = wrap.clientHeight - head.offsetHeight;
+      const over = user ? null : [t.closest(".sc-year"), t.closest(".sc-month")]
+        .find(x => x && x !== t && at(t) - at(x) < room * 0.55);
+      const y = over ? at(over) - head.offsetHeight - 10 : at(t) - head.offsetHeight - (user ? 10 : 52);
+      wrap.scrollTo({ top: Math.max(0, y), behavior: user && !still ? "smooth" : "auto" });
+      if (!user) return;
+      t.classList.remove("flash");
+      void t.offsetWidth;                // restart the flash on a second jump to the same place
+      t.classList.add("flash");
+      setTimeout(() => t.classList.remove("flash"), 1600);
+    }
+
+    head.onclick = e => {
+      const b = e.target.closest("button");
+      if (!b || b.disabled) return;
+      if (b.id === "calBack") return back();
+      if (b.id === "scTray") { sched.tray = !sched.tray; return drawTray(); }
+      if (b.dataset.jump) return jump(b.dataset.jump, true);
+      if (b.dataset.scope) sched.all = b.dataset.scope === "all";
+      else if (b.dataset.f) sched[b.dataset.f][b.dataset.v] = !sched[b.dataset.f][b.dataset.v];
+      else if (b.dataset.flag) sched[b.dataset.flag] = !sched[b.dataset.flag];
+      else if ("clear" in b.dataset) clearFilters();
+      else return;
+      draw();
+    };
+    list.onclick = e => {
+      const j = e.target.closest("[data-jump]");
+      if (j) return jump(j.dataset.jump, true);
+      const tg = e.target.closest("[data-tog]");
+      if (tg) setOpen(tg.parentElement, !tg.parentElement.classList.contains("open"));
+    };
+    /* Close all folds the years too: three lines and their goals, the whole run at a glance. */
+    el.querySelectorAll("[data-all]").forEach(b => b.onclick = () => {
+      const on = b.dataset.all === "1";
+      list.querySelectorAll(on ? ".sc-year, .sc-month" : "[data-key]").forEach(x => setOpen(x, on));
     });
+
+    draw();
     /* Open on the turn she is actually on, rather than at January of Junior year. */
-    const now = el.querySelector(".cal-turn.now");
-    if (now) setTimeout(() => now.scrollIntoView({ block: "center" }), 60);
+    setTimeout(() => jump("now", false), 60);
   }
+
+  /* Esc leaves the schedule from anywhere in it. A dialog on top takes its own Esc first
+     (ask() listens in the capture phase and stops it). */
+  if (root.document) document.addEventListener("keydown", e => {
+    if (e.key !== "Escape" || !schedBack) return;
+    const scr = document.getElementById("scr-schedule");
+    if (!scr || !scr.classList.contains("on")) return;
+    const a = document.activeElement;
+    if (a && /^(input|textarea|select)$/i.test(a.tagName)) return;
+    e.preventDefault();
+    schedBack();
+  });
 
   // ---------------------------------------------------------------- races
   /* The race itself is the ordinary simulation. Career mode hands it a field and gets
@@ -1064,6 +1406,9 @@
     const deck = deckFor();
     Game.startCareerRace({
       field: setup.field, course: setup.course, deck, rules: setup.rules,
+      tutorial,                                  // a demonstration run: its races count for no quest
+      // run in the season and weather the turn screen showed
+      weather: Career.weatherOf ? Career.weatherOf(S, S.turn) : null,
       label: race.finale ? scn().finale : race.grade,
       onDone(placing, fieldSize, board) {
         const isFinale = !!race.finale;
@@ -1077,7 +1422,7 @@
         if (!S.done) Career.passTurn(S);
         if (!tutorial) {
           Quests.record(placing === 1 ? "raceWin" : "race",
-                        { style: S.style, dist: race.dist });
+                        { style: S.style, dist: race.dist, place: placing, scenario: scn().id });
           if (placing === 1 && race.grade === "G1") Quests.record("g1Win");
           if (isFinale && placing === 1 && scn().id === "ura") Quests.record("uraWin");
           persist();
@@ -1262,10 +1607,13 @@
       }
       Stable.grant(pay.carrots);
       for (const id in pay.items) Stable.addItem(id, pay.items[id]);
-      Quests.record("careerEnd", { rating: v.rating, grade: v.grade, fans: v.fans });
+      const ran = S.raceHistory || [];
+      Quests.record("careerEnd", { rating: v.rating, grade: v.grade, fans: v.fans, scenario: scn().id, failed,
+                                   g1s: ran.filter(r => r.grade === "G1" && r.placing === 1).length,
+                                   unbeaten: champion && ran.length > 0 && ran.every(r => r.placing === 1) });
       if (champion) {
         // URA Finale's awards count URA Finale wins; the Dream Trophy has its own
-        const got = Quests.record(dream ? "dreamChampion" : "champion");
+        const got = Quests.record(dream ? "dreamChampion" : "champion", { racer: S.racerId });
         if (got.awards && got.awards.length) UIMeta.toastAwards(got.awards);
       }
       clearSaved();
@@ -1350,13 +1698,20 @@
   /* What each scenario is, side by side, so the choice is made knowing the price and the
      prize. Every number is read from Career.SCENARIOS and Stable.STAMINA. */
   function scenarioCard(id, on) {
-    const c = Career.SCENARIOS[id], pay = c.pay;
+    const c = Career.SCENARIOS[id], pay = c.pay, lock = lockOf(id);
     const items = pay.items.champion ? Object.keys(pay.items.champion).map(k =>
       `${(Stable.itemDef(k) || { name: k }).name} ×${pay.items.champion[k]}`) : [];
+    /* A locked scenario still shows what it is and what it pays -- that is what the three
+       URA Finale wins are for -- with the condition and the progress toward it on top. */
     return `
-      <button class="scn s-${id} ${on ? "sel" : ""}" data-scn="${id}" aria-pressed="${on}">
-        <span class="scn-hd">${esc(c.title.split(": ")[0])}</span>
+      <button class="scn s-${id} ${on ? "sel" : ""} ${lock ? "locked" : ""}" data-scn="${id}"
+              aria-pressed="${on}" ${lock ? `aria-disabled="true"` : ""}>
+        <span class="scn-hd">${esc(c.title.split(": ")[0])}${lock ? " · locked" : ""}</span>
         <span class="scn-name">${esc(c.name)}</span>
+        ${lock ? `
+          <span class="scn-lock">${Icon("lock")}<b>${esc(lock.text)}</b>
+            <em>URA Finale wins: ${lock.have}/${lock.need}</em>
+            <span class="scn-prog"><i style="width:${Math.round(lock.have / lock.need * 100)}%"></i></span></span>` : ""}
         <span class="scn-blurb">${esc(c.blurb)}</span>
         <span class="scn-facts">
           <span><i>Races</i>${c.fullDeck ? "Whole deck in reach, Callout plays the card that is due"
@@ -1431,6 +1786,9 @@
     const ps = el.querySelector("#pickScout");
     if (ps) ps.onclick = () => go("scr-scout", UIMeta.scoutBuild);
     el.querySelectorAll("[data-scn]").forEach(b => b.onclick = () => {
+      const lock = lockOf(b.dataset.scn);
+      if (lock) return UIMeta.notify(`${lock.text} to open it. URA Finale wins so far: ` +
+        `${lock.have} of ${lock.need}.`, { title: "Not open yet" });
       setPickedScenario(b.dataset.scn);
       pickerBuild(el);
     });

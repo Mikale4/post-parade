@@ -1,6 +1,6 @@
 @echo off
 rem ---------------------------------------------------------------------------
-rem  Post Parade -- double-click this to play.
+rem  Umamusume: Post Parade -- double-click this to play.
 rem
 rem  The game cannot be opened by double-clicking race\index.html. Its art lives
 rem  in sibling folders (Racers\, backgrounds\, audio\, cards\), and a page opened
@@ -12,7 +12,7 @@ rem  Leave this black window open while you play. Closing it stops the server,
 rem  which is also how you quit.
 rem ---------------------------------------------------------------------------
 
-title Post Parade - server (keep this window open)
+title Umamusume Post Parade - server (keep this window open)
 cd /d "%~dp0"
 
 rem Python ships the server; nothing is installed and nothing leaves this machine.
@@ -20,7 +20,7 @@ where python >nul 2>nul
 if errorlevel 1 (
   echo.
   echo   Python was not found on this computer.
-  echo   Post Parade needs it to serve the game folder.
+  echo   Umamusume: Post Parade needs it to serve the game folder.
   echo.
   echo   Install it from https://www.python.org/downloads/ and tick
   echo   "Add python.exe to PATH" during setup, then run this again.
@@ -33,8 +33,8 @@ set PORT=8712
 set URL=http://localhost:%PORT%/race/index.html
 
 echo.
-echo   Post Parade
-echo   -----------
+echo   Umamusume: Post Parade
+echo   ----------------------
 echo   Serving "%CD%"
 echo   Opening %URL%
 echo.

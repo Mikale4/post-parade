@@ -91,7 +91,8 @@
   const WHERE = [
     [/^home/, "Home screen"], [/^(title|prologue|intro|tutorial)/, "Title and story"], [/^scout/, "Scouting"],
     [/^(career|training|setback|legacy|finale|ending|idea|friends)/, "Career"],
-    [/^(race|paddock|rival)/, "Races"], [/^result/, "Race results"], [/./, "Around the academy"],
+    [/^(race|paddock|rival)/, "Races"], [/^result/, "Race results"], [/^school/, "School wing"], [/^track/, "Training track"],
+    [/./, "Around the academy"],
   ];
   /* "home_day - Home Screen Day (dm011).mp3" -> "Home Screen Day": the role before the
      dash and the cue number in brackets go; a bracket that is part of the name stays. */
@@ -513,7 +514,18 @@
     if (id === "scr-game") return false;     // the race runs its own cue list
     const role = SCREEN_ROLE[id];
     if (!role) return false;
+    if (id === "scr-menu" && lobbyArea && !picked()) return play(lobbyArea, opts);
     return play(screenRole(role), opts);
+  }
+
+  /* The lobby's places with music of their own -- the school wing, the training track:
+     while she is in one, its music plays in the lobby in place of the home theme. A pick
+     at the jukebox still plays everywhere. The lobby says which place she is in as she
+     goes room to room (null: back where the home theme plays). */
+  let lobbyArea = null;
+  function area(role) {
+    lobbyArea = role && has(role) ? role : null;
+    if (lastScreen === "scr-menu") forScreen(lastScreen);
   }
 
   // ---------------------------------------------------------------- info
@@ -549,7 +561,7 @@
   const api = { play, stop, sfx, hush, forScreen, raceTick, raceRival, racePaddock, raceFanfare, raceFinish, setCareerYear,
                 resumeAt, resolve, poolPick,
                 unlock, isUnlocked, refreshVolume, trackFor, has, coverage, state,
-                SCREEN_ROLE, jukebox,
+                SCREEN_ROLE, jukebox, area,
                 get current() { return curRole; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Sound = api;

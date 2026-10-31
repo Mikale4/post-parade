@@ -133,8 +133,19 @@
   function hpDrain(v, base, r, mult) {
     const eff = 1 - witTerm(r.stats.wit);
     const aptPen = 1 / Math.max(0.35, r.distApt);
-    return 20 * Math.pow(Math.max(0, v - base + 12), 2) / 144 * eff * aptPen * mult;
+    return 20 * Math.pow(Math.max(0, v - base + 12), 2) / 144 * eff * aptPen * mult * (r.groundDrain || 1);
   }
+
+  /* The going, as the real game has it (GameTora's race mechanics): a soft or heavy track
+     costs speed and power, and stamina at 2% more. Dirt is the harder going for power
+     at any condition but good. Only a race that names its ground (`course.ground`, a
+     career race: Career.weatherOf) is affected; one that does not runs as it always did. */
+  const GROUND = {
+    firm:  { speed: 0,   power: { turf: 0,   dirt: -100 }, drain: 1 },
+    good:  { speed: 0,   power: { turf: -50, dirt: -50 },  drain: 1 },
+    soft:  { speed: 0,   power: { turf: -50, dirt: -100 }, drain: 1.02 },
+    heavy: { speed: -50, power: { turf: -50, dirt: -100 }, drain: 1.02 },
+  };
 
   // ---- racer construction ---------------------------------------------
   function makeRacer(def, course, rng) {
@@ -157,10 +168,15 @@
       dirtPaceMul: 1, spirit: 0, biasMul: 1, ignoreTrafficFinal: false, secondWind: 0,
     };
     const maxHp = (def.stats.stamina * 2.4 + course.distance * 0.32) * st.hpCoef * mods.maxHpMul;
+    const g = GROUND[course.ground];
+    const stats = g ? Object.assign({}, def.stats, {
+      speed: Math.max(1, def.stats.speed + g.speed),
+      power: Math.max(1, def.stats.power + (g.power[course.surface] || 0)),
+    }) : def.stats;
 
     return {
       id: def.id, name: def.name, sprite: def.sprite, color: def.color,
-      stats: def.stats, style: st, mods, level: def.level || 1,
+      stats, style: st, mods, level: def.level || 1, groundDrain: g ? g.drain : 1,
       secondWindLeft: mods.secondWind, surface: course.surface,
       apt: speedApt, distApt, surfApt,
       pos: 0, v: 0, hp: maxHp, maxHp,
@@ -352,7 +368,7 @@
     return S;
   }
 
-  const api = { STYLES, APT, DIST_CLASS, createRace, step, runToEnd, standings,
+  const api = { STYLES, APT, DIST_CLASS, GROUND, createRace, step, runToEnd, standings,
                 applyBuff, baseTargetSpeed, phaseOf, mulberry32, rankOf, schedule,
                 racerAhead };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

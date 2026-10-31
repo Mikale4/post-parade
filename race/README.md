@@ -1,4 +1,4 @@
-# Post Parade
+# Umamusume: Post Parade
 
 A racing game you prepare for rather than play. Racers run on Umamusume-style stats and
 spend their own cards according to temperament. You choose the racer, build the deck,
@@ -27,6 +27,8 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `ai.js` | Personalities, deck handling, the Callout, and when a racer fires a card. Full-deck races and the sharp read (the Dream Trophy). |
 | `career.js` | Career mode's rules, both scenarios (`SCENARIOS`): training, races, goals, the finale, payouts. No DOM. |
 | `ui-career.js` | Career screens: scenario and racer pick, the turn screen, schedule, race days, the ending. |
+| `ui-decks.js` | The deck screens: whose deck, her decks, and the builder (sort, filter, search, the deck board, undo), with *Let her decide*. |
+| `carddetail.js` | A card's details in plain words, and the press-and-hold that opens them. The builder and the race HUD share it. |
 | `uniques.js` | Signature skills and their trigger conditions. |
 | `progression.js` | Levels, stat growth, passives. |
 | `index.html` | Screen shell, race view, stable, deck builder, results. |
@@ -38,13 +40,15 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `settings.js` | Device preferences, and what reads each one. |
 | `shell.js` | Title, register/sign-in, main menu, introduction, guided tutorial. |
 | `fx.js` | Sparkles, confetti, wipes, screen shake, typewriter. |
+| `scoutfx.js` | The scout's reveal, after the real game's gacha: the door and the gate for racers, the album and the deal for cards, the rarity tells, each pull in turn, the results grid. `ScoutFX.play(results, { kind })`. |
 | `voxel.js` | The race in 3D voxels: course, scenery, every racer's model, cameras; the trainer model; each racer's voxel bust (`Voxel.bust`), the portrait on the deck screens. |
 | `voxel-lab.html` | The whole roster lined up as voxel models, standing or running. |
 | `attract.js` | The title screen's live race: random racers in a real G1, drawn by voxel.js. |
-| `lobby.js` | The main menu in voxels: the academy's hall, the trainer's office, the cafeteria and the dorm, walked as your trainer or a racer, the others about their day, every mode a door that opens. |
+| `lobby.js` | The main menu in voxels: the academy's hall, the trainer's office, the cafeteria, the dorm, the school wing's classrooms and the training track outside, walked as your trainer or a racer, the others about their day, every mode a door that opens. |
 | `trainer.js` | The trainer creator: your own character, made at registration, with a turning 3D preview. |
 | `lines.js` | What the racers say in the lobby: each in her own voice, to the trainer, to a classmate, and to her pair. |
 | `reactions.js` | How each racer takes her result after a race: a few moves and lines of her own for a win, a place, the middle of the field and the back. |
+| `weather.js` | The season and the day's weather over the career screens (falling petals, leaves, rain, snow), and the names for them. The race does its own in 3D (`voxel.js` `applySeason`). |
 | `rivals.js` | Rivalries: two racers neck and neck long enough clash, both their signatures fire, and each says to herself how she will beat the other. |
 | `ambience.js` | The race's own sound under the music: every footfall synthesised and placed where she is, the crowd building to the finish, the surges. Drives the caller. |
 | `caller.js` | The race caller, as captions: the break, the leader, the final turn, the straight, a charge, a close finish, the winner. |
@@ -56,6 +60,8 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `validate-kinds.js` | Is each card kind situational? Spread per kind vs the Burst control. |
 | `validate-autodeck.js` | Does "Let her decide" build good decks, for each focus, running style, distance and track, within the two-copy limit, and do the planned decks beat the old builder? `node race/validate-autodeck.js` |
 | `deckplans.js` | The deck plans "Let her decide" follows, per race context. **Generated** by `tools/gendeckplans.js`. |
+| `quests.js` | Daily and weekly quests, trainer tasks (first steps and the tiered chains), awards. One `Quests.record(event)` feeds them all. |
+| `validate-economy.js` | The stable, the scout, the unlock tree and the quest board: what it pays against the economy, a normal day and week played through, tiers, old saves. `node race/validate-economy.js` |
 
 Card art is rendered by `cards/build.py`; `assets/cards/` holds the thumbnails.
 
@@ -80,13 +86,13 @@ The main menu is **the academy's main hall, walked** (`lobby.js`), after the gam
 lobby: cream marble squares, columns under a mezzanine with a balustrade, navy wainscot
 over red carpet, burgundy drapes with gold fringe, and a library through an archway.
 Every mode is a place in it: the notice board is Quests, the library is Decks, the
-academy terminal by the jukebox is Settings, the classroom is Tutorials, the glass doors to the track are
-Exhibition, the side doors on the right are Scouting and the Dormitory, and the reception
+academy terminal by the jukebox is Settings, the classroom door opens on the school wing (Tutorials), the glass doors to the track are
+Exhibition, the side doors on the right lead out to the training track (Scouting) and to the Dormitory, and the reception
 desk is How to play. A tag over each says which; walk up to one and press **E** (or click
 the tag, or the door) to go in. The dock along the bottom has every mode too, so nobody has
-to walk. Five rooms in all: the hall, the trainer's office, the cafeteria, the dorm corridor
-and a dorm room. The hall and the office are built at the start; the rest the first time
-you go in.
+to walk. Eight places in all: the hall, the trainer's office, the cafeteria, the dorm
+corridor, a dorm room, the school corridor, a classroom, and outside, the training track.
+The hall and the office are built at the start; the rest the first time you go in.
 
 The double doors at the back are **the trainer's office**, a second room. It is
 wood-panelled, with the trainer's desk and chair, a whiteboard with the week's training
@@ -179,6 +185,74 @@ built:
 - **Who's home:** up to six residents are in their rooms each time the lobby opens
   (`home`, chosen by the shell). They keep to their own side: their own bed, their own desk.
   In a room with one resident, the other bed is made up plain, with books on its desk.
+
+**The training track** is out through the Scouting doors on the hall's right: the
+academy's old practice course. It's built after the early Kasamatsu track in *Cinderella
+Gray*: a small, worn local course of deep sand by a river, older facilities and a tight
+budget.
+
+- **The course:** a stadium-shaped sand oval (`OVAL`), darker along the line they run.
+  - Its white rails are worn: some lengths are rust-grey, a few posts are gone, and there
+    are gaps to get onto the track and into the infield.
+  - Red-and-white furlong poles stand round the inside, with a winning post on the near
+    straight.
+  - The worn infield has a row of cones for drills.
+- **Around it:**
+  - an old grandstand of concrete steps under a tin roof, signed TRAINING TRACK;
+  - a tin shed, an outdoor tap, benches by the rail, a chain-link fence along the far side;
+  - floodlights at the four corners;
+  - sidewalks along the school and the road;
+  - the school's side, where the Scouting doors come out under a canopy;
+  - trees round the edge.
+- **Beyond it:** the river's levee with a path on top, the river, an iron railway bridge
+  over it, and mountains. All of it is outdoors under a sky that follows the hour
+  (`OUT_MAT`, `SKY_MAT`).
+- **Racers** (`track`, from the shell):
+  - they warm up: jogging a lap or two of the oval at their own pace, kicking up the sand;
+  - they stretch in front of the coach, do high-knee drills at the cones, sit on the
+    benches, drink at the tap, or have a word with a trainer at the rail.
+- **Trainers** (`STAFF.track`), each with their own look:
+  - the veteran times them with a stopwatch, his eyes on whoever is running nearest;
+  - the rookie takes notes on a clipboard;
+  - the coach calls out the stretches;
+  - the scout recruits at a folding table.
+  
+  Each has their own lines when you come near.
+- **Scout stations:** the **recruiting table** and **the rail** both open the scout screen,
+  the way the lobby always has (`onEnter("scout")`).
+- **After dark:**
+  - the floodlights come on: glows at the lamps, pools of light on the track, and the
+    whole track lit;
+  - the racers stop what they're doing and go in through the school's doors; the trainers
+    go too, all but the veteran, who stays on;
+  - in the morning they all come back out.
+
+**The school wing** is through the classroom door at the back of the hall (the hall's
+Tutorials tag, "School wing"). It is a corridor of classrooms, Tracen-style, one for each
+tutorial (`LESSONS`, from `Stable.TUTORIALS` through the shell, seven at most):
+
+- **The corridor:**
+  - Sliding doors with glass in their tops (a `slide` door runs its leaf into the wall),
+    each with its lesson's plate overhead: the name, its number, and "done" in green once
+    taken.
+  - Banks of steel lockers between the doors, with vents, handles and name cards.
+  - A drinking fountain and a window at the far end, and sun on the floor between the doors.
+  - The timetable by the entrance lists every lesson with a tick by the ones taken. It is
+    the plain Tutorials list (station `tutorial`); the dock has it too.
+  - Each classroom's tag says whether its lesson is done.
+- **A classroom** is one room, dressed for its lesson (`dressClass`):
+  - The blackboard across the front sits on a low platform. On it, chalked up: which lesson
+    of seven, its name, what it covers, a chalk drawing of it (a track, a starting gate,
+    cards, a star, a calendar...), and "Done" ringed in pink once taken.
+  - The teacher's desk by the windows has the register, chalk and flowers. There are three
+    rows of desks with their chairs, a notice board by the door, a clock, ceiling lights,
+    and tall windows onto the grounds (north, as the dorm rooms').
+- **The lesson** starts at the board ("Start the lesson", or "Done · take it again"). It goes
+  through the lobby's `onLesson` and starts the way the Tutorials list starts it: a scripted
+  tutorial with `Tutorials.start`, a race one (race, dream, rival) with the shell's
+  `startTutorial`.
+- **Who's there:** a couple of racers stand about the corridor (`school`). The ones in
+  class (`classes`) are spread over the classrooms and sit at the desks to study.
 
 **Day and night.** The academy keeps its own clock: a real minute is an hour there, so a
 whole day takes 24 minutes. It runs off the real clock (`hourNow`), so it's the same hour
@@ -282,6 +356,11 @@ use; E or a click on it does it (`HALL_THINGS`, `OFFICE_THINGS`):
 - **Dorm:** a drink at the corridor's fountain; in a room, **a nap** (you lie back on
   either bed, head on the pillow, and drift off), **study** at either desk, or look out of
   the window.
+- **School:** a drink at the corridor's fountain and the view from its window; in a
+  classroom, **take a seat** at any desk (and get writing), or look out of the window.
+- **Training track:** **jog a lap** of the oval with the others (from the gap in the outer
+  rail, a full lap on their line), **stretch** on the infield, sit on a bench by the rail,
+  or have a drink at the tap.
 - **The jukebox (hall):** as in the real game, it plays any music you've already heard
   somewhere in the game. That's every looping track, but no fanfares or stings. It opens
   `UIMeta.jukebox()` (through the lobby's `onJukebox`), listing:
@@ -300,6 +379,23 @@ use; E or a click on it does it (`HALL_THINGS`, `OFFICE_THINGS`):
     as each track starts).
   - It plays at the music volume, and a change of volume reaches it at once.
   - While your pick plays, coloured lights rise off the jukebox's dome.
+
+**Places with music of their own.** Two places in the lobby have their own music, from the
+same rip as the rest. It plays while you're there, in place of the home theme:
+
+- **The school wing** (its corridor and every classroom): "URA Classes" and "Fun Behind
+  the School".
+- **The training track:** "Dark Bay Swaying in the Wind" and "Training Camp by the
+  Seaside".
+
+How it works:
+- The lobby names each room's music (`music` on the room) and tells the shell as you go
+  in (`onMusic`, which calls `Sound.area`).
+- Each place's pair plays one after the other. Walking between its rooms doesn't restart
+  it, and back in the hall the home theme picks up where it left off.
+- A jukebox pick still plays everywhere, these places included.
+- The files are bound by role (`school`, `track` in `tools/genaudio.js`). They join the
+  jukebox once heard, labelled with where they play.
 
 While you're at something you stay at (a seat, the window, the trophies, the board), its
 E prompt (**Get up** or **Done**) sits above the dock rather than over your head, where it
@@ -379,19 +475,115 @@ never has to know anything about the simulation. The race reports back through
 `Shell.notify(event)`, which is how the tutorial knows when the racer has actually played
 a card or the player has spent a Callout.
 
-### The tutorial
+### The tutorials
 
-Eight steps, each gated on a *condition* rather than a timer, so the coach never talks
-over something the player has not seen yet. Steps can spotlight a UI element (a gold ring
-with the rest of the screen dimmed) and wait for a real event — `cardPlayed`, `callout` —
-before advancing.
+Seven, on the Tutorials board (`Stable.TUTORIALS`), in the order a new trainer meets them.
+Each pays **200 carrots** the first time through, and finishing every one of them pays a
+**Scout Pass** on top, once (`Stable.completeTutorial`, `tutorialsAllDone`).
 
-Two things that had to be got right:
+| Tutorial | Where | What it teaches |
+|---|---|---|
+| Race Basics | a race (`shell.js`) | her hand, spirit, and the Callout on a dead hand |
+| Exhibition | the stable and pre-race sheet | the two modes, passives, courses, 5 stamina, the gate draw |
+| Deck Building | the Decks screen | 15 cards, two copies at most, kinds, and "Let her decide" |
+| Scouting | the scout | the two scouts, tickets and passes, unlocking, copies and passives |
+| Career Mode | a demonstration career | the turn screen, training, goals, and the two scenarios |
+| Dream Rules | a whole-deck race on the Mile | the whole deck in reach, and calling in the run-in |
+| Rivalries | a race on the Mile where she is sure to meet one | what triggers a rivalry and what the clash does |
 
-- **Order matters.** An early draft had Tazuna say "There, she spent one" *before* the
-  card was played, then wait for it. Anticipate first, pay off after.
-- **Event-gated steps need a timeout.** If the race never produces the event, the
-  tutorial must move on rather than stranding the player.
+The three race ones run on `Game.startTutorialRace(opts)`: `fullDeck` for Dream Rules, and
+`forceRival` for Rivalries, which pairs her with the nearest runner at 70% of the trip (the
+last third, so it is the Zone). The others drive the screens (`tutorials.js`).
+
+How a step works, in both coaches:
+- **Every step ends on the player's click.** Nothing moves on by itself: not the last line,
+  and not a step that waits for something in the race.
+- **Waiting for an event.** A step can wait for something real to happen: `cardPlayed`,
+  `callout`, `runIn` (the Dream run-in, signalled by the whole-deck panel), `rivalry` (sent
+  when her clash's cutscene ends), `trained`. Until it happens the race runs. When it does,
+  the race holds on that moment and asks for the click. A `timeout` only offers the click
+  early, so a step can never strand anyone.
+- **Spotlights.** A step can ring a UI element with a gold ring.
+- **The Callout is held** in a tutorial race (`G.calloutLocked`, `Game.lockCallout`) until
+  the step that asks for one. Otherwise a player could spend both before the lesson and
+  leave that step with nothing to wait for. The button says why it is held.
+- **Cutscenes.** While a cutscene has the screen, the coach steps aside (`body.in-cut`).
+- **Order matters.** Anticipate first, pay off after: an early draft had Tazuna say "There,
+  she spent one" *before* the card was played.
+
+### Quests, trainer tasks and awards
+
+The notice board (`quests.js`, drawn by `questsBuild` in `ui-meta.js`) has four tabs, each
+with its own count of rewards waiting; **Claim all** takes only the tab in front of you.
+
+| Tab | What is on it | Resets |
+|---|---|---|
+| Daily | 14 quests from a normal day: races, wins, top threes, both exhibition modes, career turns and races, a scout, a Callout used well, a rivalry, a deck, the academy; and **Busy day** for claiming 8 of the others | midnight |
+| Weekly | 18: win, race and podium counts, Dream week, a G1, a career and a Dream Trophy run finished, 60 training turns, scouting, a duplicate and a passive, Callouts, rivalries won, decks, the academy, 30 dailies claimed, and a tutorial while any are left | Monday |
+| Trainer tasks | **First steps** (ten one-off tasks for a new trainer) while any are unclaimed, then **39 chains in 10 categories**: Racing, Careers, Dream Trophy, Collection, Scouting, Decks, Race craft, Rivalries, Academy, Dedication | never |
+| Awards | **205 medals in 10 categories**, paid the moment they unlock: Racing, Careers, Champions, Collection, Scouting, Decks, Rivalries, Academy, Dedication, Secrets | never |
+
+**Everything goes through one call.** The game reports what happened, `Quests.record(event,
+data)`, and `EVENTS` says which counters that adds to, in three bags at once: `life`, `day`
+and `week`. Where it is reported:
+
+| Event | From | Notes |
+|---|---|---|
+| `race`, `raceWin`, `g1Win`, `careerStart`, `careerEnd`, `train`, `champion`, `dreamChampion` | `ui-career.js` | carry `scenario` (`ura` or `dream`) and the race's `place` |
+| `exRace`, `exWin` | `index.html` results | `mode` (Normal or Dream), `place`, style and distance |
+| `rivalry`, `rivalWin`, `calloutWell` | `index.html` results, career and exhibition alike | won = she beat her rival home; well = a Callout in a Dream race's run-in, or both spent with 6+ cards played |
+| `callout` | the Callout button | `runIn` when a full-deck race's Callout lands in the last tenth |
+| `scoutCard`, `scoutRacer` | `ui-meta.js` | carry the pull's `results`: new, duplicate, passive unlocked |
+| `deckSaved`, `deckAuto` | `stable.js` (`createDeck`, `updateDeck`, `suggestDeck`) | the builder, *Let her decide* and the tutorial all end up there |
+| `lobbyRoom`, `lobbyThing` | `lobby.js` | a room walked into (and which dorm room); a thing done (sit, drink, tea, music, a meal) |
+| `raceDone` | `index.html` results, career and exhibition alike | the race's facts for the medal case: place, field, margin, her place at the final corner (`G.corner`, two-thirds of the trip), stamina left, course, cards played, Callouts |
+| `itemUsed`, `jukebox` | `stable.js` (`payScout`, `useItem`), `ui-meta.js` | a Ticket, Pass or Carrot Juice spent; a track picked |
+
+Some numbers are read live from the stable instead (`ctx().owned`): cards and racers owned,
+racers unlocked, passives, fully awakened racers, the top racer level, racers with a deck,
+tutorials done (and done this week). The academy's quests only show where the 3D lobby runs.
+
+**Chains.** A chain is one number and a ladder of targets, I to V (`CHAINS`). Tiers are
+claimed in order, and one Claim takes every tier reached, so a veteran's first visit is one
+click per chain rather than five. What a tier pays is a shared schedule (`TIER_PAY`: 100,
+250, 500 and a Scout Ticket, 1,000 and two, 2,000 and a Scout Pass) times the chain's
+`weight`, so every ladder pays more at the top. Where a chain counts what an award already
+counts (wins, URA titles, cards), its ladder starts above the award.
+
+**The medal case.** Awards are one-off feats rather than counts (`AWARDS`, filed by
+`AWARD_CATS`): streaks, margins, comebacks from the final corner, every exhibition course,
+wins in the rain and the snow, on every going and in every season (a career race's turn
+weather, `Career.weatherOf`, reaches `raceDone` through the race config),
+both exhibition rules; a career's own feats (unbeaten, G1s in one run, all five stats); every
+racer's URA Finale and Dream Trophy, 52 titles, shown as one tile a racer; the binder by
+rarity and kind, the stable by stars, outfits, the purse; lucky scouts; deck shapes (seven
+pairs, one kind, all six); twelve rival pairs the game writes lines for (`rivals.js` `vs`);
+every academy room, dorm room and thing to do, and the jukebox; clean sweeps of the boards;
+and eleven **secrets**, "???" with a hint until earned. What they read is in `life.feats` (a
+key per feat) and `life.best` (best-ever numbers), filled in by `feats()` from the events
+above, or live off the stable. The tab has a category row with counts and bars and an
+All / To earn / Earned switch. Three toasts at most when many unlock together.
+
+**What it pays** (`validate-economy.js` holds these). A Scout Ticket is valued as any ×1
+scout (500) and a Scout Pass as any ×10 (4,500), so Passes are kept for milestones: the URA
+Finale and Dream Trophy titles and tier V of a chain. A day's dailies pay 1,140 carrots and a
+Carrot Juice, under a URA Finale win (2,500); the week's quests 6,500 carrots plus items; a
+whole week of both stays under four racer ten-pulls. Every chain's first two tiers together
+come to about 15,500; every tier of every chain about 240,000, which is months. Each medal
+pays what its metal says (bronze up to 500, silver 1,500, gold 10,000), the whole case about
+180,000, and a new trainer's first week of medals stays under two racer ten-pulls. The
+validator also plays a normal day (a career session, five exhibitions, a scout, a deck, the
+academy: 55 stamina) and a normal week through, and fails if any daily or weekly is out of
+reach; and it plays feats through to their awards.
+
+**Old saves.** Nothing is dropped: the 21 awards, every claim and every counter stay, and the
+first six trainer tasks keep their ids as the first steps. A save from before the chains
+(`v` 1) is brought forward once (`migrate`): exhibitions were never reported before, so the
+account's own race and win counts (`Auth`) fill them in; decks already saved are credited
+(the old *Build a deck* task read a counter nothing bumped); every win counts as a podium.
+A `v` 2 save gains the medal case (`v` 3): every award it held stays, and each racer's titles
+and unbeaten runs are credited from the veterans the legacy keeps (its last 60 careers).
+`life.champions` still counts URA Finale wins only; the Dream Trophy's lock reads it.
 
 ### Settings and pausing
 
@@ -540,6 +732,59 @@ an exhibition for the racer you enter. Exhibition used to build her from its own
 (level, XP and deck only), so she raced with no passives at all. Exhibition opponents
 still race without theirs.
 
+### Scouting
+
+Two scouts on one screen (`UIMeta.scoutBuild`): **cards** (×1 for 100 carrots, ×10 for
+900, the tenth an R or better) and **racers** (×1 for 500, ×10 for 4,500, the tenth a
+2-star or better). Pulls are `Stable.scout(kind, n, pay)`.
+
+**Scout Tickets and Scout Passes** are free scouts, told apart by size rather than by
+scout: a **Scout Ticket** is one free ×1, a **Scout Pass** one free ×10, each on
+whichever scout you spend it. `ITEMS` carries the size (`scout: 1 | 10`) and `SCOUT_ITEM`
+maps a size to its item. The ids, `cardTicket` and `racerTicket`, are older than that
+rule (they once meant a card ×1 and a racer ×1) and stay so saves carry over. A Pass is
+worth up to 4,500 carrots on the racer scout, so it is the bigger reward.
+
+**What a button spends is on the button**, and is never changed behind it. Each scout
+button carries `data-pay` ("carrots" or "item") through to `Stable.scout`, which refuses
+an item scout when the item is gone (*You have no Scout Tickets left.*) instead of
+quietly charging carrots. The screen is rebuilt the moment a scout is paid, under the
+reveal, so a spent Ticket's count and button are gone at once. One scout runs at a time,
+so a double tap cannot start a second, and the buttons that charge carrots come first
+and never move: when the last Ticket goes, its button goes, and nothing slides into its
+place. "Again" under the results offers the same size both ways, carrots first.
+
+**The reveal** (`scoutfx.js`) follows the real game's gacha, whose tells Altema, GameWith
+and Game8 document: each one can only ever be good news. Everything is built in voxels
+with the race's own kit (`Voxel.kit`), and the words are ours.
+- *Racers*: the academy door, plain, or trimmed in gold with a horseshoe across it only
+  when a 3-star is in the gate. It opens on the course at night: the gate under a pink
+  sign whose line reads the best racer inside (*Anyone's race.* / *A favourite in the
+  gate.* / *Clear of the field.*). The gate is silver, then steps up to gold and to the
+  rainbow (the eight saddle-cloth colours) as far as the best of them warrants. The doors
+  spring and the pulled racers, their own voxel models, run at you. Then each racer in
+  turn: a 3-star gets a cut-in with a line of her own (`Lines.line`), a new racer *Joins
+  your stable* with her blurb, and a duplicate says what it did.
+- *Cards*: an album on a desk by a window, by day, or at night when the pull holds more
+  than one Epic. The horseshoe on its cover is plain, or the rainbow when an Epic is
+  inside. The cover opens and the pages turn, and a sticky note in them steps up from
+  silver to gold and to the rainbow. The cards are dealt face down, each back edged in its
+  own rarity, and turned over in order, with the Epics last and alone.
+- A ten ends on a five-by-two results grid in the order they came out, New marked; a
+  single ends on its one result. A tap moves on one beat. Skip (or Escape) goes to the
+  results, but, as in the real game, it still stops on each top-tier pull not yet seen.
+- The system's reduced-motion setting opens straight on the results. "Sparkles and
+  confetti" governs every sparkle, confetti and flash here, and "Screen shake" the shake.
+  Without WebGL the gate is drawn flat in CSS, with the same sign and step-ups, and the
+  album is skipped. On a touch or low-core device the scene renders at 1.25x, as the race
+  and the lobby do.
+- Sound: the scout screen's own theme from the game (am220, *A Gathering of Shining
+  Characters*) plays under the reveal. The gamerip names no cue as the gacha's pull or
+  rarity stings, so none were added rather than guess.
+
+The tells are honest by construction: every colour, sign line, door and note is set from
+the pull itself, and a step up stops at the best thing in it.
+
 ### Her career is her own
 
 Career mode runs the **real URA Finale calendar** (`careerdata.js`): all 404 races of the
@@ -569,6 +814,103 @@ of runs and wins the URA Finale in 48%; one who tops up her lowest stat misses i
 A run saved before all this keeps the calendar and the four generic goals it began with
 (`LEGACY_CAL`, `GOALS`).
 
+**Parents.** A finished run is filed as a veteran (`legacy.js`), and once there are
+veterans the step before a career is choosing up to two of them to inherit from. A racer
+inherits from someone else: no past run of the trainee herself can be her parent, and the
+two parents are two different racers (`Legacy.parentBlock`). Those veterans stay on the
+board, greyed and saying why ("Vodka cannot inherit from herself", "Gold Ship is already
+her other parent"), after the ones she can take, and clicking one says the same.
+`Legacy.inheritanceFor` applies the rule too, so a parent it refuses is dropped whoever
+asks and the run files only the parents it really had. Grandparents are not checked: they
+come with a parent, and a line may well loop back to her.
+
+### The schedule
+
+**Schedule** on the turn screen opens the three years as a folded fixture list
+(`scheduleBuild` in `ui-career.js`, screen `scr-schedule`), so 400 races fit on a screen
+or two and the way out is never a scroll away.
+
+- **The bar on top stays put** while the list scrolls: Back, which page is showing (for
+  her or all races), Filters, and the jumps: Now, Next goal, Junior, Classic, Senior and
+  the finale. **Esc** goes back from anywhere on the screen.
+- **A year** is a heading with what she ran and won in it, and **her goals as chips**:
+  ticked when met, crossed when missed, a progress bar for a fan goal, "2/3" for a count
+  of G1s, and the next one in gold with the turns left. A chip jumps to its race, or to
+  the turn a fan goal falls due. A year folds to its heading and chips.
+- **A month** is one line while shut: its season and the race it is named by (one she
+  ran, else her goal, else the biggest), "+N" for the rest, and flags for a result, a
+  goal and now. Open, it lists its two halves with each turn's weather and a line per
+  race: grade, name, trip, fans for a win, and a note (suits her, needs 3,000 fans, top 5,
+  won). Months with nothing in view fold into one quiet line ("Feb – May").
+- **A race** opens to its date and how far off it is, the forecast, the trip against her
+  aptitude grades, the fans for every placing, what it takes to enter, her result, and
+  why it is a goal.
+- **It opens on now**: her current turn marked "now", the next fixture "next up", and the
+  months holding them and her next goal open. Past years start folded. **Open all** and
+  **Close all** sit at the top of the list; Close all leaves just the years and their goals.
+- **Filters**: grade (G1 to Debut), trip, ground, goals only, and races she can enter now
+  (her fan count is enough, or it is her goal). Nothing picked in a group means all of
+  it. A jump to a goal the filters hide clears them first. The finale always shows.
+- What is open, the filters and which page stay for the rest of the session; the open
+  months reset for a new run. The Dream Trophy's finale heading is a strip of the board.
+
+### Seasons, weather and the going
+
+Every career turn has a **season** (by its month) and the day's **weather** and **going**
+(`Career.weatherOf`). They are drawn from the run's seed, so a turn is the same every
+time it is opened, and its race is run in what the turn screen showed.
+
+| | What decides it |
+|---|---|
+| season | Dec–Feb winter, Mar–May spring, Jun–Aug summer, Sep–Nov autumn |
+| weather | clear, cloudy or rain, plus snow in winter. June is the rainy season (tsuyu): rain 45% |
+| going | follows the weather: firm on most clear days, soft or heavy on most wet ones |
+
+**What the player sees:**
+- **The turn screen.** The calendar names the day ("Winter · Snow · Heavy"). Over the
+  seasonal art falls what the day throws up (`weather.js`): sakura petals in spring,
+  light motes in summer, red and gold leaves in autumn, rain, snow. An overcast or wet
+  day has a flat wash, and the evening half of each month a warm one, since the art has
+  no evening shots. The particles are off with "Sparkles and confetti" in Settings, and
+  only the washes show to anyone who asks for reduced motion.
+- **The race** (`applySeason` in voxel.js).
+  - **The course:** the trees dress for the season: blossom, deep green, red and gold,
+    or bare branches with snow on them; the conifers keep their needles.
+  - **The ground:** the grass goes straw-coloured in winter, darker in the wet, and white
+    under snow.
+  - **The sky, fog and light:** they follow the weather, and the sun is warm in autumn
+    and cool in winter.
+  - **What falls:** rain, snow, petals or leaves around the camera, in one batch of
+    boxes. There are half as many on a phone, and half again if the frame rate drops.
+  - **The header:** it names the day.
+  - **Other races:** exhibitions, the title race and the tutorials keep the course's
+    own look.
+
+**What it does to the race: the going.** As in the real game (GameTora's race mechanics),
+weather acts through the ground (`Sim.GROUND`, from `course.ground`, which only a career
+race sets):
+
+| Going | Turf | Dirt | Stamina used |
+|---|---|---|---|
+| Firm | — | power −100 | normal |
+| Good | power −50 | power −50 | normal |
+| Soft | power −50 | power −100 | +2% |
+| Heavy | speed −50, power −50 | speed −50, power −100 | +2% |
+
+Over 60 races of the exhibition field at 2000m, heavy turf added 0.4s to the winning time
+and more of the field ran dry on soft and heavy. The penalties fall on everyone, so
+they bite hardest on a racer already short of power or stamina.
+
+**The skills that turn it to an advantage**, the real game's ○ tier (90 skill points, in
+`skills.js`, with a `need` that `Skills.applyToDef` checks against race day):
+- **The going:** Firm Conditions ○ (+40 power on firm) and Wet Conditions ○ (+40 power
+  on good, soft or heavy). These are on offer to everyone.
+- **The weather:** Sunny, Cloudy, Rainy and Snowy Days ○ (+40 guts in that weather).
+- **The season:** Spring, Summer, Fall and Winter Runner ○ (+40 speed in that season).
+
+The weather and season ones come by hint only (`fit: { hint: true }`). A skill whose
+condition does not hold on race day adds nothing.
+
 ### The second scenario: The Summit, Dream Trophy
 
 Career setup now offers two scenarios side by side (`Career.SCENARIOS`; the picker shows
@@ -578,6 +920,15 @@ everything above, unchanged. **The Summit: Dream Trophy** is the same three year
 same real calendar and her same objectives, against the strongest field in the game, and
 it ends in the Dream Trophy: the **Invitational**, **Semifinal** and **Grand Final**,
 each of which she has to win.
+
+**It opens after three URA Finale wins** (`unlock` on the scenario, checked by
+`Career.scenarioLock`). Until then the picker shows it locked, with what it pays still
+readable and the progress on top ("URA Finale wins: 1/3"); clicking it, or picking it
+from her stable page, says what it takes. The count is quests.js's `life.champions`, which
+only a URA Finale win adds to (a Dream Trophy win is `dreamChampions`). The veteran
+records are counted too and the larger number wins, so a trainer whose championships
+predate that counter is not locked out. A Dream run already under way is never locked
+out: it resumes and finishes as normal. The Dream Exhibition stays open to everyone.
 
 **Every race is run with her whole deck** (`FULL_DECK` in ai.js). Nothing is drawn: all
 fifteen cards are in reach from the gate, the deck cannot run dry, and spirit is the only
@@ -772,7 +1123,7 @@ the race falls back to it rather than failing to start.
       their two colours with a seam of light where they meet. The music drops away until
       the clash (`Sound.hush`).
     - Side by side in slow motion, their names come up with VS, and a spark is struck
-      between their eyes.
+      in the gap between them.
     - The camera goes in on each in turn as she sizes up the other and tells herself how
       she'll beat her.
     - Then the clash: both skill names, a white flash, and both signature effects at once.
@@ -781,8 +1132,10 @@ the race falls back to it rather than failing to start.
     and El, Oguri and Creek, Rice and McQueen, Urara and King Halo…), lines that name
     someone she knows (a teammate, her generation, her family), and lines in her own voice
     for a stranger.
-  - **In the final third it is the Zone:** the sky darkens, light streams back from their
-    eyes the whole way, and the clash brings out three effects. Each racer's own comes
+  - **In the final third it is the Zone:** the sky darkens, light streams back off their
+    shoulders the whole way, and the clash brings out three effects. Nothing is drawn on
+    their faces: on a voxel face the eyes sit right above the nose, and particles there
+    read as something on her nose. Each racer's own comes
     first where she has one (Oguri's grey smoke, Rice's blue flame, Tachyon's numbers, Gold
     Ship's fireworks); the rest are picked at random from lightning, flames, a shockwave,
     fireworks, comets and smoke, so no two clashes look alike.
@@ -1146,6 +1499,61 @@ stamina 1050
 Raising stamina from 700 to 1050 pushes the crossover a full course length: at 700 the
 stamina deck takes over from 2400m, at 1050 not until 3200m. Personality shifts the same
 deck by about half a place — real, but secondary, which is intended.
+
+## The deck builder
+
+Pick a racer, then one of her decks (or **New deck**). The builder is the collection and
+the deck side by side: the cards you own on the left, the deck down the right, which stays
+in view while the collection scrolls. Below 860px the deck goes on top as a row of chips
+and nothing sticks.
+
+- **Sort** by cost, kind, rarity, name, copies owned, or in deck first. The button beside
+  it reverses the order and says which way it runs (*Low first*, *Epic first*, *A to Z*).
+  The sort is remembered on the device (`postparade.deckSort`).
+- **Filter** by kind, cost, rarity, timing (any phase, opening only, final only) and *not
+  in deck*. Several picks in one group mean any of them. **Search** reads the card's face
+  and the plain words of its details, so *slipstream* or *stamina back* finds the cards
+  that do it. *Clear filters* resets the lot.
+- **The board** heads the deck: the count against 15, average cost, the cost curve, the
+  kind mix in the gate colours, how many cards are opening- or final-only, and
+  `Stable.checkDeck`'s verdict. Save stays off until that is clean.
+- **Copies** are slots on each tile: a deck holds what you own, up to two
+  (`Stable.copiesAllowed`). An add the deck cannot take is refused for whatever
+  `Stable.cantAdd` says, as a line at the foot of the screen rather than a dialog to
+  dismiss: on a phone the deck is scrolled out of sight, and that line is the only sign.
+- **Undo** (Ctrl+Z) walks back every change, *Clear* and *Let her decide* included.
+  Cancel asks before throwing away unsaved changes.
+- **Keys:** Tab to a card; Enter or Space adds, Delete or Backspace drops a copy, the
+  arrows move, I opens it, `/` jumps to the search.
+
+The screen is laid out once and only the parts a change touches are redrawn. The first
+builder rebuilt the whole screen on every click, which threw away the scroll position:
+adding a card from the bottom of the collection jumped you back to the top.
+
+### Reading a card
+
+Hold any card (in the collection, in the deck, or a chip in the race HUD) and its details
+open: the full art, cost, kind and rarity, what it does and when she can play it in plain
+words, and the short read `Stable.cardAsks` makes of it. On a desktop a right-click or a
+held click does the same; from the keyboard, I. An ordinary click still adds or drops: a
+hold that opened the view swallows the click that ends it. A ring fills at the press while
+the hold counts down, invisible for its first third so an ordinary click never shows it.
+
+The words are generated from the card's data (`CardDetail.describe` in `carddetail.js`)
+with the numbers `cards.js` and `sim.js` run on, so they cannot drift from what the card
+does: Tempo's payout over the 30–90% stamina band, a Counter's half share, Support running
+clear of traffic. In the builder the view adds and drops copies, and its arrows (or ← →)
+step through the cards in the order they are sorted.
+
+In a race it says whether she can play the card now and, if not, why, with her spirit
+against the cost. **The race holds still while it is open**: reading her hand should not
+cost her the race, and nothing is spent. It hands the clock back on close only if it was
+the one that stopped it, so a pause the player or the tutorial made stays. The HUD redraws
+its chips four times a second, so a press remembers the card, not the chip under the
+finger.
+
+For the tutorials: the builder calls `Shell.notify("deckAdd")` and `("deckDrop")`, and
+the view `("cardDetail")` when it closes.
 
 ## Letting her build her own deck
 

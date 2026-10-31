@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Post Parade</title>
+<title>Umamusume: Post Parade</title>
 <!-- The interface's three faces (see theme.css). Offline they fall back to system fonts. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +26,9 @@
     --good:var(--turf); --warn:#d9822a; --bad:var(--red); --accent:var(--sky);
   }
   *{box-sizing:border-box}
-  #scr-game .wrap{color:var(--ink);font:500 14px/1.45 var(--font-ui);display:flex;flex-direction:column;height:100vh;max-width:1600px;margin:0 auto}
+  /* height:100% of the screen (position:fixed, inset:0), not 100vh: on a phone 100vh counts
+     the address bar too, which pushed the card row below the bottom of the screen */
+  #scr-game .wrap{color:var(--ink);font:500 14px/1.45 var(--font-ui);display:flex;flex-direction:column;height:100%;max-width:1600px;margin:0 auto}
   /* A bare button here is a small paper key. :where() keeps this at zero specificity, so
      .btn, .pick and the HUD's own buttons restyle it without fighting it. */
   :where(#scr-game,#modal) button:where(:not(.btn)){font:inherit;color:var(--ink);background:var(--paper-2);border:0;
@@ -41,7 +43,9 @@
   /* ---- the top bar: the tote board ---- */
   #scr-game .top{display:flex;align-items:center;gap:12px;padding:8px 14px;flex:none;
        background:var(--board);border-bottom:3px solid var(--gold);z-index:5;color:#e8efe6}
-  #scr-game .top h1{font:400 15px/1 var(--font-display);margin:0;color:#fff;letter-spacing:.02em}
+  #scr-game .top h1{font:400 15px/1 var(--font-display);margin:0;color:#fff;letter-spacing:.02em;white-space:nowrap}
+  #scr-game .top h1 .h1-kick{display:block;margin-bottom:3px;font:800 9px/1 var(--font-ui);letter-spacing:.18em;
+    text-transform:uppercase;color:rgba(255,255,255,.62)}
   #scr-game .top .meta{color:#a8b8ac}
   #scr-game .top .meta b{color:#fff}
   #scr-game .gradetag{background:var(--gold);color:#3a2800;border-radius:var(--r-sm);padding:1px 7px;font:800 italic 14px var(--font-num)}
@@ -103,6 +107,8 @@
   /* unique-skill cutscene: the racer's own moment, so it takes the whole stage
      briefly without ever pausing the simulation underneath */
   #scr-game .cut{position:absolute;inset:0;pointer-events:none;overflow:hidden;display:none}
+  /* a tutorial's coach steps aside while a cutscene has the screen (runCut) */
+  body.in-cut #coach, body.in-cut .spot-ring{visibility:hidden}
   #scr-game .cut.on{display:block}
   #scr-game .cut .sweep{position:absolute;inset:0;
     background:linear-gradient(105deg,transparent 28%,rgba(242,183,5,.18) 46%,
@@ -238,6 +244,9 @@
     #scr-game .played{flex:1 1 100%;max-height:62px}
     #rankBig{font-size:44px}
   }
+  /* a phone: the game's name is the one thing on the tote board nobody reads mid-race, and
+     without it the board is a row shorter and the race that much taller */
+  @media (max-width:480px){ #scr-game .top h1{display:none} }
   #scr-game .bottom .chip{display:flex;align-items:center;gap:7px;background:var(--paper-2);border:0;
         border-radius:var(--r);padding:4px 10px 4px 4px;font-size:12.5px;font-weight:800;
         box-shadow:inset 0 0 0 1px var(--rule),0 2px 0 var(--rule-2)}
@@ -249,14 +258,21 @@
   #scr-game .bottom .chip.mini{padding:4px}
   #scr-game .bottom .chip.ready{box-shadow:inset 0 0 0 2px var(--turf),0 2px 0 var(--turf-lo)}
   #scr-game .bottom .chip b{font-weight:800}
+  /* a chip opens its card on a hold (carddetail.js); the cursor says there is more to read */
+  #scr-game .bottom .chip[data-card]{cursor:help}
 
   /* ---- the sheet: deck, exhibition setup, results ---- */
   /* hidden until a screen asks for it -- the shell owns what is on screen at boot */
   .modal{position:fixed;inset:0;background:rgba(10,22,12,.82);display:none;align-items:center;
          justify-content:center;z-index:20;padding:18px;overflow:auto}
   .modal.open{display:flex}
+  /* the sheet scrolls itself, and is never taller than the screen showing (dvh); the auto
+     margin keeps its title reachable if it ever is -- centred, an over-tall sheet lost its
+     top above the modal's scroll */
   #modal .sheet{background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r-lg);padding:0 0 6px;
-         max-width:1080px;width:100%;max-height:94vh;overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+         max-width:1080px;width:100%;max-height:94vh;max-height:calc(100dvh - 36px);overflow:auto;overscroll-behavior:contain;
+         margin:auto;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+  @media (max-width:600px){ .modal{padding:10px} #modal .sheet{max-height:calc(100dvh - 20px)} }
   #modal .sheet>h2:first-child{margin:0;padding:13px 22px 12px;
     background:repeating-linear-gradient(90deg,#2d8a3c 0 28px,#33933f 28px 56px);color:#fff;
     font:400 17px/1.2 var(--font-display);border-bottom:3px solid var(--gold);position:sticky;top:0;z-index:2}
@@ -417,7 +433,7 @@
 
 <div class="screen" id="scr-game"><div class="wrap shakeable">
   <div class="top">
-    <h1>Post Parade</h1>
+    <h1 aria-label="Umamusume: Post Parade"><span class="h1-kick">Umamusume</span>Post Parade</h1>
     <span class="meta" id="courseInfo"></span>
     <span class="phase" id="phaseTag">—</span>
     <span class="meta" id="clock">0.0s</span>
@@ -470,10 +486,10 @@
   /* rosterdata must load before stable (it is the catalogue stable reads), and stable
      before quests (quests pays out through it). shell stays last: it drives everything. */
   var mods = ["icons", "sim", "roster", "rosterdata", "carddata", "cards", "ai", "progression",
-              "uniques", "rivals", "skills", "careerdata", "career", "legacy", "deckplans", "stable", "quests", "bgdata", "bg",
+              "uniques", "rivals", "skills", "careerdata", "career", "weather", "legacy", "deckplans", "stable", "quests", "bgdata", "bg",
               "audiodata", "sound", "caller", "ambience",
               "fx", "reactions", "voxel", "attract", "trainer", "lines", "lobby", "settings", "auth",
-              "glossary", "intros", "ui-meta", "ui-decks", "ui-career", "tutorials", "shell"];
+              "glossary", "intros", "carddetail", "scoutfx", "ui-meta", "ui-decks", "ui-career", "tutorials", "shell"];
   var v = Date.now();
   for (var i = 0; i < mods.length; i++) {
     document.write('<script src="' + mods[i] + '.js?v=' + v + '"><\/script>');
@@ -587,7 +603,7 @@ function showStable(){
       <button class="btn gold" id="toDeck">Build deck</button>
       <span class="meta" id="stableHint"></span>
       <span class="spacer"></span>
-      <button class="btn ghost sm" id="menuBack">Main menu</button>
+      <button class="btn ghost sm" id="menuBack">Lobby</button>
       <button class="btn ghost sm" id="wipeSave">Reset all progress</button>
     </div>`;
   $("sheet").querySelectorAll("[data-racer]").forEach(b =>
@@ -609,6 +625,7 @@ function showStable(){
 const exhibitionPrice = () => window.Stable && Stable.STAMINA ? Stable.STAMINA.exhibition : 0;
 const exhibitionCost = () => exhibitionPrice() ? ` &middot; ${exhibitionPrice()} stamina` : "";
 function startExhibition(){
+  careerCfg = null;                              // an exhibition is never a career race
   const cost = exhibitionPrice();
   if (cost && !Stable.spendStamina(cost)) {
     const have = Stable.stamina().cur;
@@ -770,7 +787,8 @@ function start(opts){
   /* How each controller is built. A career says (whole decks, and the sharp read, in a
      Dream Trophy); an exhibition runs its mode's rule for the whole field. The tutorial
      race is always a normal one -- it is a lesson in redrawing. */
-  const mode = career || opts.tutorial ? null : pickMode;
+  /* (The tutorial races are normal ones, except Dream Rules, which teaches the Dream rule.) */
+  const mode = career ? null : opts.tutorial ? (opts.fullDeck ? "dream" : null) : pickMode;
   const ctrls = Racers.createField(S, personalities, seed, decks,
     career ? career.rules : { fullDeck: !!(mode && EX_MODES[mode].fullDeck) });
   const me = S.racers.find(r => r.id === meId);
@@ -782,11 +800,19 @@ function start(opts){
   G = { S, me, course, ctrls, myCtrl: ctrls.find(c => c.racer === me),
         floats: [], startWall: performance.now(), done: false, paused: false, pauseFrom: 0,
         stuck: 0, stuckTotal: 0, emptyTotal: 0, thinTotal: 0, career, mode, calledAt: [],
-        tutorial: !!opts.tutorial };
+        tutorial: !!opts.tutorial,
+        /* The tutorial's coach explains the Callout before she asks for one: until then the
+           button is held (Game.lockCallout), or a player could spend both before the
+           lesson and leave the step that waits for one with nothing to wait for. */
+        calloutLocked: !!opts.tutorial,
+        // the Rivalries tutorial promises her one (see the race loop)
+        forceRival: !!opts.forceRival };
   $("courseInfo").innerHTML = `<b>${course.name}</b>` +
     (career ? ` &middot; <span class="gradetag">${career.label}</span>`
       : mode === "dream" ? ` &middot; <span class="gradetag dream">${EX_MODES[mode].name}</span>` : "") +
-    ` &middot; ${course.distance}m ${course.surface}`;
+    ` &middot; ${course.distance}m ${course.surface}` +
+    // a career race is run in its turn's season and weather (voxel.js draws it)
+    (career && career.weather && window.Weather ? ` &middot; ${Weather.label(career.weather)}` : "");
   $("myName").textContent = me.name;
   const coLabel = document.querySelector("#btnCallout .colabel");
   if (window.Icon && !coLabel.querySelector("svg")) coLabel.insertAdjacentHTML("afterbegin", Icon("megaphone"));
@@ -987,17 +1013,17 @@ function renderPlayed(){
   $("played").innerHTML =
     ct.active.filter(Boolean).map(c => {
       const why = Cards.playable(c, me, G.S, sp, ph);
-      return `<div class="chip ${why?"dead":"ready"}"><img src="assets/cards/${c.id}.png" alt="">
+      return `<div class="chip ${why?"dead":"ready"}" data-card="${c.id}"><img src="assets/cards/${c.id}.png" alt="">
         <span><b>${c.ability}</b> <small>${c.cost}sp</small><br><small>${why||"ready"}</small></span></div>`;
     }).join("") +
     ct.played.slice(-3).map(id =>
-      `<div class="chip spent"><img src="assets/cards/${id}.png" alt=""><b>${Cards.byId[id].ability}</b> <small>used</small></div>`).join("") +
+      `<div class="chip spent" data-card="${id}" data-spent="1"><img src="assets/cards/${id}.png" alt=""><b>${Cards.byId[id].ability}</b> <small>used</small></div>`).join("") +
     `<span class="meta">${ct.library.length} left in deck · ${live} of ${ct.active.length} usable now</span>`;
   const total = ct.active.filter(Boolean).length;
   const btn = $("btnCallout"), box = btn.parentElement;
   const over = G.done || me.finished;
   const deckEmpty = ct.library.length === 0;
-  btn.disabled = ct.callouts <= 0 || over || deckEmpty;
+  btn.disabled = ct.callouts <= 0 || over || deckEmpty || G.calloutLocked;
 
   $("copips").innerHTML = Array.from({ length: Racers.CALLOUTS }, (_, i) =>
     `<i class="${i < ct.callouts ? "" : "used"}"></i>`).join("");
@@ -1005,6 +1031,7 @@ function renderPlayed(){
   /* Three states, chosen so the button only shouts when it has something to say. */
   let state = "", hint;
   if (over)                     hint = "&nbsp;";
+  else if (G.calloutLocked)   { state = "spent"; hint = "Hold on to it &mdash; Tazuna will say when."; }
   else if (ct.callouts <= 0)  { state = "spent"; hint = "No Callouts left."; }
   else if (deckEmpty)         { state = "spent"; hint = "Deck empty &mdash; nothing left to draw."; }
   else if (live >= 3) {
@@ -1044,23 +1071,29 @@ function renderWholeDeck(){
   const why = c => Cards.playable(c, me, G.S, sp, ph);
   const ready = cards.filter(c => !why(c));
   $("played").innerHTML =
-    ready.map(c => `<div class="chip ready"><img src="assets/cards/${c.id}.png" alt="">
+    ready.map(c => `<div class="chip ready" data-card="${c.id}"><img src="assets/cards/${c.id}.png" alt="">
       <span><b>${c.ability}</b> <small>${c.cost}sp</small><br><small>ready</small></span></div>`).join("") +
-    cards.filter(why).map(c => `<div class="chip mini dead" title="${c.ability} (${c.cost}sp): ${why(c)}">
+    cards.filter(why).map(c => `<div class="chip mini dead" data-card="${c.id}" title="${c.ability} (${c.cost}sp): ${why(c)}">
       <img src="assets/cards/${c.id}.png" alt=""></div>`).join("") +
     ct.played.slice(-3).map(id =>
-      `<div class="chip spent"><img src="assets/cards/${id}.png" alt=""><b>${Cards.byId[id].ability}</b> <small>used</small></div>`).join("") +
+      `<div class="chip spent" data-card="${id}" data-spent="1"><img src="assets/cards/${id}.png" alt=""><b>${Cards.byId[id].ability}</b> <small>used</small></div>`).join("") +
     `<span class="meta">Whole deck &middot; ${cards.length} in hand &middot; ${ready.length} playable now</span>`;
   $("played").className = "played";
 
   const over = G.done || me.finished;
   const due = over ? null : Racers.callDue(ct, G.S, G.course);
   const btn = $("btnCallout"), box = btn.parentElement;
-  btn.disabled = over || !Racers.canCallout(ct, G.S, G.course);
+  btn.disabled = over || !Racers.canCallout(ct, G.S, G.course) || G.calloutLocked;
   $("copips").innerHTML = Array.from({ length: Racers.FULL_DECK.callouts }, (_, i) =>
     `<i class="${i < ct.callouts ? "" : "used"}"></i>`).join("");
+  // the Dream Rules tutorial stops the race on this moment
+  if (G.tutorial && !over && !G.saidRunIn && me.pos / G.course.distance > Racers.RUN_IN) {
+    G.saidRunIn = true;
+    if (window.Shell) Shell.notify("runIn");
+  }
   let state = "", hint;
   if (over)                    hint = "&nbsp;";
+  else if (G.calloutLocked)  { state = "spent"; hint = "Hold on to it &mdash; Tazuna will say when."; }
   else if (ct.callouts <= 0) { state = "spent"; hint = "No Callouts left."; }
   else if (due)              { state = "urgent"; hint = `Run-in &mdash; call it: ${due.card.ability}`; }
   // in the run-in with nothing timed for it: what she has left would not help now
@@ -1069,6 +1102,29 @@ function renderWholeDeck(){
   box.className = "callout" + (state ? " " + state : "");
   const wantHints = !window.Settings || Settings.get("showHints");
   $("cohint").innerHTML = wantHints ? hint : "&nbsp;";
+}
+
+/* Hold a chip (or right-click it) for what the card does: carddetail.js, the same view
+   the deck builder opens. The race holds still while it is open -- reading her hand
+   should not cost her the race -- and nothing is spent. #played is wired once; its
+   chips are redrawn four times a second, so the press remembers the card, not the chip. */
+if (window.CardDetail) CardDetail.hold($("played"), { open: chipDetail });
+function chipDetail(id, chip){
+  if (!G) return;
+  const ct = G.myCtrl, hand = ct.active.filter(Boolean);
+  const ids = hand.map(c => c.id).concat(ct.played.slice(-3));
+  CardDetail.open(id, {
+    list: ids.filter((x, i) => ids.indexOf(x) === i), pause: true,
+    close: "Back to the race", closeCls: "",
+    info: cid => {
+      // the "used" chip itself, even if a second copy is still in her hand
+      const inHand = hand.some(c => c.id === cid) && !(cid === id && chip && chip.dataset.spent);
+      if (!inHand) return { race: { state: "spent" } };
+      const sp = Racers.spiritOf(ct, G.course);
+      const why = Cards.playable(Cards.byId[cid], G.me, G.S, sp, Sim.phaseOf(G.me.pos / G.course.distance));
+      return { race: { state: why ? "wait" : "ready", why, spirit: sp } };
+    },
+  });
 }
 
 function loop(now){
@@ -1113,7 +1169,18 @@ function loop(now){
          -- there can be several in a race and stopping the action each time would be
          unbearable. A debuff floats over whoever it landed on. */
       // two neck and neck long enough: a rivalry, and both their signatures go off
+      /* The Rivalries tutorial promises her one: from 70% of the trip (the last third, so
+         the Zone), with whoever is running nearest her. */
+      if (G.forceRival && !G.me.rivalDone && !G.me.finished && G.me.pos / G.course.distance > 0.7) {
+        const other = G.S.racers.filter(r => r !== G.me && !r.finished && !r.rivalDone)
+          .sort((x, y) => Math.abs(x.pos - G.me.pos) - Math.abs(y.pos - G.me.pos))[0];
+        if (other) {
+          G.me.rivalDone = other.rivalDone = true; G.me.rival = other; other.rival = G.me;
+          rivalry({ a: other, b: G.me, final: true });
+        }
+      }
       if (window.Rivals) for (const rv of Rivals.check(G.S, G.course, sdt)) rivalry(rv);
+      if (G.corner == null && G.me.pos >= G.course.distance * 2 / 3) G.corner = Sim.standings(G.S).indexOf(G.me) + 1;   // her place at the final corner (quests.js)
       if (window.Skills) {
         for (const k of Skills.check(G.S, G.course)) {
           G.floats.push({ id: (k.target || k.racer).id, text: k.skill.name,
@@ -1192,7 +1259,10 @@ function rivalry(rv){
   }
   const mine = rv.a === G.me || rv.b === G.me;
   // no cutscene to wait for: the stands and the caller have it now
-  const clashNow = () => { if (window.Ambience) Ambience.rival(rv.a, rv.b, 0, mine); };
+  const clashNow = () => {
+    if (window.Ambience) Ambience.rival(rv.a, rv.b, 0, mine);
+    if (mine && window.Shell) Shell.notify("rivalry");          // the Rivalries tutorial waits on hers
+  };
   if (G.me.finished) return clashNow();
   if (window.Settings && !Settings.get("cutscenes")) {          // no cutscene; hers still gets its music
     if (mine && window.Sound && Sound.raceRival) Sound.raceRival(rv.final);
@@ -1206,8 +1276,10 @@ function rivalry(rv){
 
 function runCut(){
   const next = cutQueue.shift();
-  if (!next) { cutBusy = false; $("cut").className = "cut"; $("cut").innerHTML = ""; return; }
+  // a tutorial's coach steps aside while a cutscene has the screen
+  if (!next) { cutBusy = false; $("cut").className = "cut"; $("cut").innerHTML = ""; document.body.classList.remove("in-cut"); return; }
   cutBusy = true;
+  document.body.classList.add("in-cut");
   if (next.rival) return use3D && G && !G.done ? runRival3D(next.rival) : runRival2D(next.rival);
   const { racer, unique } = next;
   const mine = racer === G.me;
@@ -1328,6 +1400,7 @@ function runRival3D(rv){
     if (window.Ambience) Ambience.cutEnd();
     if (G === g) { g.startWall += performance.now() - from; g.cutHold = false; }
     runCut();
+    if (rv.mine && window.Shell) Shell.notify("rivalry");      // the Rivalries tutorial waits on hers
   };
   const timer = setTimeout(end, len);
   stage.addEventListener("pointerdown", end);
@@ -1340,7 +1413,7 @@ function runRival2D(rv){
   $("cut").innerHTML = `<div class="sweep"></div><div class="band"><div class="txt" style="text-align:center">
       <div class="nm">${esc(rv.a.name)} <span style="color:#fff">VS</span> ${esc(rv.b.name)}</div>
       <div class="ds">${esc(rv.a.name)}: ${esc(rv.lines.a)}<br>${esc(rv.b.name)}: ${esc(rv.lines.b)}</div></div></div>`;
-  setTimeout(runCut, 2650);
+  setTimeout(() => { runCut(); if (rv.mine && window.Shell) Shell.notify("rivalry"); }, 2650);
 }
 /* Tachyon at full speed: the figures of it, drifting past. */
 function numbersHTML(at){
@@ -1385,6 +1458,23 @@ function boardFrom(order){
 function showResults(order, rank){
   $("banner").innerHTML = "";
   if (G.tutorial) return;                     // the tutorial race is not a real result
+  /* Quests (quests.js), career race or exhibition: her rivalry, won if she beat her rival
+     home, and Callouts used well -- in a Dream race's run-in, or both spent on 6+ cards. */
+  if (window.Quests && !(G.career && G.career.tutorial)) {
+    const ct = G.myCtrl, rv = G.me.rival, me = G.me, runIn = G.calledAt.filter(f => f > Racers.RUN_IN).length;
+    if (rv) Quests.record(order.indexOf(rv) + 1 > rank ? "rivalWin" : "rivalry", { final: !!me.rivalFinal, rival: rv.name, me: me.name });
+    if (ct.fullDeck ? runIn > 0 : !ct.callouts && ct.played.length >= 6) Quests.record("calloutWell");
+    // the race's facts, for the medal case: margin to second (or to the winner), the final corner, her stamina
+    const near = rank === 1 ? order[1] : order[0];
+    const got = Quests.record("raceDone", { place: rank, field: order.length, name: me.name, corner: G.corner,
+      margin: near && near.finishT != null && me.finishT != null ? Math.abs(near.finishT - me.finishT) : null,
+      exhausted: !!me.exhausted, hp: me.maxHp ? me.hp / me.maxHp : 0, surface: G.course.surface,
+      dist: window.Stable ? Stable.distanceOf(G.course.distance) : null, course: G.career ? null : G.course.id,
+      played: ct.played.length, unspent: !ct.fullDeck && ct.callouts >= Racers.CALLOUTS, runIn: ct.fullDeck ? runIn : 0,
+      ...(G.career && G.career.weather ? { weather: G.career.weather.weather, season: G.career.weather.season,
+                                           ground: G.course.ground || G.career.weather.ground } : {}) });
+    if (got.awards.length && window.UIMeta) UIMeta.toastAwards(got.awards);
+  }
   /* A career race reports back to career mode, which owns the consequences. The normal
      results sheet (XP, level-ups, Callout coaching) does not apply. */
   if (G.career) {
@@ -1404,6 +1494,11 @@ function showResults(order, rank){
   const gained = Progress.xpForResult(rank, order.length, G.course);
   const after = Progress.applyXp(sv, gained);
   putSave(pickRacer, { level: after.level, xp: after.xp });
+  if (window.Quests) {                        // the exhibition itself: its mode, her place, the trip
+    const got = Quests.record(rank === 1 ? "exWin" : "exRace", { mode: G.mode, place: rank, style: G.me.style.key,
+      dist: window.Stable ? Stable.distanceOf(G.course.distance) : null });
+    if (got.awards.length && window.UIMeta) UIMeta.toastAwards(got.awards);
+  }
 
   let lvNote = "";
   if (after.levelsGained.length) {
@@ -1484,7 +1579,7 @@ function showResults(order, rank){
       <button class="btn gold" id="again">Race again${exhibitionCost()}</button>
       <button class="btn ghost sm" id="reDeck">Change deck</button>
       <button class="btn ghost sm" id="toStable">Stable</button>
-      <button class="btn ghost sm" id="toMenu">Main menu</button>
+      <button class="btn ghost sm" id="toMenu">Lobby</button>
     </div>`;
   $("again").onclick = startExhibition;
   $("reDeck").onclick = showDeck;
@@ -1526,12 +1621,13 @@ $("btnCam").onclick = () => {
 };
 $("btnCallout").onclick = () => {
   // not before the off: Space skips the fanfare, and must not also spend a Callout
-  if (!G || G.done || G.me.finished || G.atGate) return;
+  if (!G || G.done || G.me.finished || G.atGate || G.calloutLocked) return;
   if (!Racers.canCallout(G.myCtrl, G.S, G.course)) return;
   // a full-deck Callout hands back the card she played; say which, over her head
   const res = Racers.callout(G.myCtrl, G.S, G.course);
   if (!res) return;
   G.calledAt.push(G.me.pos / G.course.distance);      // when, for the results sheet's note
+  if (window.Quests && !G.tutorial && !(G.career && G.career.tutorial)) Quests.record("callout", { runIn: G.myCtrl.fullDeck && G.calledAt[G.calledAt.length - 1] > Racers.RUN_IN });
   G.floats.push({ id: G.me.id, text: res.card ? "CALLOUT: " + res.card.ability : "CALLOUT", t0: G.S.t });
   if (res.card && window.Shell) Shell.notify("cardPlayed");
   FX.sparkleOn($("btnCallout"), { count: 16, spread: 46 });
@@ -1773,9 +1869,13 @@ window.Game = {
   showStable, showDeck,
   toMenu: () => { $("modal").style.display = "none"; Shell.toMenu(); },
   /** A scripted race for the tutorial: fixed racer and course, no XP, no saving. */
-  startTutorialRace(){
+  /** `opts`, from the tutorial: `course` (classic when left out), `fullDeck` (a Dream
+      race), `forceRival` (she is sure to meet a rival). */
+  startTutorialRace(opts){
+    opts = opts || {};
+    careerCfg = null;                            // a tutorial race is never a career one
     pickRacer = "specialweek";
-    pickCourse = "classic";
+    pickCourse = COURSES.some(c => c.id === opts.course) ? opts.course : "classic";
     /* A demonstration, like the career tutorial: an unowned racer with a full fifteen,
        none of it kept. Built from every card rather than through defaultDeck(), which
        now respects ownership -- a new account owns five and the lesson is about binning
@@ -1783,7 +1883,7 @@ window.Game = {
     workingDeck = Cards.CARDS.slice()
       .sort((a, b) => a.cost - b.cost || a.id.localeCompare(b.id))
       .slice(0, Racers.DECK_SIZE).map(c => c.id);
-    start({ noGate: true, tutorial: true });
+    start({ noGate: true, tutorial: true, fullDeck: !!opts.fullDeck, forceRival: !!opts.forceRival });
     setRate(1);
     document.querySelectorAll(".rate button").forEach(x =>
       x.classList.toggle("sel", x.dataset.rate === "1"));
@@ -1804,6 +1904,8 @@ window.Game = {
   /** True while a race is live and not already finished. */
   isRacing: () => !!(G && !G.done && !G.me.finished),
   isTutorial: () => !!(G && G.tutorial),
+  /** Hold or release the Callout button: the tutorial's coach releases it when she asks for one. */
+  lockCallout(on){ if (G) { G.calloutLocked = !!on; renderPlayed(); } },
   setPaused(on){
     if (!G || G.done) return false;
     /* A cutscene already holds the clock; a pause on top would hand the same seconds
@@ -1821,7 +1923,9 @@ window.Game = {
   },
   isPaused: () => !!(G && G.paused),
   restartRace(){ if (G && G.tutorial) return; if (G && G.career) return start(); startExhibition(); },
-  quitRace(){ if (G) { G.paused = false; G.done = true; } $("modal").style.display = "none"; },
+  /* Quitting also forgets a career race's setup: left set, the next race started anywhere
+     -- an exhibition, a tutorial -- ran as that career race again, field and all. */
+  quitRace(){ if (G) { G.paused = false; G.done = true; } careerCfg = null; $("modal").style.display = "none"; },
 };
 
 Shell.boot();

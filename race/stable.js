@@ -81,17 +81,22 @@
   };
 
   /* Consumables. Quests and achievements pay in these as well as in carrots, so a
-     reward can be "a free scout" rather than only ever being a number going up. */
+     reward can be "a free scout" rather than only ever being a number going up.
+     The two scout items differ by size, not by scout: a Ticket is a free x1 and a Pass a
+     free x10, each spent on whichever scout you choose. The ids are older than that rule
+     (they once meant a card x1 and a racer x1) and stay as they are so saves carry over. */
   const ITEMS = [
-    // `icon` names a pixel icon in icons.js
+    // `icon` names a pixel icon in icons.js; `scout` is the size of the free scout
     { id: "staminaDrink", name: "Carrot Juice",  text: "Restores 50 stamina.",
       icon: "juice" },
-    { id: "cardTicket",   name: "Scout Ticket",  text: "One free card scout.",
-      icon: "ticket" },
-    { id: "racerTicket",  name: "Scout Pass",    text: "One free racer scout.",
-      icon: "pass" },
+    { id: "cardTicket",   name: "Scout Ticket",  text: "One free ×1 scout, cards or racers.",
+      icon: "ticket", scout: 1 },
+    { id: "racerTicket",  name: "Scout Pass",    text: "One free ×10 scout, cards or racers.",
+      icon: "pass", scout: 10 },
   ];
   const itemDef = id => ITEMS.find(i => i.id === id) || null;
+  /** The item that pays for a free scout of size n. */
+  const SCOUT_ITEM = { 1: "cardTicket", 10: "racerTicket" };
 
   function blank() {
     return {
@@ -416,10 +421,15 @@
     return s.items[id];
   }
 
-  /** Consumes one and applies its effect. Returns what happened, or an error. */
-  function useItem(id) {
+  /**
+   * Consumes one and applies its effect. Returns what happened, or an error. A scout item
+   * scouts `kind` ("card", the default, or "racer") at the item's own size.
+   */
+  function useItem(id, kind) {
     const s = load();
-    if (!itemCount(id)) return { ok: false, error: "You have none of those." };
+    const def = itemDef(id);
+    // a scout item with none left is refused by payScout, which names the item
+    if (!itemCount(id) && !(def && def.scout)) return { ok: false, error: "You have none of those." };
     if (id === "staminaDrink") {
       const st = stamina();
       if (st.full) return { ok: false, error: "Stamina is already full." };
@@ -427,17 +437,12 @@
       s.stamina.cur = clamp(s.stamina.cur + 50, 0, STAMINA.max);
       s.items[id]--;
       save();
+      tell("itemUsed", { id });
       return { ok: true, effect: "stamina", cur: s.stamina.cur };
     }
-    if (id === "cardTicket" || id === "racerTicket") {
-      // spend the ticket by crediting exactly what the scout costs, then scouting
-      const cost = id === "cardTicket" ? COSTS.cardScout : COSTS.racerScout;
-      s.items[id]--;
-      save();
-      grant(cost);
-      const res = id === "cardTicket" ? pullCard(1) : pullRacer(1);
-      if (!res.ok) { spend(cost); addItem(id, 1); return res; }   // put it back
-      return Object.assign({ effect: "scout" }, res);
+    if (def && def.scout) {
+      const res = scout(kind === "racer" ? "racer" : "card", def.scout, "item");
+      return res.ok ? Object.assign({ effect: "scout" }, res) : res;
     }
     return { ok: false, error: "That item does nothing yet." };
   }
@@ -517,14 +522,36 @@
   }
   const pick = (arr, rnd) => arr[Math.floor(rnd * arr.length) % arr.length];
 
+  /* What a scout is paid with is the caller's choice and is never changed here: a scout
+     asked to spend a Ticket that is no longer there is refused, not quietly charged in
+     carrots instead. The screen leans on that -- a stale button or a second tap can only
+     ever fail, never spend something the player did not pick. */
+  function payScout(n, cost, pay) {
+    if (pay === "item") {
+      const id = SCOUT_ITEM[n], s = load();
+      if (!itemCount(id))
+        return { ok: false, error: `You have no ${n === 10 ? "Scout Passes" : "Scout Tickets"} left.` };
+      s.items[id]--;
+      save();
+      tell("itemUsed", { id });                      // a Ticket or a Pass spent (quests.js)
+      return { ok: true, paid: id, spent: 0 };
+    }
+    if (!spend(cost)) return { ok: false, error: "Not enough carrots." };
+    return { ok: true, paid: "carrots", spent: cost };
+  }
+
+  /** One entry point for the screen: kind "card" or "racer", n 1 or 10, pay "carrots" or "item". */
+  const scout = (kind, n, pay) => kind === "racer" ? pullRacer(n, pay) : pullCard(n, pay);
+
   /**
    * Card scout. Duplicates are not a dead pull: a second copy lets that card be run
    * twice in the same 15, which is a real deck-building option.
    */
-  function pullCard(n) {
+  function pullCard(n, pay) {
     n = n === 10 ? 10 : 1;
     const cost = n === 10 ? COSTS.cardScout10 : COSTS.cardScout;
-    if (!spend(cost)) return { ok: false, error: "Not enough carrots." };
+    const paid = payScout(n, cost, pay);
+    if (!paid.ok) return paid;
 
     const out = [];
     for (let i = 0; i < n; i++) {
@@ -539,7 +566,7 @@
     }
     remember(load(), { kind: "card", at: now(), items: out.map(o => o.card.id) });
     save();
-    return { ok: true, results: out, spent: cost };
+    return { ok: true, results: out, spent: paid.spent, paid: paid.paid };
   }
 
   /**
@@ -548,7 +575,7 @@
    */
   const DUPE_REFUND = { 1: 120, 2: 260, 3: 600 };
 
-  function pullRacer(n) {
+  function pullRacer(n, pay) {
     n = n === 10 ? 10 : 1;
     const s = load();
     /* The scout can only offer racers this account has unlocked, which is what makes
@@ -560,7 +587,8 @@
       return { ok: false, error: "Every unlocked racer is owned with all passives. Finish a career to unlock more." };
 
     const cost = n === 10 ? COSTS.racerScout10 : COSTS.racerScout;
-    if (!spend(cost)) return { ok: false, error: "Not enough carrots." };
+    const paid = payScout(n, cost, pay);
+    if (!paid.ok) return paid;
 
     const out = [];
     let refunded = 0;
@@ -601,7 +629,7 @@
     if (refunded) grant(refunded);
     remember(s, { kind: "racer", at: now(), items: out.map(o => o.def.id) });
     save();
-    return { ok: true, results: out, spent: cost, refunded };
+    return { ok: true, results: out, spent: paid.spent, paid: paid.paid, refunded };
   }
 
   function remember(s, entry) {
@@ -611,27 +639,43 @@
   }
 
   // ---------------------------------------------------------------- tutorials
-  /* Each pays once. The amounts are set so finishing all of them roughly doubles the
-     starting purse -- enough for a ten-card scout plus a racer scout. */
+  /* Each pays 200 carrots, once. Listed in the order a new trainer meets them. The race,
+     Dream and rivalry tutorials run in a race (shell.js); the rest drive the screens
+     (tutorials.js). */
+  const TUTORIAL_CARROTS = 200;
   const TUTORIALS = [
-    { id: "race",   name: "Race Basics",     carrots: 100, text: "How a race runs and what a Callout does." },
-    { id: "deck",   name: "Deck Building",   carrots: 200, text: "Building a 15-card deck that actually plays." },
-    { id: "scout",  name: "Scouting",        carrots: 200, text: "Recruiting racers and cards with carrots." },
-    { id: "career", name: "Career Mode",     carrots: 500, text: "A full URA Finale run, start to finish." },
-  ];
+    { id: "race",       name: "Race Basics",     text: "How a race runs, and what a Callout does." },
+    { id: "exhibition", name: "Exhibition",      text: "Racing on your own terms: the two modes, stamina, the gate draw." },
+    { id: "deck",       name: "Deck Building",   text: "Fifteen cards, two of a kind at most, and letting her plan for the race." },
+    { id: "scout",      name: "Scouting",        text: "Recruiting racers and cards, and what duplicates are for." },
+    { id: "career",     name: "Career Mode",     text: "Three years of her life, and the two scenarios they end in." },
+    { id: "dream",      name: "Dream Rules",     text: "Racing with the whole deck, and when a Callout pays." },
+    { id: "rival",      name: "Rivalries",       text: "When two racers lock eyes, and what the clash does." },
+  ].map(t => Object.assign(t, { carrots: TUTORIAL_CARROTS }));
 
   const tutorialDone = id => !!load().tutorials[id];
 
   /** Pays out once; calling it again is a no-op rather than an error. */
+  /* Finishing every one of them pays a Scout Pass on top, once, with the last one's carrots.
+     Found by name, so it follows the item wherever ITEMS keeps it. */
+  const tutorialsPass = () => (ITEMS.find(i => i.name === "Scout Pass") || { id: "racerTicket" }).id;
   function completeTutorial(id) {
     const s = load();
     const t = TUTORIALS.find(t => t.id === id);
     if (!t) return { ok: false, error: "Unknown tutorial." };
     if (s.tutorials[id]) return { ok: false, already: true, carrots: 0 };
     s.tutorials[id] = now();
+    let items = null;
+    if (!s.tutorialsAll && TUTORIALS.every(x => s.tutorials[x.id])) {
+      s.tutorialsAll = now();
+      items = { [tutorialsPass()]: 1 };
+      addItem(tutorialsPass(), 1);
+    }
     grant(t.carrots);                              // grant() saves
-    return { ok: true, carrots: t.carrots, name: t.name };
+    return { ok: true, carrots: t.carrots, name: t.name, items, all: !!items };
   }
+  /** Whether the Scout Pass for finishing them all has been paid. */
+  const tutorialsAllDone = () => !!load().tutorialsAll;
 
   // ---------------------------------------------------------------- summary
   /** Everything the UI needs for a header, in one call. */
@@ -695,6 +739,24 @@
     return null;
   }
 
+  /** Why one more copy of `id` would not fit in `cards`, or null if it would. The builder
+      asks this before every add, so it refuses for the same reasons checkDeck does. */
+  function cantAdd(cards, id) {
+    const c = Cards.byId[id];
+    if (!c) return "That card does not exist.";
+    if (cards.length >= DECK_MAX) return `A deck holds ${DECK_MAX} cards. Drop one first.`;
+    const used = cards.filter(x => x === id).length;
+    if (used >= COPY_MAX) return `A deck holds at most ${COPY_MAX} copies of a card.`;
+    if (used >= cardCount(id))
+      return `You own ${cardCount(id)} × ${c.ability}. Scout another to run ${used + 1}.`;
+    return null;
+  }
+
+  /* Saving a deck and letting her build one count for quests (quests.js). They are told from
+     here, where the builder, "Let her decide" and the tutorial all end up. Headless there
+     is no Quests on the global, so the validators record nothing. */
+  const tell = (event, data) => { if (root.Quests && root.Quests.record) root.Quests.record(event, data); };
+
   function createDeck(name, cards, racerId) {
     if (!owns(racerId)) return { ok: false, error: "Build the deck for a racer you have." };
     const err = checkDeck(name, cards);
@@ -704,6 +766,7 @@
                    racerId, name: deckName(name), cards: cards.slice(), made: now() };
     s.decks.push(deck);
     save();
+    tell("deckSaved", { created: true, full: deck.cards.length >= DECK_MAX });
     return { ok: true, deck };
   }
 
@@ -716,6 +779,7 @@
     d.name = deckName(name);
     d.cards = cards.slice();
     save();
+    tell("deckSaved", { full: d.cards.length >= DECK_MAX });
     return { ok: true, deck: d };
   }
 
@@ -973,6 +1037,7 @@
   function suggestDeck(racerId, style, runStyle, opts) {
     const def = defOf(racerId);
     if (!def) return [];
+    tell("deckAuto", { distance: opts && opts.distance });
     // `opts`: the race to plan for, { distance, surface } -- her best when left out
     if (Plans()) return planDeck(def, ownedCards(), cardCount, style, planContext(def, runStyle, opts));
     return pickDeck(def, ownedCards(), cardCount, style, runStyle);
@@ -1161,7 +1226,7 @@
 
   const api = {
     START_CARROTS, COSTS, STAMINA, STARTERS, STARTER_BLURB, TUTORIALS, ITEMS, itemDef,
-    DECK_MIN, DECK_MAX, COPY_MAX, copiesAllowed, decks, decksFor, deckById, checkDeck, createDeck, updateDeck,
+    DECK_MIN, DECK_MAX, COPY_MAX, copiesAllowed, decks, decksFor, deckById, checkDeck, cantAdd, createDeck, updateDeck,
     suggestDeck, suggestDeckName, pickDeck, rivalDeck, cardScore, KIND_WANTS, PICK_W, PICK_STYLES,
     FOCUSES, DISTANCES, TRACKS, distanceOf, bestFor, planContext, planDeck, TANK_PER_M, ROLE_OF,
     BUILD_FOR, FIT, styleFit, cardAsks,
@@ -1175,11 +1240,11 @@
     load, save, reload, onChange, summary,
     carrots, grant, spend,
     stamina, canAfford, spendStamina, refillStamina,
-    itemCount, addItem, useItem,
+    itemCount, addItem, useItem, SCOUT_ITEM, scout,
     owns, ownedRacers, ownedIds, cardCount, ownsCard, ownedCards, addRacer, addCard,
     starterCards, pickStarter,
     pullCard, pullRacer,
-    tutorialDone, completeTutorial,
+    tutorialDone, completeTutorial, tutorialsAllDone,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Stable = api;
