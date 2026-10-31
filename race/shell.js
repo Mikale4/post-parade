@@ -496,7 +496,7 @@
             <div class="sec">
               <button class="btn lg home-career" data-menu="career">
                 ${Icon("trophy")}<span><b>${running ? "Continue career" : "Career"}</b>
-                <i>${running ? "Your run is waiting" : "Three years, then the URA Finale"}</i></span>
+                <i>${running ? "Your run is waiting" : "URA Finale, or the Dream Trophy"}</i></span>
               </button>
             </div>
             <div class="sec">

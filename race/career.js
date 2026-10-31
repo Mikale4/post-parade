@@ -16,6 +16,11 @@
  * Pure logic, no DOM, so validate-career.js can play thousands of runs headlessly.
  * Races are handed to the existing sim rather than resolved here.
  *
+ * Two scenarios share all of the above (SCENARIOS, below): URA Finale, and "The Summit:
+ * Dream Trophy", the hard road -- full-deck races, a field of specialists that is
+ * stronger, better equipped and better read, and a payout to match. A run saved before
+ * scenarios existed has no `scenario` and is a URA Finale run.
+ *
  * Exposes Career.
  */
 (function (root) {
@@ -97,6 +102,57 @@
   // 0.92 x the old 0.92 / 0.97 / 1.02, over the new G1 -- the finale's own fields unchanged
   const FINALE_FACTOR = { Qualifier: 1.176, Semifinal: 1.239, Finals: 1.303 };
 
+  /* ---------------------------------------------------------------- scenarios
+     The three years are the same in both; what changes is who she races and how.
+
+     The Summit: Dream Trophy. The country's best do not wait for the Twinkle Series to
+     finish with her: every race is run with whole decks (ai.js FULL_DECK -- nothing to
+     draw, and a Callout plays the card that is due, free), and her rivals are
+       - `field` x stronger than a URA field of the same grade, the finale included
+       - on decks of their own, built from every card in the game (Stable.rivalDeck; the
+         Cheap build, which measured strongest once the whole deck is in reach)
+       - sharp (ai.js SHARP): a truer read of the race, and they spend their Callouts.
+     Each lever was measured alone and together (validate-career.js runs the same trainee
+     through the same graded race against both fields). Two more were tried and dropped:
+     drawing the racers best suited to each trip, and giving rivals their passives --
+     either one on top of these ended three runs in four at a goal. As tuned, a focused
+     trainer on a deck of her own misses a goal in about 40% of runs and takes the Grand
+     Final in about 18% (URA Finale: 10% and 83%); on a starter deck, about 5%. The
+     payout is priced against that. `stamina` names the Stable.STAMINA entry a run costs. */
+  const SCENARIOS = {
+    ura: {
+      id: "ura", name: "URA Finale", title: "The Beginning: URA Finale",
+      blurb: "Three years, then a three-race final she has to win outright.",
+      finale: "URA Finale", finaleId: "ura",
+      stages: { Qualifier: "Qualifier", Semifinal: "Semifinal", Finals: "Finals" },
+      finaleFans: { Qualifier: 40000, Semifinal: 60000, Finals: 90000 },
+      finaleSP: { Qualifier: 40, Semifinal: 60, Finals: 80 },
+      field: 1, fullDeck: false, sharp: false, rivalDecks: null,
+      stamina: "careerRun",
+      pay: { carrots: { failed: 150, normal: 800, champion: 2500 },
+             items: {}, xp: [400, 12], prize: null },
+    },
+    dream: {
+      id: "dream", name: "Dream Trophy", title: "The Summit: Dream Trophy",
+      blurb: "Every race with her whole deck, against rivals who are stronger, carry decks " +
+             "of their own and read a race better. The richest prize in the game.",
+      finale: "Dream Trophy", finaleId: "dream",
+      stages: { Qualifier: "Invitational", Semifinal: "Semifinal", Finals: "Grand Final" },
+      finaleFans: { Qualifier: 60000, Semifinal: 90000, Finals: 150000 },
+      finaleSP: { Qualifier: 60, Semifinal: 90, Finals: 120 },
+      field: 1.03, fullDeck: true, sharp: true, rivalDecks: "cheap",
+      stamina: "dreamRun",
+      /* Completion carrots three to four times the URA Finale's, prize money for every win
+         on the way, and a haul of items for reaching the end at all. */
+      pay: { carrots: { failed: 500, normal: 3000, champion: 10000 },
+             items: { normal: { cardTicket: 5, staminaDrink: 1 },
+                      champion: { cardTicket: 10, racerTicket: 2, staminaDrink: 3 } },
+             xp: [900, 6],
+             prize: { G1: 400, G2: 250, G3: 150, other: 60 } },
+    },
+  };
+  const scenarioOf = s => SCENARIOS[(s && (typeof s === "string" ? s : s.scenario))] || SCENARIOS.ura;
+
   const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 
   // ---------------------------------------------------------------- calendar
@@ -111,13 +167,13 @@
     return y >= 1 && (m === 6 || m === 7);
   }
 
-  function turnLabel(turn) {
+  /** `s` (a state or a scenario id) names the finale; without it, URA Finale. */
+  function turnLabel(turn, s) {
     if (turn >= TOTAL_TURNS) return "Career complete";
     if (turn >= TRAINING_TURNS) {
-      const i = turn - TRAINING_TURNS;
-      return "URA Finale · " +
-             ["Final Training", "Qualifier", "Final Training",
-              "Semifinal", "Final Training", "Finals"][i];
+      const scn = scenarioOf(s);
+      const which = finaleRaceAt(turn);
+      return scn.finale + " · " + (which ? scn.stages[which] : "Final Training");
     }
     return YEARS[turnYear(turn)] + " Year · " + turnHalf(turn) + " " + MONTHS[turnMonth(turn)];
   }
@@ -126,6 +182,8 @@
   function finaleRaceAt(turn) {
     return { 1: "Qualifier", 3: "Semifinal", 5: "Finals" }[turn - TRAINING_TURNS] || null;
   }
+  /** A finale stage as this run's scenario names it: "Finals" is the Dream Trophy's Grand Final. */
+  const stageName = (s, which) => scenarioOf(s).stages[which] || which;
 
   // ---------------------------------------------------------------- race calendar
   /* The real URA Finale calendar (careerdata.js, generated from GameTora): every G1, G2
@@ -256,6 +314,7 @@
     for (const k of STATS) facility[k] = { level: 1, uses: 0 };
     return {
       racerId: def.id, racerName: def.name,
+      scenario: SCENARIOS[opts.scenario] ? opts.scenario : "ura",
       style: def.style, aptitude: def.aptitude, sprite: def.sprite,
       color: def.color, personality: def.personality, unique: def.unique,
       turn: 0, stats, facility,
@@ -436,7 +495,7 @@
   }
 
   function logTurn(s, out) {
-    s.log.push({ turn: s.turn, label: turnLabel(s.turn), action: out.action,
+    s.log.push({ turn: s.turn, label: turnLabel(s.turn, s), action: out.action,
                  stat: out.stat, failed: !!out.failed });
     if (s.log.length > 120) s.log.shift();
   }
@@ -494,13 +553,14 @@
    * without the sim needing to know career mode exists.
    */
   function raceSetup(s, race, roster) {
+    const scn = scenarioOf(s);
     /* Rivals are built from the expected pace for this point in the calendar, not from
        their absolute roster numbers -- otherwise a Junior debut fields full-grown G1
        racers and the trainee cannot win her own first start. The roster line is used
        only for the SHAPE of a rival's stats, so a sprinter still runs like a sprinter. */
     const target = expectedStat(race.turn != null ? race.turn : s.turn) *
                    (GRADE_FACTOR[race.grade] || 0.90) *
-                   (race.finale ? FINALE_FACTOR[race.finale] : 1);
+                   (race.finale ? FINALE_FACTOR[race.finale] : 1) * scn.field;
     const mr = moodRace(s);
     const myStats = {};
     for (const k of STATS) myStats[k] = Math.round(s.stats[k] * mr);
@@ -527,6 +587,8 @@
     }
     const field = [me];
     const pool = (roster || []).filter(r => r.id !== s.racerId);
+    // stable.js loads after this file in the browser; by race day it is there
+    const Stb = typeof require !== "undefined" ? require("./stable.js") : root.Stable;
     // deterministic per race, so re-entering the same race does not reroll the field
     const rng = Sim.mulberry32(((s.seed >>> 0) + (race.turn || 0) * 7919) >>> 0);
     for (let i = 0; i < 7 && i < pool.length; i++) {
@@ -535,14 +597,20 @@
       const scale = target * (0.93 + rng() * 0.14);
       const st = {};
       for (const k of STATS) st[k] = Math.max(40, Math.round((r.stats[k] || 600) / mean * scale));
-      field.push({ id: "riv" + i, name: r.name, sprite: r.sprite, color: r.color,
-                   style: r.style, personality: r.personality, unique: r.unique,
-                   stats: st, aptitude: r.aptitude, level: 1 });
+      const riv = { id: "riv" + i, name: r.name, sprite: r.sprite, color: r.color,
+                    style: r.style, personality: r.personality, unique: r.unique,
+                    stats: st, aptitude: r.aptitude, level: 1 };
+      // a Dream Trophy rival brings a deck of her own (card ids); a URA rival borrows hers
+      if (scn.rivalDecks && Stb && Stb.rivalDeck) riv.deck = Stb.rivalDeck(r, scn.rivalDecks);
+      field.push(riv);
     }
     return {
-      field, race,
+      field, race, scenario: scn.id,
       course: { id: race.id, name: race.name,
                 distance: raceMetres(race), surface: race.surface },
+      /* How each controller is built (ai.js makeController): whole decks for everyone in
+         the Dream Trophy, the sharper read for her rivals only. */
+      rules: d => ({ fullDeck: scn.fullDeck, sharp: scn.sharp && d.id !== "trainee" }),
     };
   }
 
@@ -603,11 +671,12 @@
   function finaleRace(s) {
     const which = finaleRaceAt(s.turn);
     if (!which) return null;
+    const scn = scenarioOf(s);
     return {
-      id: "ura-" + which.toLowerCase(),
-      name: "URA Finale " + which,
+      id: scn.finaleId + "-" + which.toLowerCase(),
+      name: scn.finale + " " + scn.stages[which],
       grade: "G1", dist: finaleDistance(s), surface: finaleSurface(s),
-      fans: which === "Finals" ? 90000 : which === "Semifinal" ? 60000 : 40000,
+      fans: scn.finaleFans[which],
       need: 0, finale: which, turn: s.turn,
     };
   }
@@ -618,7 +687,7 @@
                               applyRaceResult(s, race, placing, fieldSize));
     if (placing === 1) {
       s.finale.won.push(race.finale);
-      const sp = { Qualifier: 40, Semifinal: 60, Finals: 80 }[race.finale] || 40;
+      const sp = scenarioOf(s).finaleSP[race.finale] || 40;
       s.skillPoints += sp;
       out.skillPoints += sp;
       out.allStats = 10;
@@ -715,10 +784,13 @@
   const GRADES = [[15500, "SS"], [12500, "S"], [10000, "A"], [8000, "B"],
                   [6000, "C"], [4000, "D"], [0, "E"]];
 
+  /** A finale race in the history, whichever scenario it was run in. */
+  const isFinaleRun = h => Object.keys(SCENARIOS).some(k => h.id.indexOf(SCENARIOS[k].finaleId + "-") === 0);
+
   function rating(s) {
     const stat = STATS.reduce((a, k) => a + s.stats[k], 0);
     const fanPts = Math.round(Math.sqrt(Math.max(0, s.fans)) * 9);
-    const winPts = s.raceHistory.filter(r => r.placing === 1 && r.id.indexOf("ura-") !== 0).length * 200;
+    const winPts = s.raceHistory.filter(r => r.placing === 1 && !isFinaleRun(r)).length * 200;
     const finalePts = s.finale.won.length * 900;
     return Math.round(stat * 2.2 + fanPts + winPts + finalePts);
   }
@@ -729,6 +801,7 @@
     const pts = rating(s);
     return {
       racerId: s.racerId, name: s.racerName,
+      scenario: scenarioOf(s).id,
       stats: Object.assign({}, s.stats),
       fans: s.fans, rating: pts, grade: grade(pts),
       ending: s.ending || "normal",
@@ -740,12 +813,35 @@
     };
   }
 
+  /**
+   * What the stable is paid when the run ends -- the screens grant exactly this, so the
+   * numbers live here where validate-career can compare the scenarios.
+   *   carrots   by ending, plus `prize`: the Dream Trophy pays for every win on the way
+   *   items     consumables by ending (Stable.ITEMS ids)
+   *   xp        for her level, only for a run that was seen through
+   */
+  function payout(s) {
+    const scn = scenarioOf(s), v = veteran(s);
+    const ending = v.ending === "champion" ? "champion" : v.ending === "failed" ? "failed" : "normal";
+    let prize = 0;
+    if (scn.pay.prize)
+      for (const h of s.raceHistory)
+        if (h.placing === 1 && !isFinaleRun(h)) prize += scn.pay.prize[h.grade] || scn.pay.prize.other;
+    const base = scn.pay.carrots[ending];
+    return {
+      ending, base, prize, carrots: base + prize,
+      items: Object.assign({}, scn.pay.items[ending] || {}),
+      xp: ending === "failed" ? 0 : scn.pay.xp[0] + Math.round(v.rating / scn.pay.xp[1]),
+    };
+  }
+
   const api = {
     YEARS, MONTHS, STATS, MOODS, TRAIN_COST, TRAIN_BASE, TRAIN_LABEL, FACILITY_MUL,
     TRAINING_TURNS, FINALE_TURNS, TOTAL_TURNS, STAT_CAP, SOFT_CAP, MAX_FACILITY,
     RACE_CAL, LEGACY_CAL, GOALS, CONDITIONS, DIST_METRES, DIST_ORDER, DIST_LABEL, DIST_CLASS,
     calOf, raceById, raceMetres, goalsOf, goalRacesNow, isGoalRace, nextGoalTrip,
     YEAR_MUL, yearMul, expectedStat, GRADE_FACTOR, FINALE_FACTOR,
+    SCENARIOS, scenarioOf, stageName, payout,
     create, turnLabel, turnYear, turnMonth, turnHalf, isSummerCamp, finaleRaceAt,
     rnd, moodName, moodTrain, moodRace, failChance, facilityLevel, trainPreview, condName,
     train, rest, recreation, infirmary, passTurn,

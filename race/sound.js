@@ -363,7 +363,8 @@
      "OP", "G3", "G2", "G1", "URA Finale"); an exhibition has none and gets the Daily
      Race music. Each tier falls back down the grades, and finally to the generic race
      cues, so a folder without the rip still plays something. */
-  const TIER = { Debut: "open", OP: "open", G3: "g3", G2: "g2", G1: "g1", "URA Finale": "g1" };
+  // the Dream Trophy's finale runs to the URA Finale's music: the biggest the game has
+  const TIER = { Debut: "open", OP: "open", G3: "g3", G2: "g2", G1: "g1", "URA Finale": "g1", "Dream Trophy": "g1" };
   const tierOf = opts => (opts && opts.finale) ? "g1" : (TIER[opts && opts.grade] || "daily");
   const graded = opts => ["g3", "g2", "g1"].includes(tierOf(opts));
   /* Where the final-stretch track takes over: once she is into the last quarter, or the
@@ -422,7 +423,7 @@
    */
   function raceFanfare(opts, onEnd) {
     const t = tierOf(opts);
-    const role = (opts && (opts.finale || opts.grade === "URA Finale")) ? "fanfare_ura"
+    const role = (opts && (opts.finale || opts.grade === "URA Finale" || opts.grade === "Dream Trophy")) ? "fanfare_ura"
                : t === "g1" ? "fanfare_g1" : (t === "g3" || t === "g2") ? "fanfare_graded" : "fanfare_open";
     rivalUntil = 0;
     if (!unlocked || !has(role) || musicVol() <= 0) return false;

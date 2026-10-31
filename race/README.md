@@ -24,7 +24,9 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `careerdata.js` | The URA Finale race calendar, 404 races. **Generated** alongside it. |
 | `carddata.js` | The 112-card pool. **Generated** — edit `cards/generate.py`. |
 | `cards.js` | Generic interpreter over card data: legality and effects. |
-| `ai.js` | Personalities, deck handling, the Callout, and when a racer fires a card. |
+| `ai.js` | Personalities, deck handling, the Callout, and when a racer fires a card. Full-deck races and the sharp read (the Dream Trophy). |
+| `career.js` | Career mode's rules, both scenarios (`SCENARIOS`): training, races, goals, the finale, payouts. No DOM. |
+| `ui-career.js` | Career screens: scenario and racer pick, the turn screen, schedule, race days, the ending. |
 | `uniques.js` | Signature skills and their trigger conditions. |
 | `progression.js` | Levels, stat growth, passives. |
 | `index.html` | Screen shell, race view, stable, deck builder, results. |
@@ -48,9 +50,12 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `caller.js` | The race caller, as captions: the break, the leader, the final turn, the straight, a charge, a close finish, the winner. |
 | `validate.js` | Race model harness. `node race/validate.js 300` |
 | `validate-personality.js` | Deck-vs-personality harness. |
-| `validate-balance.js` | Card pool balance: cost curve, per-tier value, Callout value. |
+| `validate-balance.js` | Card pool balance: cost curve, per-tier value, Callout value; the same for full-deck races, Callout timing, the sharp field, and both exhibition modes. |
+| `validate-career.js` | Whole careers, both scenarios, side by side: goals, finale, the same race against both fields, payout. `node race/validate-career.js 60` |
+| `validate-career-stress.js` | Career invariants over hundreds of erratic runs in both scenarios, old saves included. |
 | `validate-kinds.js` | Is each card kind situational? Spread per kind vs the Burst control. |
-| `validate-autodeck.js` | Does "Let her decide" build good decks, for each focus and each running style? `node race/validate-autodeck.js` |
+| `validate-autodeck.js` | Does "Let her decide" build good decks, for each focus, running style, distance and track, within the two-copy limit, and do the planned decks beat the old builder? `node race/validate-autodeck.js` |
+| `deckplans.js` | The deck plans "Let her decide" follows, per race context. **Generated** by `tools/gendeckplans.js`. |
 
 Card art is rendered by `cards/build.py`; `assets/cards/` holds the thumbnails.
 
@@ -523,6 +528,18 @@ refills a point every four minutes, or all at once for carrots.
   and a note says so.
 - The tutorial race and the races inside a career cost nothing.
 
+**Passives** come from duplicates, not levels. Each racer has up to three, unlocked by
+scouting her again (`PASSIVE_THRESHOLDS` in stable.js): a 3-star after 1, 3 and 6 copies,
+a 2-star after 2, 5 and 9, a 1-star after 3, 7 and 12, since commoner racers turn up more
+often. The racer scout can't be aimed at anyone. It offers the account's unlocked
+racers (the five starters, plus whoever finished careers have opened up), new ones first
+at the rarity it rolls. Once all three passives are unlocked, further copies refund carrots.
+
+The stable keeps the count, and every race reads it: a career through `Stable.saveFor`,
+an exhibition for the racer you enter. Exhibition used to build her from its own save
+(level, XP and deck only), so she raced with no passives at all. Exhibition opponents
+still race without theirs.
+
 ### Her career is her own
 
 Career mode runs the **real URA Finale calendar** (`careerdata.js`): all 404 races of the
@@ -551,6 +568,125 @@ the G1s that suit her and whatever pays when a fan goal is short -- misses a goa
 of runs and wins the URA Finale in 48%; one who tops up her lowest stat misses in 58%.
 A run saved before all this keeps the calendar and the four generic goals it began with
 (`LEGACY_CAL`, `GOALS`).
+
+### The second scenario: The Summit, Dream Trophy
+
+Career setup now offers two scenarios side by side (`Career.SCENARIOS`; the picker shows
+each one's rules, price and prize, and remembers the last one picked on the device). A
+career started from her stable page asks which. **The Beginning: URA Finale** is
+everything above, unchanged. **The Summit: Dream Trophy** is the same three years, the
+same real calendar and her same objectives, against the strongest field in the game, and
+it ends in the Dream Trophy: the **Invitational**, **Semifinal** and **Grand Final**,
+each of which she has to win.
+
+**Every race is run with her whole deck** (`FULL_DECK` in ai.js). Nothing is drawn: all
+fifteen cards are in reach from the gate, the deck cannot run dry, and spirit is the only
+thing that limits what she plays. Spirit stays at 15. Measured (validate-balance, 120 runs
+each), 12 flattens the cost bands but leaves the Callout worth a quarter of a place, and
+18 drops the all-cost-1 deck to last.
+
+**The Callout changes meaning**, since there is nothing to redraw: hit it and she plays
+the card that is right for this moment, read by the trainer rather than through her own
+wit, **free**. Same button, same key, two per race. It is a timing call, measured at
+parity (probe on the control deck, mean place of 8):
+
+```
+probe calls          900 stats   800 / 600 wit
+never                   4.53        4.24
+at the gate             4.58        4.70     wasted on cards that would have come good anyway
+as the final opens      4.06        6.37     she spends pace she cannot afford
+in the run-in           2.10        1.87     the last tenth of the trip
+```
+
+So the race screen marks the **run-in** (`Racers.callDue`): the button pulses and names
+the card; before it the hint says to save it, and inside it says when nothing she has
+left is worth calling. The panel shows the cards she can play now in full and the rest as
+faces, with why on hover. A one-time tip explains the change on her first full-deck race.
+
+**Her rivals are tougher in three ways** (`raceSetup` in career.js):
+- **Stats** 3% above a URA field of the same grade, the finale included.
+- **Decks of their own**, built from every card in the game for each rival's style and
+  personality (`Stable.rivalDeck`). It uses the Cheap build, which measured strongest once
+  the whole deck is in reach: 3.89 mean place against 4.63 for the shared deck URA
+  rivals race.
+- **A sharper read** (`SHARP` in ai.js): 15% less wit misjudgement, and they spend their
+  own Callouts in the run-in. No URA rival ever calls. At parity a sharp field takes a
+  probe who calls well from 1.87 to 4.31.
+
+Two more levers were measured and dropped: drawing the racers best suited to each trip,
+and giving rivals their passives. Either one on top of these ended about three runs in
+four at a goal.
+
+Measured by `validate-career.js` (60 runs per trainer), focused trainer. "Own deck" is her
+own pick from a full collection (the build her rivals race with); "starter" is the plain
+deck the URA numbers above were always measured on:
+
+```
+                                   URA        Dream       URA        Dream
+                                   own deck   own deck    starter    starter
+goal failures                      10%        38%         28%        88%
+champion                           83%        18%         48%        5%
+race win rate                      91%        81%         82%        54%
+same trainee, same graded race:
+  won, Junior / Classic / Senior   86/91/97%  83/89/76%   81/84/94%  50/58/62%
+carrots per run (items aside)      2,152      6,023       1,438      2,205
+```
+
+So bring a real deck: on a starter's, the Dream Trophy is very nearly out of reach, and the
+picker and the opening say so. Over a run her Callouts are worth goal failures 45% → 38%
+and the title 15% → 18%.
+
+**The rewards** (`pay` in `SCENARIOS`, paid by `Career.payout`, which the ending screen
+grants and the validator reads):
+
+| | URA Finale | Dream Trophy |
+|---|---|---|
+| failed a goal | 150 carrots | 500 carrots |
+| seen through | 800 carrots | 3,000 carrots, 5 Scout Tickets, 1 Carrot Juice |
+| champion | 2,500 carrots | 10,000 carrots, 10 Scout Tickets, 2 Scout Passes, 3 Carrot Juice |
+| prize money | none | every win on the way: G1 400, G2 250, G3 150, other 60 |
+| her level | 400 + rating/12 XP | 900 + rating/6 XP |
+| finale fans | 40k / 60k / 90k | 60k / 90k / 150k |
+
+Winning it also unlocks its own award, **The Summit** (5,000 carrots, 2 Scout Passes);
+URA Finale's awards still count only URA Finale wins.
+
+**It costs 40 stamina** to URA Finale's 30 (`STAMINA.dreamRun`): the dearer run for the
+longer odds and the bigger payout, still two to a full bar. Measured, a focused trainer
+on her own deck takes home 151 carrots per stamina in the Dream Trophy against 72 in a
+URA Finale, before counting the items.
+
+On screen it wears the tote board, the dark board and its LED amber, where URA Finale
+wears gold: the picker's card, the strip under the year on the turn screen, the finale
+banner and card, the schedule's finale, the grade reveal and the ending's rewards. Its
+finale runs to the URA Finale's own fanfare and music.
+
+**Saves.** A run saved before scenarios existed has no `scenario` and is a URA Finale run:
+same field, same rules, same finale. `validate-career-stress.js` replays one, plays every
+trainer through both scenarios, and checks full decks stay whole and rival decks are real
+cards.
+
+### Exhibition: Normal or Dream
+
+Exhibition has the same two rules, chosen under **Mode** on the pre-race sheet, between
+her deck and the course (`EX_MODES` in index.html; the pick is remembered on the device):
+
+- **Normal Exhibition**: as it always was. Five of the fifteen dealt at the gate, and a
+  Callout bins the hand and draws five more.
+- **Dream Exhibition**: the Dream Trophy's rule, for **every racer in the field**. Each
+  has her whole deck in reach, and a Callout plays the card that is due, free. The sheet's
+  explanation, the gate card, the top bar's tag and the results board all name the mode,
+  and the results note coaches Callout timing (the run-in) instead of dead hands.
+
+It is one rule, not two: `start()` passes `{ fullDeck }` to `Racers.createField` for the
+whole field, the same flag the Dream Trophy career passes. Exhibition rivals are not
+"sharp" (that is the Dream Trophy career's opponent tuning) and, as in a Normal Exhibition,
+never spend Callouts of their own. Everything else is unchanged: 5 stamina a race, her
+unlocked passives, rivals on their saved decks or the AI's stand-in, and the tutorial race
+is always Normal. `validate-balance.js` section 8 builds the exhibition field the way the
+page does and checks both modes deal every racer by their rule and that no full deck is
+ever drawn from or lost. With her calling in the run-in she averaged 4.00 of 11 in a Dream
+Exhibition against 5.70 in a Normal one (20 races each, her on the control deck).
 
 ## The race in voxels
 
@@ -1013,21 +1149,85 @@ deck by about half a place — real, but secondary, which is intended.
 
 ## Letting her build her own deck
 
-**Let her decide** (on her deck screen, and in the builder) asks two questions:
+**Let her decide** (on her deck screen, and in the builder) first asks how much she
+should plan:
 
-1. **How to spend**: Balanced, Expensive or Cheap. This sets how cost and rarity are
-   weighed against each other.
-2. **Which running style to build for**: Front Runner, Pace Chaser, Late Surger or Ender,
-   listed lead to back. Her own style is the default, highlighted and marked *hers*, and
-   Enter takes it. **Back** returns to the first question.
+- **Her simple thoughts**: one tap. She builds the Balanced plan for herself: her own
+  running style, her best distance and her best track (by her aptitudes).
+- **Her planned strategy**: four questions, each with **Back** to the one before.
+  1. **How to spend**: Balanced, Speed, Stamina, Pressure, Finishing kick, Big plays or
+     Many plays (below).
+  2. **Which running style**: Front Runner to Ender. Her own is marked *hers*.
+  3. **What distance**: Sprint (1000–1400m), Mile, Medium or Long (2401m and up), each
+     with her aptitude. Her best is marked.
+  4. **Which track**: Turf or Dirt, with her aptitude. Her best is marked.
 
-In a race she still runs her own style, which is who she is, so building for another one
-is the trainer's experiment; the measurement below says what it costs. A deck built for a
-style she does not run is named after it (*Front Runner Pick*, *Ender Expensive*), so it is
-never mistaken for her own. The payout box says which style the deck was built for and
-when its cards can be played.
+In a race she still runs her own style, so building for another one is the trainer's
+experiment. The deck is named after what it was built for (*Her Pick*, *Speed Sprint
+Dirt*, *Late Stamina Long*). The payout box says the race it was planned for, how many
+cards are doubled, and what she made of the race ("her stamina runs short here", "she
+runs behind on this track").
 
-The builder is `Stable.suggestDeck(racerId, focus, runStyle)` in `stable.js`.
+**Two copies of a card at most.** However many are owned, a deck holds no more than two
+of any one card (`Stable.COPY_MAX`). Decks saved before the limit keep their first two.
+Without it the best deck at every distance up to 2400m was fifteen copies of one common
+card (the cost-1 "+11% pace for 5s"), which finished 1.6th of 8 on average.
+
+### Planning for the race
+
+Which cards win depends on the race, so the builder follows plans measured per race
+(`deckplans.js`, generated by `node tools/gendeckplans.js`). The race is described four
+ways:
+
+- **distance:** Sprint, Mile, Medium or Long.
+- **tank:** whether her stamina lasts the trip. It runs short below about a third of a
+  point per metre (`Stable.TANK_PER_M`), read from her actual stamina stat.
+- **running style.**
+- **ground:** whether she is weak on the track (aptitude C or worse). She runs behind
+  there.
+
+Every card plays one of three roles:
+- **pace:** Burst, Gamble.
+- **sustain:** Recovery, Tempo.
+- **pressure:** Counter, Support.
+
+For each of the 64 races, the tool measures two things: every card tier stacked into a
+deck on its own (what each card is worth there), and every split of the fifteen slots
+between the roles. It keeps the split that raced best. The builder fills each role with
+the best cards you own for that race, two of a card at most (`Stable.planDeck`).
+
+Measured, the plans read like racing sense:
+- Short races and a full tank want pace.
+- A tank that runs short at 2400–3200m wants nine sustain cards.
+- On weak ground the Counters (which slow the racer in front) climb, because she is the
+  one behind.
+
+The focuses lean the plan:
+
+| Focus | What it does |
+|---|---|
+| Balanced | the measured plan as it is |
+| Speed / Stamina / Pressure | that role gets at least 12 / 9 / 9 slots, the rest shared as the plan shares them |
+| Finishing kick | prefers final-phase cards and Tempo |
+| Big plays | only cards costing 3 or more |
+| Many plays | only cards costing 1 or 2 |
+
+What it is worth, measured by `validate-autodeck.js` on the exhibition field:
+- **Against the old builder:** each racer at each distance with a big collection, the
+  planned deck against the old one-size deck (one of each card first, at most four of a
+  kind). Planned won 4.54 to 4.80 on average place over 748 paired races. Most of that
+  is at 2400m (4.09 vs 4.47) and 3200m (4.38 vs 4.98). At 1200m and 1600m they are level.
+- **Collection size:** a bigger collection now pays. With the old builder, decks from 10
+  card scouts and from 200 finished level (4.94 and 4.86 average place), because it never
+  doubled a card and capped any kind at four. Planned, the same collections finish 5.05
+  and 4.61 (wins 22% and 30%), still rising at 100 scouts and beyond.
+
+The plans measure the cards, the AI and the sim as they are. Re-run the tool after
+changing any of them (about 20 minutes).
+
+The older card-by-card scoring below (`cardScore`, `pickDeck`) is still what Dream Trophy
+rivals build with, and what the builder falls back on without `deckplans.js`. The builder
+is `Stable.suggestDeck(racerId, focus, runStyle, { distance, surface })` in `stable.js`.
 
 ### What suits a style is read off the cards
 

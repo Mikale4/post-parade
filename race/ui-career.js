@@ -28,6 +28,17 @@
 
   let S = null;              // the live career state
   let tutorial = false;      // a tutorial run pays nothing and saves nothing
+  const scn = () => Career.scenarioOf(S);     // this run's scenario: URA Finale or the Dream Trophy
+
+  /* Which scenario the picker has selected. Remembered on this device so a trainer who
+     runs the Dream Trophy does not have to pick it again every time. */
+  const SCN_KEY = "postparade.scenario";
+  function pickedScenario() {
+    try { const v = localStorage.getItem(SCN_KEY); if (Career.SCENARIOS[v]) return v; } catch (e) {}
+    return "ura";
+  }
+  function setPickedScenario(id) { try { localStorage.setItem(SCN_KEY, id); } catch (e) {} }
+  const staminaFor = id => Stable.STAMINA[Career.scenarioOf(id).stamina];
 
   // ---------------------------------------------------------------- persistence
   function persist() {
@@ -62,28 +73,42 @@
     if (!tutorial && existing) {
       const who = Stable.defOf(existing.racerId);
       const fresh = await UIMeta.ask({ title: "Career in progress", danger: true,
-        message: `${who ? who.name : "Someone"} is mid-career (${Career.turnLabel(existing.turn)}).`,
+        message: `${who ? who.name : "Someone"} is mid-career (${Career.turnLabel(existing.turn, existing)}).`,
         detail: "Starting a new run abandons it.",
         confirm: "Start a new run", cancel: "Continue that one" });
       if (!fresh) return resume();
       clearSaved();
     }
 
+    /* Which scenario. The picker always says; a career started from anywhere else (her
+       page in the stable) asks. The tutorial is always a URA Finale. */
+    let scenario = tutorial ? "ura" : opts.scenario;
+    if (!scenario) {
+      scenario = await chooseScenario();
+      if (!scenario) return;
+    }
+    const scen = Career.scenarioOf(scenario);
+
     if (!tutorial) {
-      const cost = Stable.STAMINA.careerRun;
+      const cost = staminaFor(scenario);
       const st = Stable.stamina();
       if (st.cur < cost) {
-        return UIMeta.notify(`A career run costs ${cost} stamina and you have ${st.cur}. ` +
+        return UIMeta.notify(`A ${scen.name} run costs ${cost} stamina and you have ${st.cur}. ` +
           `It refills on its own, or you can buy a refill with carrots.`, { title: "Not enough stamina" });
       }
       /* Once there are veterans to inherit from, choosing them is part of starting a
          run -- so the pairing screen comes before the stamina is spent, not after. */
       if (root.Legacy && Legacy.veterans().length && !opts.parents)
-        return go("scr-parents", e2 => parentsBuild(e2, racerId));
+        return go("scr-parents", e2 => parentsBuild(e2, racerId, scenario));
 
-      const start = await UIMeta.ask({ title: "Begin a career",
-        message: `Three years with ${def.name}.`,
-        detail: `This costs ${cost} stamina.`, confirm: "To the gate" });
+      const equipped = Stable.deckForRacer(racerId);
+      const start = await UIMeta.ask({ title: scen.title,
+        message: `Three years with ${def.name}, then the ${scen.finale}.`,
+        detail: `This costs ${cost} stamina.` + (scen.fullDeck
+          ? ` Every race is run with her whole deck, and her rivals bring decks of their own` +
+            (equipped ? ` — she takes ${equipped.name}.` : `. She has no deck equipped: build her one first.`)
+          : ""),
+        confirm: "To the gate" });
       if (!start) return;
       Stable.spendStamina(cost);
     }
@@ -92,7 +117,7 @@
        ride along as the mods the sim reads. */
     const sv = Stable.saveFor(racerId);
     const built = Progress.build(def, sv);
-    S = Career.create(Object.assign({}, built, { sprite: Stable.spriteFor(racerId) }));
+    S = Career.create(Object.assign({}, built, { sprite: Stable.spriteFor(racerId) }), { scenario });
     S.level = sv.level;
     S.mods = built.mods;
     S.tutorial = tutorial;
@@ -116,6 +141,16 @@
     if (!raw) return UIMeta.notify("No career in progress.");
     S = raw; tutorial = false;
     go("scr-career", careerBuild);
+  }
+
+  /** Ask which scenario, for a career started away from the picker. Null if cancelled. */
+  function chooseScenario() {
+    const sel = pickedScenario();
+    return UIMeta.choose({ title: "Which career?", options: Object.keys(Career.SCENARIOS).map(id => {
+      const c = Career.SCENARIOS[id];
+      return { value: id, label: c.title, sel: id === sel,
+               note: `${c.blurb} ${staminaFor(id)} stamina.` };
+    }) }).then(v => { if (v) setPickedScenario(v); return v; });
   }
 
   // ---------------------------------------------------------------- moments
@@ -196,8 +231,10 @@
     }
     // into the Finale
     if (S.turn >= Career.TRAINING_TURNS && before.turn < Career.TRAINING_TURNS) {
-      momentQueue.push({ kind: "finale", kicker: "Three years done",
-        title: "URA FINALE", sub: "Qualifier, Semifinal, Final. She has to win all three.",
+      const st = scn().stages;
+      momentQueue.push({ kind: "finale" + (scn().fullDeck ? " dream" : ""), kicker: "Three years done",
+        title: scn().finale.toUpperCase(),
+        sub: `${st.Qualifier}, ${st.Semifinal}, ${st.Finals}. She has to win all three.`,
         bg: Bg.fileFor("finale", { crowd: true }), art: S.sprite, hold: 3000 });
     }
   }
@@ -220,11 +257,28 @@
 
     /* Her scene, not a generic one -- intros.js writes it from who she is. It opens with
        Tazuna framing the three years, then hands over to the racer. */
-    const beats = [
+    /* The Dream Trophy opens on its own terms: who she is up against, and what changes in
+       a race -- a trainer who has only run URA Finales needs telling once, at the gate. */
+    const dream = scn().fullDeck;
+    const equipped = Stable.deckForRacer(S.racerId);
+    const beats = (dream ? [
+      { who: "Tazuna Hayakawa",
+        text: `The Dream Trophy. The best racers in the country, and they do not wait three ` +
+              `years for anyone. ${S.racerName} is yours from today — Junior, Classic, Senior, ` +
+              `against the strongest field there is.` },
+      { who: "Tazuna Hayakawa", show: "dream",
+        text: `Every race here is run with her whole deck in hand. Nothing is drawn, so spirit ` +
+              `is the only limit — and a Callout tells her to play the card that is due, free. ` +
+              `Save it for the run-in. Her rivals bring decks of their own, and they know when to call.` },
+      { who: "Tazuna Hayakawa",
+        text: equipped ? `She takes ${equipped.name} to the gate. Make it the best one she has.`
+                       : `She has no deck equipped. Leave the run for a moment and give her one on ` +
+                         `the Decks screen — the run waits for you.` },
+    ] : [
       { who: "Tazuna Hayakawa",
         text: `Three years, then the URA Finale. ${S.racerName} is yours from today — ` +
               `Junior, Classic, Senior, and whatever she makes of them.` },
-    ].concat(root.Intros ? Intros.forRacer(def, S) : [
+    ]).concat(root.Intros ? Intros.forRacer(def, S) : [
       { who: "Tazuna Hayakawa",
         text: `Look at what she is built for before you plan anything.`, show: "apt" },
       { who: "Tazuna Hayakawa",
@@ -256,6 +310,13 @@
               </div>` : ""}
             ${b.show === "goal" && goal ? `
               <div class="cintro-goal"><b>Goal</b> ${esc(goal.text)}</div>` : ""}
+            ${b.show === "dream" ? `
+              <div class="cintro-dream">
+                <b>${esc(scn().title)}</b>
+                <span>Her whole deck in every race</span>
+                <span>A Callout plays the card that is due, free</span>
+                <span>Rivals stronger, on decks of their own, and sharper</span>
+              </div>` : ""}
           </div>
           <div class="cintro-box ${b.self ? "her" : ""}">
             <div class="coach-name ${b.self ? "her" : ""}">${esc(b.who)}</div>
@@ -281,7 +342,7 @@
      pairing -- affinity decides how much of them actually lands. */
   let pickedParents = [];
 
-  function parentsBuild(el, racerId) {
+  function parentsBuild(el, racerId, scenario) {
     const def = Stable.defOf(racerId);
     const vets = Legacy.veterans();
     pickedParents = pickedParents.filter(id => Legacy.byId(id));
@@ -364,13 +425,13 @@
       if (i >= 0) pickedParents.splice(i, 1);
       else if (pickedParents.length < 2) pickedParents.push(id);
       else pickedParents = [pickedParents[1], id];      // oldest drops off
-      parentsBuild(el, racerId);
+      parentsBuild(el, racerId, scenario);
     });
     el.querySelector("#parGo").onclick = () =>
-      begin(racerId, { parents: pickedParents.slice() });
+      begin(racerId, { parents: pickedParents.slice(), scenario });
     el.querySelector("#parSkip").onclick = () => {
       pickedParents = [];
-      begin(racerId, { parents: [] });
+      begin(racerId, { parents: [], scenario });
     };
     el.querySelector("#parBack").onclick = () => go("scr-careerpick", pickerBuild);
   }
@@ -409,15 +470,16 @@
        her own screen with how she feels beside her, the turn's choices as big tiles on the
        right, and the five stats -- graded -- along the bottom. The old screen was a stack
        of white dashboard cards. */
-    const [yr, day] = String(Career.turnLabel(S.turn)).split(" · ");
+    const [yr, day] = String(Career.turnLabel(S.turn, S)).split(" · ");
     const energyPct = Math.round(S.energy / S.maxEnergy * 100);
     el.innerHTML = `
       ${Bg.layer(raceBoard ? "raceday" : "career", { month: Career.turnMonth(S.turn), time: (S.turn % 2) ? "sunset" : "day",   crowd: raceBoard })}
       <div class="cv career">
         <div class="cv-res">${UIMeta.resourceBar({ back: false })}</div>
         <div class="cv-head pop">
-          <div class="car-when cal ${camp ? "camp" : ""}">
+          <div class="car-when cal ${camp ? "camp" : ""} ${scn().fullDeck ? "dream" : ""}">
             <span class="cal-yr">${esc(yr || "")}</span>
+            ${scn().fullDeck && S.turn < Career.TRAINING_TURNS ? `<span class="cal-scn">${esc(scn().name)}</span>` : ""}
             <span class="cal-day">${esc(day || yr || "")}</span>
             <span class="cal-turn"><b>${S.turn + 1}</b>/${Career.TOTAL_TURNS}${camp ? " · Summer camp" : ""}</span>
             <span class="cal-bar"><i style="width:${pctYear}%"></i></span>
@@ -427,7 +489,7 @@
               <span class="gl-txt">${esc(goal.text)}</span>
               <span class="gl-left">${goal.kind === "fans" ? `<em>${num(S.fans)} / ${num(goal.fans)} fans</em>`
                 : goal.kind === "g1place" ? `<em>${goal.have} / ${goal.count} done</em>` : ""}<b>${goal.turnsLeft}</b> turn${goal.turnsLeft === 1 ? "" : "s"} left</span>
-            </div>` : `<div class="car-goal done"><span class="gl-lab">Goal</span><span class="gl-txt">All goals met. Now win the URA Finale.</span></div>`}
+            </div>` : `<div class="car-goal done"><span class="gl-lab">Goal</span><span class="gl-txt">All goals met. Now win the ${esc(scn().finale)}.</span></div>`}
           <div class="car-tools">
             <button class="btn sm" id="carCal">${Icon("calendar")}Schedule</button>
             <button class="btn ghost sm" id="carQuit">${Icon("door")}Leave</button>
@@ -672,13 +734,14 @@
   function finaleCard(r) {
     const won = S.finale.won;
     return `
-      <div class="ura">
+      <div class="ura ${scn().fullDeck ? "dream" : ""}">
         <div class="ura-steps">
           ${["Qualifier", "Semifinal", "Finals"].map(w => `
-            <span class="ustep ${won.includes(w) ? "won" : r.finale === w ? "now" : ""}">${w}</span>`).join("")}
+            <span class="ustep ${won.includes(w) ? "won" : r.finale === w ? "now" : ""}">${
+              esc(Career.stageName(S, w))}</span>`).join("")}
         </div>
         <div class="ura-card">
-          <div class="ura-title">URA FINALE &mdash; ${esc(r.finale).toUpperCase()}</div>
+          <div class="ura-title">${esc(scn().finale.toUpperCase())} &mdash; ${esc(Career.stageName(S, r.finale)).toUpperCase()}</div>
           <div class="ura-sub">${Career.DIST_METRES[r.dist]}m ${esc(r.surface)}
             &middot; chosen from the trips she ran most</div>
           <p>She has to <b>win</b>. Anything else ends the run here.</p>
@@ -807,7 +870,7 @@
     const best = Math.max(...Career.STATS.map(k => S.stats[k]));
     const got = Quests.record("careerTick", { stat: best, fans: S.fans });
     if (Career.turnYear(S.turn) >= 1) Quests.record("classic");
-    if (S.turn >= Career.TRAINING_TURNS) Quests.record("ura");
+    if (S.turn >= Career.TRAINING_TURNS && scn().id === "ura") Quests.record("ura");
     if (got && got.awards && got.awards.length) UIMeta.toastAwards(got.awards);
   }
 
@@ -896,7 +959,7 @@
       rows.push(`
         <div class="cal-turn ${isNow ? "now" : ""} ${past ? "past" : ""}">
           <div class="ct-when">
-            <b>${esc(Career.turnLabel(t).split(" · ").pop())}</b>
+            <b>${esc(Career.turnLabel(t, S).split(" · ").pop())}</b>
             <i>turn ${t + 1}</i>
             ${isNow ? `<span class="ct-tag">${exactly ? "race day" : "next up"}</span>` : ""}
           </div>
@@ -937,23 +1000,26 @@
       const which = Career.finaleRaceAt(t);
       if (which) finTurns.push({ t, which });
     }
+    const dream = scn().fullDeck;
     rows.push(`
-      <div class="cal-year finale"><span class="cy-name">URA Finale</span>
-        <span class="cy-goal">Win all three</span></div>`);
+      <div class="cal-year finale ${dream ? "dream" : ""}"><span class="cy-name">${esc(scn().finale)}</span>
+        <span class="cy-goal">Win all three</span>
+        ${dream ? `<span class="cy-goal">Whole decks &middot; the strongest field there is</span>` : ""}</div>`);
     for (const f of finTurns) {
       const won = (S.finale && S.finale.won || []).indexOf(f.which) >= 0;
+      const stage = Career.stageName(S, f.which);
       rows.push(`
         <div class="cal-turn ${S.turn === f.t ? "now" : ""} ${S.turn > f.t ? "past" : ""}">
-          <div class="ct-when"><b>${esc(f.which)}</b><i>turn ${f.t + 1}</i>
+          <div class="ct-when"><b>${esc(stage)}</b><i>turn ${f.t + 1}</i>
             ${S.turn === f.t ? `<span class="ct-tag">you are here</span>` : ""}</div>
           <div class="ct-races">
             <div class="calrace ${won ? "done" : ""} goal">
               <span class="cr-grade gG1">G1</span>
-              <span class="cr-main"><b>URA Finale ${esc(f.which)}
+              <span class="cr-main"><b>${esc(scn().finale)} ${esc(stage)}
                 <em class="cr-must">must win</em></b>
                 <i>${Career.DIST_METRES[Career.finaleDistance(S)]}m ${esc(Career.finaleSurface(S))}
                    · chosen from the trips she ran most</i></span>
-              <span class="cr-pay">${Icon("person")}${num(f.which === "Finals" ? 90000 : f.which === "Semifinal" ? 60000 : 40000)}</span>
+              <span class="cr-pay">${Icon("person")}${num(scn().finaleFans[f.which])}</span>
               <span class="cr-note ${won ? "ok" : "f1"}">${won ? "won" : "must win"}</span>
             </div>
           </div>
@@ -997,8 +1063,8 @@
     const setup = Career.raceSetup(S, race, Stable.ROSTER);
     const deck = deckFor();
     Game.startCareerRace({
-      field: setup.field, course: setup.course, deck,
-      label: race.finale ? "URA Finale" : race.grade,
+      field: setup.field, course: setup.course, deck, rules: setup.rules,
+      label: race.finale ? scn().finale : race.grade,
       onDone(placing, fieldSize, board) {
         const isFinale = !!race.finale;
         const res = isFinale ? Career.applyFinaleResult(S, race, placing, fieldSize)
@@ -1013,7 +1079,7 @@
           Quests.record(placing === 1 ? "raceWin" : "race",
                         { style: S.style, dist: race.dist });
           if (placing === 1 && race.grade === "G1") Quests.record("g1Win");
-          if (isFinale && placing === 1) Quests.record("uraWin");
+          if (isFinale && placing === 1 && scn().id === "ura") Quests.record("uraWin");
           persist();
         }
         /* No music request: Sound.raceFinish is mid-sequence -- fanfare now, result
@@ -1090,7 +1156,7 @@
             ${race.finale && !won
               ? `<p class="res-note bad">She had to win to go through. The run ends here.</p>`
               : race.finale && race.finale === "Finals"
-              ? `<p class="res-note good">URA Finale champion.</p>` : ""}
+              ? `<p class="res-note good">${esc(scn().finale)} champion.</p>` : ""}
             <div class="res-go"><button class="btn lg" id="resGo">Continue</button></div>
           </div>
         </div>
@@ -1115,12 +1181,13 @@
         '<div class="gr-rays"></div>' +
         `<img class="gr-art" src="${art(S.sprite)}" alt="">` +
         '<div class="gr-body">' +
-          `<div class="gr-kicker">${failed ? "The run ends here" : "Three years"}</div>` +
+          `<div class="gr-kicker">${failed ? "The run ends here" : "Three years" +
+            (scn().fullDeck ? " · " + esc(scn().name) : "")}</div>` +
           `<div class="gr-name">${esc(S.racerName)}</div>` +
           '<div class="gr-ring"></div>' +
           `<div class="gr-grade">${esc(v.grade)}</div>` +
           `<div class="gr-rating">${num(v.rating)} rating</div>` +
-          (champion ? '<div class="gr-champ">URA Finale champion</div>' : "") +
+          (champion ? `<div class="gr-champ ${scn().fullDeck ? "dream" : ""}">${esc(scn().finale)} champion</div>` : "") +
         '</div>' +
         '<div class="gr-skip">click to continue</div>';
       document.body.appendChild(el);
@@ -1177,35 +1244,44 @@
 
     /* Payouts happen once, here, and only for a real run. A tutorial career is a
        demonstration -- it must not touch the stable. */
-    let unlocked = [], xp = null, carrots = 0, vet = null;
+    /* What the run pays is Career.payout's -- carrots by ending, the Dream Trophy's prize
+       money for every win and its haul of items -- so the screen and validate-career
+       agree on it. Kept on the state, so coming back to this screen shows it again. */
+    const dream = scn().fullDeck;
+    let unlocked = [], xp = null, vet = null;
     if (!tutorial && !S.paidOut) {
       S.paidOut = true;
+      const pay = S.paid = Career.payout(S);
       if (!failed) {
         unlocked = Stable.unlockFrom(S.racerId);
-        xp = Stable.addXp(S.racerId, 400 + Math.round(v.rating / 12));
+        if (pay.xp) xp = Stable.addXp(S.racerId, pay.xp);
         /* The run itself becomes an inheritance resource. This is what makes a career
            worth finishing even when the racing went badly. */
         vet = Legacy.addVeteran(S, Stable.defOf(S.racerId),
                                 (S.legacy && S.legacy.parents) || []);
       }
-      carrots = failed ? 150 : champion ? 2500 : 800;
-      Stable.grant(carrots);
+      Stable.grant(pay.carrots);
+      for (const id in pay.items) Stable.addItem(id, pay.items[id]);
       Quests.record("careerEnd", { rating: v.rating, grade: v.grade, fans: v.fans });
       if (champion) {
-        const got = Quests.record("champion");
+        // URA Finale's awards count URA Finale wins; the Dream Trophy has its own
+        const got = Quests.record(dream ? "dreamChampion" : "champion");
         if (got.awards && got.awards.length) UIMeta.toastAwards(got.awards);
       }
       clearSaved();
-      FX.confetti({ count: champion ? 200 : 80 });
+      FX.confetti({ count: champion ? (dream ? 320 : 200) : 80 });
     }
+    const pay = S.paid || { carrots: 0, prize: 0, items: {} };
+    const carrots = pay.carrots;
 
     el.innerHTML = `
       ${Bg.layer(champion ? "ending" : "result")}
       <div class="scr-wrap">
-        <div class="panel pop end-panel">
-          <div class="panel-hd ${champion ? "gold" : failed ? "board" : ""}">
+        <div class="panel pop end-panel ${dream ? "dream" : ""}">
+          <div class="panel-hd ${champion ? (dream ? "board" : "gold") : failed ? "board" : ""}">
             ${Icon(champion ? "crown" : failed ? "flag" : "trophy")}${
-              champion ? "URA Finale champion" : failed ? "Career ended" : "Career complete"}</div>
+              champion ? esc(scn().finale) + " champion" : failed ? "Career ended"
+                : dream ? "Dream Trophy complete" : "Career complete"}</div>
           <div class="end-body">
             <img class="end-art float-y" src="${art(S.sprite)}" alt="">
             <div class="end-side">
@@ -1226,11 +1302,15 @@
                 <div><i>Rating</i><b class="count-rating">0</b></div>
                 <div><i>Fans</i><b class="count-fans">0</b></div>
                 <div><i>Races won</i><b>${v.wins} of ${v.races}</b></div>
-                ${v.finale.length ? `<div><i>Finale</i><b>${v.finale.join(", ")}</b></div>` : ""}
+                ${v.finale.length ? `<div><i>Finale</i><b>${v.finale.map(w => esc(Career.stageName(S, w))).join(", ")}</b></div>` : ""}
               </div>
               ${!tutorial ? `
                 <div class="end-rewards">
-                  <div><i>Carrots</i><b>+<span class="count-carrots">0</span></b></div>
+                  <div><i>Carrots</i><b>+<span class="count-carrots">0</span></b>${
+                    pay.prize ? `<small>${num(pay.prize)} of it prize money</small>` : ""}</div>
+                  ${Object.keys(pay.items).map(id => {
+                    const it = Stable.itemDef(id) || { name: id };
+                    return `<div><i>${esc(it.name)}</i><b>&times;${pay.items[id]}</b></div>`; }).join("")}
                   ${xp ? `<div><i>${esc(S.racerName)}</i><b>Lv ${xp.level}</b></div>` : ""}
                 </div>
                 ${vet && vet.sparks.length ? `
@@ -1267,9 +1347,33 @@
 
   // ---------------------------------------------------------------- picker
   /** Choosing who to run a career with -- only racers the player actually owns. */
+  /* What each scenario is, side by side, so the choice is made knowing the price and the
+     prize. Every number is read from Career.SCENARIOS and Stable.STAMINA. */
+  function scenarioCard(id, on) {
+    const c = Career.SCENARIOS[id], pay = c.pay;
+    const items = pay.items.champion ? Object.keys(pay.items.champion).map(k =>
+      `${(Stable.itemDef(k) || { name: k }).name} ×${pay.items.champion[k]}`) : [];
+    return `
+      <button class="scn s-${id} ${on ? "sel" : ""}" data-scn="${id}" aria-pressed="${on}">
+        <span class="scn-hd">${esc(c.title.split(": ")[0])}</span>
+        <span class="scn-name">${esc(c.name)}</span>
+        <span class="scn-blurb">${esc(c.blurb)}</span>
+        <span class="scn-facts">
+          <span><i>Races</i>${c.fullDeck ? "Whole deck in reach, Callout plays the card that is due"
+                                         : `Draw ${Racers.ACTIVE_SIZE} of ${Racers.DECK_SIZE}, Callout redraws`}</span>
+          <span><i>Rivals</i>${c.fullDeck ? `${Math.round((c.field - 1) * 100)}% stronger, own decks, sharper`
+                                          : "Share her deck"}</span>
+          <span><i>Champion</i>${num(pay.carrots.champion)} carrots${items.length ? ", " + items.join(", ") : ""}${
+            pay.prize ? ", prize money for every win" : ""}</span>
+          <span><i>Costs</i>${staminaFor(id)} stamina</span>
+        </span>
+      </button>`;
+  }
+
   function pickerBuild(el) {
     const owned = Stable.ownedRacers();
     const run = saved();
+    const sel = pickedScenario();
     el.innerHTML = `
       ${Bg.layer("career")}
       <div class="scr-wrap">
@@ -1281,12 +1385,17 @@
               <div class="resume-box">
                 <b>Career in progress</b>
                 <span>${esc((Stable.defOf(run.racerId) || {}).name || "")} &middot;
-                      ${esc(Career.turnLabel(run.turn))}</span>
+                      ${esc(Career.scenarioOf(run).name)} &middot; ${esc(Career.turnLabel(run.turn, run))}</span>
                 <button class="btn gold" id="carResume">Continue</button>
               </div>` : ""}
-            <p class="fine">A career run costs ${Stable.STAMINA.careerRun} stamina.
+            <div class="scn-pick">
+              ${Object.keys(Career.SCENARIOS).map(id => scenarioCard(id, id === sel)).join("")}
+            </div>
+            <p class="fine">A ${esc(Career.scenarioOf(sel).name)} run costs ${staminaFor(sel)} stamina.
                Finishing one unlocks the next racers in her line for the scout,
-               and leaves behind a veteran your future trainees can inherit from.</p>
+               and leaves behind a veteran your future trainees can inherit from.${
+               Career.scenarioOf(sel).fullDeck ? ` Bring her best deck: on a starter's, the
+               Dream Trophy is very nearly out of reach.` : ""}</p>
             ${root.Legacy && Legacy.veterans().length ? `
               <div class="legacy-note">
                 <b>${Legacy.veterans().length} veteran${Legacy.veterans().length === 1 ? "" : "s"}
@@ -1321,8 +1430,12 @@
     if (rs) rs.onclick = () => resume();
     const ps = el.querySelector("#pickScout");
     if (ps) ps.onclick = () => go("scr-scout", UIMeta.scoutBuild);
+    el.querySelectorAll("[data-scn]").forEach(b => b.onclick = () => {
+      setPickedScenario(b.dataset.scn);
+      pickerBuild(el);
+    });
     el.querySelectorAll("[data-start]").forEach(b =>
-      b.onclick = () => begin(b.dataset.start));
+      b.onclick = () => begin(b.dataset.start, { scenario: pickedScenario() }));
   }
 
   /** Drop a demonstration career without saving or paying out anything. */

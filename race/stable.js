@@ -42,11 +42,14 @@
   };
 
   /* Stamina works the way the real game's TP does: a career run is the purchase, not
-     each race inside it, so a run is never stranded half-finished. */
+     each race inside it, so a run is never stranded half-finished. The Dream Trophy is
+     the dearer run -- the longer odds and the bigger payout both -- but still two to a
+     full bar. Which entry a scenario costs is Career.SCENARIOS[..].stamina. */
   const STAMINA = {
     max: 100,
     regenMs: 4 * 60 * 1000,                // one point every four minutes
     careerRun: 30,
+    dreamRun: 40,
     exhibition: 5,
   };
 
@@ -141,6 +144,13 @@
       if (d.racerId) continue;
       const holder = Object.keys(cache.equipped).find(r => cache.equipped[r] === d.id);
       d.racerId = holder || Object.keys(cache.racers)[0] || null;
+    }
+    /* Decks saved before the two-copy limit keep their first two of each card; the
+       extras come out, so no deck at the gate breaks the rule. */
+    for (const d of cache.decks) {
+      if (!Array.isArray(d.cards)) continue;
+      const seen = {};
+      d.cards = d.cards.filter(id => (seen[id] = (seen[id] || 0) + 1) <= COPY_MAX);
     }
     for (const id of STARTERS) if (cache.unlocked[id] == null) cache.unlocked[id] = 0;
     cacheKey = k;
@@ -653,6 +663,12 @@
      fifteen is the ceiling the whole spirit economy is balanced around. */
   const DECK_MIN = 5;
   const DECK_MAX = 15;
+  /* No more than two of any one card in a deck, however many are owned. Without a limit
+     a deck could be fifteen of one cheap card, and measured that was the best deck at every
+     distance up to 2400m: one card, stacked, decided the race. */
+  const COPY_MAX = 2;
+  /** How many of this card a deck may hold: what is owned, up to the limit. */
+  const copiesAllowed = id => Math.min(COPY_MAX, cardCount(id));
 
   const decks = () => load().decks;
   const deckById = id => decks().find(d => d.id === id) || null;
@@ -671,6 +687,8 @@
     for (const id of cards) {
       if (!Cards.byId[id]) return "That deck names a card that does not exist.";
       used[id] = (used[id] || 0) + 1;
+      if (used[id] > COPY_MAX)
+        return `A deck holds at most ${COPY_MAX} copies of a card (${Cards.byId[id].ability}).`;
       if (used[id] > cardCount(id))
         return `You only own ${cardCount(id)} × ${Cards.byId[id].ability}.`;
     }
@@ -952,12 +970,21 @@
    * than are owned. Returns fewer when the trainer simply has fewer. `runStyle` is the
    * running style to build for, her own when left out.
    */
-  function suggestDeck(racerId, style, runStyle) {
+  function suggestDeck(racerId, style, runStyle, opts) {
     const def = defOf(racerId);
     if (!def) return [];
-    const pool = ownedCards();
-    if (!pool.length) return [];
+    // `opts`: the race to plan for, { distance, surface } -- her best when left out
+    if (Plans()) return planDeck(def, ownedCards(), cardCount, style, planContext(def, runStyle, opts));
+    return pickDeck(def, ownedCards(), cardCount, style, runStyle);
+  }
 
+  /**
+   * The same build from any pool: `have(id)` is how many copies of a card may go in.
+   * Career rivals in the Dream Trophy build from every card in the game, one copy each
+   * (`rivalDeck`), so their decks are their own and not the trainer's.
+   */
+  function pickDeck(def, pool, have, style, runStyle) {
+    if (!pool.length) return [];
     const scored = pool.map(c => ({ c, score: cardScore(c, def, style, runStyle) }))
                        .sort((a, b) => b.score - a.score || a.c.id.localeCompare(b.c.id));
 
@@ -970,8 +997,8 @@
     for (const pass of [0, 1, 2]) {
       for (const { c } of scored) {
         if (out.length >= DECK_MAX) break;
-        const have = cardCount(c.id), mine = used[c.id] || 0;
-        if (mine >= have) continue;
+        const copies = Math.min(COPY_MAX, have(c.id)), mine = used[c.id] || 0;
+        if (mine >= copies) continue;
         if (pass === 0 && mine >= 1) continue;               // one of each first
         if (pass < 2 && (kinds[c.kind] || 0) >= KIND_CAP) continue;
         out.push(c.id);
@@ -983,16 +1010,149 @@
     return out;
   }
 
-  /** A name for an auto-built deck, unique among the ones she already has. A deck built
-      for a style she does not run says so, so it cannot be mistaken for her own. */
-  function suggestDeckName(racerId, style, runStyle) {
+  /* A rival's own deck: what she would build for herself with every card in the game to
+     choose from. Pure -- it reads no account -- and the same for her every race, so it is
+     worked out once. */
+  const rivalDecks = {};
+  function rivalDeck(def, style) {
+    const key = def.id + "|" + (style || "mix");
+    if (!rivalDecks[key]) rivalDecks[key] = pickDeck(def, Cards.CARDS, () => 1, style);
+    return rivalDecks[key].slice();
+  }
+
+  // ---------------------------------------------------------------- deck plans
+  /* "Let her decide", planned for the race. Which cards win depends on the race, and was
+     measured (tools/gendeckplans.js, written to deckplans.js): the cheap Bursts up to
+     2400m, stamina cards at 3200m or when her stamina will not last, the Counters when she
+     runs on ground she is weak on (she is behind, and they slow the one in front). Every
+     card plays one of three roles -- pace (Burst, Gamble), sustain (Recovery, Tempo),
+     pressure (Counter, Support) -- and a plan is how many slots each role gets in that
+     race, and what every card is worth there. The builder fills each role with the best
+     cards she can have, two of a card at most, and the focus leans the plan one way.
+
+     The race she is planning for is read off her: the distance and track asked for (or
+     her best, left to herself), her own stamina against that distance, her aptitude on
+     that track. Rivals (`rivalDeck`) still build with the older scoring above. */
+  const Plans = () => {
+    if (typeof require === "undefined") return root.DeckPlans || null;
+    try { return require("./deckplans.js"); } catch (e) { return null; }
+  };
+  const ROLES = ["pace", "sustain", "pressure"];
+  const ROLE_OF = { Burst: "pace", Gamble: "pace", Recovery: "sustain", Tempo: "sustain", Counter: "pressure", Support: "pressure" };
+  /* The real game's four distance categories; `m` is the distance each was measured at. */
+  const DISTANCES = {
+    sprint: { name: "Sprint", range: "1000-1400m", m: 1200 },
+    mile:   { name: "Mile",   range: "1401-1800m", m: 1600 },
+    medium: { name: "Medium", range: "1801-2400m", m: 2400 },
+    long:   { name: "Long",   range: "2401m and up", m: 3200 },
+  };
+  const TRACKS = { turf: { name: "Turf" }, dirt: { name: "Dirt" } };
+  const distanceOf = m => m <= 1400 ? "sprint" : m <= 1800 ? "mile" : m <= 2400 ? "medium" : "long";
+  /* Her stamina runs out before the line below about a third of a point per metre:
+     measured, 900 lasts 2400m and 600 does not, and 900 runs short at 3200m. */
+  const TANK_PER_M = 0.33;
+  /* C or worse on a track and she runs behind there -- measured at C. */
+  const WEAK_APT = ["C", "D", "E", "F", "G"];
+  const GRADE = { S: 7, A: 6, B: 5, C: 4, D: 3, E: 2, F: 1, G: 0 };
+
+  /** Her best distance and track: what she builds for, left to herself. */
+  function bestFor(def) {
+    const apt = (def && def.aptitude) || {};
+    const g = k => GRADE[apt[k]] != null ? GRADE[apt[k]] : 3;
+    const distance = ["medium", "mile", "long", "sprint"].reduce((b, k) => g(k) > g(b) ? k : b, "medium");
+    return { distance, surface: g("dirt") > g("turf") ? "dirt" : "turf" };
+  }
+
+  /** The race a plan is for, and its measured context in deckplans.js. */
+  function planContext(def, runStyle, opts) {
+    opts = opts || {};
+    const best = bestFor(def);
+    const distance = DISTANCES[opts.distance] ? opts.distance : best.distance;
+    const surface = TRACKS[opts.surface] ? opts.surface : best.surface;
+    const style = runStyle || def.style;
+    const Progress = typeof require !== "undefined" ? require("./progression.js") : root.Progress;
+    const stats = Progress && Progress.build ? Progress.build(def, saveFor(def.id)).stats : (def.stats || {});
+    const tight = (stats.stamina || 0) < TANK_PER_M * DISTANCES[distance].m;
+    const weak = WEAK_APT.indexOf(((def && def.aptitude) || {})[surface]) >= 0;
+    return { distance, surface, style, tight, weak,
+             key: `${DISTANCES[distance].m}|${tight ? "tight" : "ok"}|${style}|${weak ? "weak" : "good"}` };
+  }
+
+  /* A card's rules identity -- tools/gendeckplans.js keys its values the same way. */
+  const tierOf = c => `${c.kind}|${c.cost}|${(c.phases || []).join("")}|${c.cond ? JSON.stringify(c.cond) : ""}|` +
+                      c.effects.map(e => `${e.t}${e.amount != null ? e.amount : ""}x${e.dur || 0}`).join(",");
+  /* Cards that pay off in the straight: final-phase-only, or Tempo's final-phase payoff. */
+  const isKick = c => (c.phases && c.phases.length === 1 && c.phases[0] === 2) || c.kind === "Tempo";
+
+  /* The ways to build. A role focus guarantees that role at least `min` slots and shares
+     the rest the way the plan does; a cost focus keeps to cards of that cost. Each one's
+     measured standing is in its note (validate-autodeck.js). */
+  const FOCUSES = {
+    mix:       { name: "Balanced",       note: "The plan that measured best for this race, filled with the best cards you own." },
+    speed:     { name: "Speed",          role: "pace", min: 12, note: "Bursts first: pace, and lots of it. Strongest up to 2400m when her stamina lasts." },
+    stamina:   { name: "Stamina",        role: "sustain", min: 9, note: "Heals and Tempo: she lasts the trip and keeps something for the straight. Strongest on long races." },
+    pressure:  { name: "Pressure",       role: "pressure", min: 9, note: "Counters and drafting: slows whoever is in front and rides their slipstream. Strongest when she runs behind." },
+    kick:      { name: "Finishing kick", kick: true, note: "Cards that pay off in the straight: final-phase spurts and Tempo's payoff. For closers." },
+    expensive: { name: "Big plays",      costMin: 3, note: "Only cards costing 3 or more: fewer plays, each one lands hard. Its Epics are what win long races." },
+    cheap:     { name: "Many plays",     costMax: 2, note: "Only cards costing 1 or 2: she plays many more of them. Worth it if you watch for dead hands." },
+  };
+  function splitFor(f, plan) {
+    if (!f.role) return Object.assign({}, plan);
+    const own = Math.max(f.min, plan[f.role]), rest = DECK_MAX - own;
+    const others = ROLES.filter(r => r !== f.role), sum = others.reduce((a, r) => a + plan[r], 0);
+    const out = { [f.role]: own };
+    others.forEach((r, i) => {
+      out[r] = i === others.length - 1 ? rest - out[others[0]]
+             : Math.round(rest * (sum ? plan[r] / sum : 1 / others.length));
+    });
+    return out;
+  }
+
+  /**
+   * Fifteen cards for the race `ctx` (planContext), from `pool`, `have(id)` copies of each
+   * available (two at most go in). Falls back to the older scoring when there is no plan.
+   */
+  function planDeck(def, pool, have, focus, ctx) {
+    const P = Plans(), plan = P && P.PLANS && P.PLANS[ctx.key];
+    if (!plan || !pool.length) return pickDeck(def, pool, have, focus === "expensive" || focus === "cheap" ? focus : "mix", ctx.style);
+    const f = FOCUSES[focus] || FOCUSES.mix;
+    const split = splitFor(f, plan.split);
+    const value = c => (plan.values[tierOf(c)] || 0) + (f.kick && isKick(c) ? 0.75 : 0) + (c.name === def.name ? 0.05 : 0);
+    const fits = c => (f.costMin == null || c.cost >= f.costMin) && (f.costMax == null || c.cost <= f.costMax);
+    const sorted = list => list.slice().sort((a, b) => value(b) - value(a) || a.id.localeCompare(b.id));
+    const out = [], used = {};
+    const take = (cands, n) => {
+      let got = 0;
+      for (const c of cands) {
+        const cap = Math.min(COPY_MAX, have(c.id));
+        while ((used[c.id] || 0) < cap && got < n && out.length < DECK_MAX) { out.push(c.id); used[c.id] = (used[c.id] || 0) + 1; got++; }
+        if (got >= n || out.length >= DECK_MAX) break;
+      }
+    };
+    // the plan: each role its share, best cards first
+    for (const role of ROLES) take(sorted(pool.filter(c => ROLE_OF[c.kind] === role && fits(c))), split[role]);
+    // a role she owns too few of for its share: the best of whatever else fits, then of anything
+    take(sorted(pool.filter(fits)), DECK_MAX - out.length);
+    take(sorted(pool), DECK_MAX - out.length);
+    return out;
+  }
+
+  /** A name for an auto-built deck, unique among the ones she already has: what it was
+      built for, so two decks for different races cannot be mistaken for each other. */
+  const STYLE_SHORT = { front: "Front", pace: "Pace", late: "Late", ender: "End" };
+  function suggestDeckName(racerId, style, runStyle, opts) {
     const def = defOf(racerId);
-    const Sim = typeof require !== "undefined" ? require("./sim.js") : root.Sim;
     const taken = decksFor(racerId).map(d => d.name.toLowerCase());
-    const st = PICK_STYLES[style];
-    let base = st && style !== "mix" ? "Her " + st.name : "Her Pick";
-    if (def && runStyle && runStyle !== def.style && Sim.STYLES[runStyle])
-      base = Sim.STYLES[runStyle].name + " " + (st && style !== "mix" ? st.name : "Pick");
+    let base;
+    if (!opts || opts.simple) base = "Her Pick";
+    else {
+      const f = FOCUSES[style] || FOCUSES.mix;
+      const d = DISTANCES[opts.distance], dirt = opts.surface === "dirt";
+      base = [def && runStyle && runStyle !== def.style ? STYLE_SHORT[runStyle] : "",
+              style === "mix" || !FOCUSES[style] ? "" : f.name,
+              d ? d.name : "", dirt ? "Dirt" : "", style === "mix" || !FOCUSES[style] ? "Pick" : ""]
+        .filter(Boolean).join(" ").slice(0, 21);
+    }
     if (taken.indexOf(base.toLowerCase()) < 0) return base;
     for (let i = 2; i < 99; i++)
       if (taken.indexOf((base + " " + i).toLowerCase()) < 0) return base + " " + i;
@@ -1001,8 +1161,9 @@
 
   const api = {
     START_CARROTS, COSTS, STAMINA, STARTERS, STARTER_BLURB, TUTORIALS, ITEMS, itemDef,
-    DECK_MIN, DECK_MAX, decks, decksFor, deckById, checkDeck, createDeck, updateDeck,
-    suggestDeck, suggestDeckName, cardScore, KIND_WANTS, PICK_W, PICK_STYLES,
+    DECK_MIN, DECK_MAX, COPY_MAX, copiesAllowed, decks, decksFor, deckById, checkDeck, createDeck, updateDeck,
+    suggestDeck, suggestDeckName, pickDeck, rivalDeck, cardScore, KIND_WANTS, PICK_W, PICK_STYLES,
+    FOCUSES, DISTANCES, TRACKS, distanceOf, bestFor, planContext, planDeck, TANK_PER_M, ROLE_OF,
     BUILD_FOR, FIT, styleFit, cardAsks,
     renameDeck, deleteDeck, equipDeck, unequipRacer, deckForRacer, racersUsing,
     ROSTER: Roster.ROSTER, UNLOCKS, defOf, rarityOf,

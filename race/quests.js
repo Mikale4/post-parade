@@ -67,6 +67,10 @@
       desc: "Win the URA Finale.",
       check: c => c.life.champions >= 1,
       reward: { carrots: 2000, items: { racerTicket: 1 } } },
+    { id: "dream_champion", name: "The Summit", tier: "gold",
+      desc: "Win the Dream Trophy.",
+      check: c => c.life.dreamChampions >= 1,
+      reward: { carrots: 5000, items: { racerTicket: 2 } } },
     { id: "ura_thrice", name: "Dynasty", tier: "gold",
       desc: "Win the URA Finale three times.", goal: c => [c.life.champions, 3],
       check: c => c.life.champions >= 3, reward: { carrots: 5000, racer: { rarity: 3 } } },
@@ -149,7 +153,7 @@
 
   const blankCounters = () => ({
     races: 0, wins: 0, podiums: 0, g1Wins: 0,
-    trainings: 0, careers: 0, careersFinished: 0, champions: 0, uraWins: 0,
+    trainings: 0, careers: 0, careersFinished: 0, champions: 0, uraWins: 0, dreamChampions: 0,
     scouts: 0, cardScouts: 0, racerScouts: 0,
     decksBuilt: 0, starterPicked: 0, reachedClassic: 0, reachedUra: 0,
     maxStat: 0, maxFans: 0, bestRating: 0, bestGrade: "",
@@ -229,6 +233,7 @@
     careerEnd:   ["careersFinished"],
     uraWin:      ["uraWins"],
     champion:    ["champions"],
+    dreamChampion: ["dreamChampions"],          // the Dream Trophy's Grand Final
     scoutCard:   ["scouts", "cardScouts"],
     scoutRacer:  ["scouts", "racerScouts"],
     deckBuilt:   ["decksBuilt"],

@@ -45,6 +45,7 @@
   #scr-game .top .meta{color:#a8b8ac}
   #scr-game .top .meta b{color:#fff}
   #scr-game .gradetag{background:var(--gold);color:#3a2800;border-radius:var(--r-sm);padding:1px 7px;font:800 italic 14px var(--font-num)}
+  #scr-game .gradetag.dream{background:var(--board);color:var(--led);box-shadow:inset 0 0 0 1px var(--led-dim)}
   #scr-game .phase{padding:5px 11px 4px;border-radius:var(--r-sm);font:800 12px/1 var(--font-ui);color:var(--led);
          background:#0c140f;box-shadow:inset 0 0 0 1px #3a4a3e;letter-spacing:.04em}
   #scr-game .phase.final{background:var(--gold);color:#3a2800;box-shadow:none}
@@ -244,6 +245,8 @@
   #scr-game .bottom .chip small{color:var(--ink-3);font-size:11px;font-weight:700}
   #scr-game .bottom .chip img{width:26px;height:26px;object-fit:cover;object-position:top;border-radius:var(--r-sm)}
   #scr-game .bottom .chip.spent{opacity:.42}
+  /* a full-deck race holds fifteen: what she cannot play this moment is just its face */
+  #scr-game .bottom .chip.mini{padding:4px}
   #scr-game .bottom .chip.ready{box-shadow:inset 0 0 0 2px var(--turf),0 2px 0 var(--turf-lo)}
   #scr-game .bottom .chip b{font-weight:800}
 
@@ -323,6 +326,13 @@
   #modal .course.sel{background:var(--gold-pale);box-shadow:inset 5px 0 0 var(--turf),inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
   #modal .course.dirt.sel{box-shadow:inset 5px 0 0 #a8743a,inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
   #modal .course.sel span{color:var(--gold-lo)}
+  /* the exhibition's rules, ticketed like the courses; the Dream Exhibition wears the tote
+     board, as the Dream Trophy career does */
+  #modal .modes{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:9px}
+  #modal .course.mode span{font:700 12px/1.4 var(--font-ui);color:var(--ink-2)}
+  #modal .course.mode.dream{box-shadow:inset 5px 0 0 var(--board),inset 0 0 0 1px var(--rule),0 3px 0 var(--rule-2)}
+  #modal .course.mode.dream.sel{box-shadow:inset 5px 0 0 var(--board),inset 0 0 0 2px var(--gold),0 3px 0 var(--gold-lo)}
+  #modal .rb-who .rb-mode{color:var(--led)}
   #modal table,#scr-game table{width:100%;border-collapse:collapse;font-size:13px}
   #modal th,#modal td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--rule)}
   #modal th{color:var(--ink-3);font-weight:800;font-size:11.5px}
@@ -460,7 +470,7 @@
   /* rosterdata must load before stable (it is the catalogue stable reads), and stable
      before quests (quests pays out through it). shell stays last: it drives everything. */
   var mods = ["icons", "sim", "roster", "rosterdata", "carddata", "cards", "ai", "progression",
-              "uniques", "rivals", "skills", "careerdata", "career", "legacy", "stable", "quests", "bgdata", "bg",
+              "uniques", "rivals", "skills", "careerdata", "career", "legacy", "deckplans", "stable", "quests", "bgdata", "bg",
               "audiodata", "sound", "caller", "ambience",
               "fx", "reactions", "voxel", "attract", "trainer", "lines", "lobby", "settings", "auth",
               "glossary", "intros", "ui-meta", "ui-decks", "ui-career", "tutorials", "shell"];
@@ -515,6 +525,19 @@ const saveFor = id => loadSaves()[id] || { level:1, xp:0, deck:null };
 function putSave(id, data){ const s = loadSaves(); s[id] = Object.assign(saveFor(id), data); writeSaves(s); }
 
 let pickRacer = "specialweek", pickCourse = "classic", workingDeck = null;
+
+/* Two ways to run an exhibition. Normal deals five of the fifteen and the Callout redraws;
+   the Dream Exhibition is raced on the Dream Trophy career's rule -- every racer in the
+   field with her whole deck in reach, and a Callout that plays the card that is due, free.
+   The rule itself lives in ai.js (`fullDeck`), and both modes and the career pass it the
+   same way. The pick is remembered on this device. */
+const EX_MODES = {
+  normal: { name: "Normal Exhibition", fullDeck: false,
+            text: `${Racers.ACTIVE_SIZE} of ${Racers.DECK_SIZE} dealt at the gate; a Callout bins her hand and draws more.` },
+  dream:  { name: "Dream Exhibition", fullDeck: true,
+            text: `Every racer has her whole deck in reach; a Callout plays the card that is due, free. The Dream Trophy's rule.` },
+};
+let pickMode = (() => { try { const m = localStorage.getItem("postparade.exMode"); return EX_MODES[m] ? m : "normal"; } catch(e){ return "normal"; } })();
 
 /* Exhibition offers only the racers this account has actually recruited. Without this the
    stable listed all eleven and `pickRacer` defaulted to Special Week, so a new trainer who
@@ -644,7 +667,9 @@ function showDeck(){
   $("modal").style.display = "flex";
   $("sheet").innerHTML = `
     <h2>${def.name} &mdash; deck <span class="meta" style="font-size:13px">Lv ${b.level}</span></h2>
-    <p class="sub"><b>${p.name}.</b> ${p.blurb} Choose <b>${Racers.DECK_SIZE}</b> cards. At the gate, <b>${Racers.ACTIVE_SIZE}</b> are drawn at random &mdash; all your racer can reach. You hold <b>${Racers.CALLOUTS} Callouts</b>: shout at any moment to <b>bin the cards she is holding</b> and draw ${Racers.ACTIVE_SIZE} more. Binned cards are gone for the race, and ${Racers.DECK_SIZE} is exactly three hands &mdash; both Callouts empty the deck, so calling one on a good hand throws it away. Spirit (${Racers.SPIRIT_BUDGET} across the race) pays for what gets used, so a cheap deck can outplay an expensive one <em>if</em> you spend Callouts to open more slots. Stamina cards only repay you when stamina is what runs out.</p>
+    ${EX_MODES[pickMode].fullDeck
+      ? `<p class="sub"><b>${p.name}.</b> ${p.blurb} In a <b>Dream Exhibition</b> nothing is drawn: all <b>${Racers.DECK_SIZE}</b> cards are in reach from the gate, for her and for every rival, and spirit (${Racers.FULL_DECK.spirit} across the race) is the only limit. You hold <b>${Racers.FULL_DECK.callouts} Callouts</b>, and each one makes her play the card that is due <b>free</b>. Save them for the <b>run-in</b>, the last stretch: called as the final phase opens, she spends pace she cannot afford.</p>`
+      : `<p class="sub"><b>${p.name}.</b> ${p.blurb} Choose <b>${Racers.DECK_SIZE}</b> cards. At the gate, <b>${Racers.ACTIVE_SIZE}</b> are drawn at random &mdash; all your racer can reach. You hold <b>${Racers.CALLOUTS} Callouts</b>: shout at any moment to <b>bin the cards she is holding</b> and draw ${Racers.ACTIVE_SIZE} more. Binned cards are gone for the race, and ${Racers.DECK_SIZE} is exactly three hands &mdash; both Callouts empty the deck, so calling one on a good hand throws it away. Spirit (${Racers.SPIRIT_BUDGET} across the race) pays for what gets used, so a cheap deck can outplay an expensive one <em>if</em> you spend Callouts to open more slots. Stamina cards only repay you when stamina is what runs out.</p>`}
     <h3>Passives</h3><div class="passrow">${passives || '<span class="meta">none</span>'}</div>
     <h3>Deck <span id="deckCount" class="meta"></span></h3>
     ${equipped ? `
@@ -655,6 +680,9 @@ function showDeck(){
       }).join("")}</div>`
     : `<p class="sub" style="margin-top:0;margin-bottom:10px">She has <b>no deck equipped</b>, so she will
         race with whatever you own. Build one in <b>Decks</b> and equip it to her.</p>`}
+    <h3>Mode</h3>
+    <div class="modes">${Object.keys(EX_MODES).map(m => `<button class="course mode ${m}${m===pickMode?" sel":""}"
+      data-mode="${m}"><b>${EX_MODES[m].name}</b><span>${EX_MODES[m].text}</span></button>`).join("")}</div>
     <h3>Course</h3>
     <div class="courses">${COURSES.map(c => `<button class="course ${c.surface}${c.id===pickCourse?" sel":""}"
       data-course="${c.id}"><b>${c.name}</b><span>${c.distance}m &middot; ${c.surface}</span></button>`).join("")}</div>
@@ -681,6 +709,11 @@ function showDeck(){
 
   $("sheet").querySelectorAll("[data-course]").forEach(el =>
     el.onclick = () => { pickCourse = el.dataset.course; showDeck(); });
+  $("sheet").querySelectorAll("[data-mode]").forEach(el => el.onclick = () => {
+    pickMode = el.dataset.mode;
+    try { localStorage.setItem("postparade.exMode", pickMode); } catch(e){}
+    showDeck();
+  });
   $("toDecks").onclick = () => {
     $("modal").style.display = "none";
     Shell.go("scr-decks", UIDecks.listBuild);
@@ -705,17 +738,25 @@ function start(opts){
   const meId   = career ? "trainee" : pickRacer;
 
   // everyone enters at their saved level, carrying whatever deck they last raced with
+  /* A career def arrives with its `mods` already worked out -- her passives, and whatever
+     her purchased skills added -- and Progress.build would replace them with a blank set
+     (the def carries no passive count), so they are kept. */
   const defs = career
-    ? career.field.map(d => Progress.build(d, { level: d.level || 1, passives: d.passives || 0 }))
-    : fieldFor(pickRacer).map(r => Progress.build(r, saves[r.id] || {level:1,xp:0}));
+    ? career.field.map(d => Object.assign(Progress.build(d, { level: d.level || 1, passives: d.passives || 0 }),
+                                          d.mods ? { mods: d.mods } : null))
+    : fieldFor(pickRacer).map(r => Progress.build(r, Object.assign({ level: 1, xp: 0 }, saves[r.id],
+        /* Her passives come from scouted duplicates, which the stable counts -- this save
+           holds only level, XP and deck, so without this she raced with none of them. */
+        r.id === pickRacer && window.Stable ? { passives: Stable.passivesOf(r.id) } : null)));
   const S = Sim.createRace(defs, course, seed);
 
   const personalities = {}, decks = {};
   for (const d of defs) {
     personalities[d.id] = d.personality;
     if (career) {
-      // the trainee races the player's deck; the field shares it so nobody runs empty
-      decks[d.id] = career.deck;
+      /* The trainee races the player's deck. A URA field shares it so nobody runs empty;
+         a Dream Trophy rival brings her own (card ids, from career.js). */
+      decks[d.id] = d.deck ? d.deck.map(id => Cards.byId[id]).filter(Boolean) : career.deck;
       continue;
     }
     if (d.id === pickRacer) decks[d.id] = workingDeck.map(id => Cards.byId[id]);
@@ -726,7 +767,12 @@ function start(opts){
   }
   Uniques.arm(S, defs);
   if (window.Skills) Skills.arm(S, defs);
-  const ctrls = Racers.createField(S, personalities, seed, decks);
+  /* How each controller is built. A career says (whole decks, and the sharp read, in a
+     Dream Trophy); an exhibition runs its mode's rule for the whole field. The tutorial
+     race is always a normal one -- it is a lesson in redrawing. */
+  const mode = career || opts.tutorial ? null : pickMode;
+  const ctrls = Racers.createField(S, personalities, seed, decks,
+    career ? career.rules : { fullDeck: !!(mode && EX_MODES[mode].fullDeck) });
   const me = S.racers.find(r => r.id === meId);
   const def = defs.find(r => r.id === meId) || defOf(meId);
 
@@ -735,14 +781,18 @@ function start(opts){
   if (window.Voxel && Voxel.endCut) Voxel.endCut();
   G = { S, me, course, ctrls, myCtrl: ctrls.find(c => c.racer === me),
         floats: [], startWall: performance.now(), done: false, paused: false, pauseFrom: 0,
-        stuck: 0, stuckTotal: 0, emptyTotal: 0, thinTotal: 0, career,
+        stuck: 0, stuckTotal: 0, emptyTotal: 0, thinTotal: 0, career, mode, calledAt: [],
         tutorial: !!opts.tutorial };
   $("courseInfo").innerHTML = `<b>${course.name}</b>` +
-    (career ? ` &middot; <span class="gradetag">${career.label}</span>` : "") +
+    (career ? ` &middot; <span class="gradetag">${career.label}</span>`
+      : mode === "dream" ? ` &middot; <span class="gradetag dream">${EX_MODES[mode].name}</span>` : "") +
     ` &middot; ${course.distance}m ${course.surface}`;
   $("myName").textContent = me.name;
   const coLabel = document.querySelector("#btnCallout .colabel");
   if (window.Icon && !coLabel.querySelector("svg")) coLabel.insertAdjacentHTML("afterbegin", Icon("megaphone"));
+  // a full-deck Callout cannot redraw anything -- it tells her to play the card that is due
+  document.querySelector("#btnCallout .cosub").textContent = G.myCtrl.fullDeck
+    ? "play the right card now, free" : `bin these, draw ${Racers.ACTIVE_SIZE} more`;
   $("myStyle").textContent = `Lv ${me.level} · ${me.style.name} · ${Racers.PERSONALITIES[def.personality].name}`;
   rate = (window.Settings ? Settings.get("raceSpeed") : rate) || rate;
   document.querySelectorAll(".rate button").forEach(x =>
@@ -842,7 +892,7 @@ function gateIn(career, then){
 
   const el = document.createElement("div");
   el.className = "gate";
-  const grade = career ? career.label : "Exhibition";
+  const grade = career ? career.label : G.mode ? EX_MODES[G.mode].name : "Exhibition";
   /* The image is assigned as a property rather than built into the markup: an inline
      style needs quotes inside quotes, and that is a needless place to get it wrong. */
   el.innerHTML =
@@ -887,8 +937,12 @@ function gateIn(career, then){
 }
 
 function maybeFirstRunTip(){
+  /* A full-deck race (the Dream Trophy) changes what the Callout is, so its first one gets
+     a tip of its own, once, whether or not the ordinary one has been seen. */
+  const full = G.myCtrl.fullDeck;
+  const key = full ? "postparade.tip.full" : "postparade.tip";
   let seen = false;
-  try { seen = localStorage.getItem("postparade.tip") === "1"; } catch(e){}
+  try { seen = localStorage.getItem(key) === "1"; } catch(e){}
   if (seen) return;
   /* The tip is only marked seen when it is dismissed, so a player who ignores it gets
      another one next race -- and they stack, all sharing #tipOk. `$` returns the FIRST
@@ -898,14 +952,21 @@ function maybeFirstRunTip(){
   document.querySelectorAll(".firsttip").forEach(n => n.remove());
   const el = document.createElement("div");
   el.className = "firsttip";
-  el.innerHTML = `<div class="ft-text"><b>You do not play the cards.</b> ${G.me.name} decides when to use them.
+  el.innerHTML = full
+    ? `<div class="ft-text"><b>Her whole deck is in reach.</b> In the Dream Trophy nothing is drawn:
+    all ${Racers.DECK_SIZE} cards are hers from the gate, and spirit is the only limit. So the <b>Callout</b>
+    changes. Hit it and ${G.me.name} plays the card that is right for this moment &mdash; free. You get
+    ${Racers.FULL_DECK.callouts}. Save them for the <b>run-in</b>, the last stretch: called as the final
+    phase opens, she spends pace she cannot afford. Her rivals know this too.</div>
+    <button id="tipOk">Got it</button>`
+    : `<div class="ft-text"><b>You do not play the cards.</b> ${G.me.name} decides when to use them.
     Your job is the <b>Callout</b> &mdash; when she is stuck holding cards she cannot play,
     hit it to bin them and draw ${Racers.ACTIVE_SIZE} more. The binned cards are gone, so time it for a dead hand. You get
     ${Racers.CALLOUTS}, and they do not carry over.</div>
     <button id="tipOk">Got it</button>`;
   document.querySelector(".stage").appendChild(el);
   el.querySelector("#tipOk").onclick = () => {
-    try { localStorage.setItem("postparade.tip", "1"); } catch(e){}
+    try { localStorage.setItem(key, "1"); } catch(e){}
     el.remove();
   };
 }
@@ -914,6 +975,7 @@ function maybeFirstRunTip(){
    unusable is the whole basis for deciding to spend a Callout. */
 function renderPlayed(){
   if (!G) return;
+  if (G.myCtrl.fullDeck) return renderWholeDeck();
   const ct = G.myCtrl, me = G.me;
   const sp = Racers.spiritOf(ct, G.course);
   const ph = Sim.phaseOf(me.pos / G.course.distance);
@@ -970,6 +1032,45 @@ function renderPlayed(){
   $("played").className = "played" + (live === 0 && !poorNotStuck && total > 0 && !over ? " stuck" : "");
 }
 
+/* The full-deck panel (Dream Trophy). Fifteen cards do not fit as chips, so the ones she
+   could play this moment are shown whole and the rest as faces, with why on hover. There
+   is nothing to redraw, so the Callout's hint is about timing: it lights up in the
+   run-in, the moment Racers.callDue measures as the one that pays. */
+function renderWholeDeck(){
+  const ct = G.myCtrl, me = G.me;
+  const sp = Racers.spiritOf(ct, G.course);
+  const ph = Sim.phaseOf(me.pos / G.course.distance);
+  const cards = ct.active.filter(Boolean);
+  const why = c => Cards.playable(c, me, G.S, sp, ph);
+  const ready = cards.filter(c => !why(c));
+  $("played").innerHTML =
+    ready.map(c => `<div class="chip ready"><img src="assets/cards/${c.id}.png" alt="">
+      <span><b>${c.ability}</b> <small>${c.cost}sp</small><br><small>ready</small></span></div>`).join("") +
+    cards.filter(why).map(c => `<div class="chip mini dead" title="${c.ability} (${c.cost}sp): ${why(c)}">
+      <img src="assets/cards/${c.id}.png" alt=""></div>`).join("") +
+    ct.played.slice(-3).map(id =>
+      `<div class="chip spent"><img src="assets/cards/${id}.png" alt=""><b>${Cards.byId[id].ability}</b> <small>used</small></div>`).join("") +
+    `<span class="meta">Whole deck &middot; ${cards.length} in hand &middot; ${ready.length} playable now</span>`;
+  $("played").className = "played";
+
+  const over = G.done || me.finished;
+  const due = over ? null : Racers.callDue(ct, G.S, G.course);
+  const btn = $("btnCallout"), box = btn.parentElement;
+  btn.disabled = over || !Racers.canCallout(ct, G.S, G.course);
+  $("copips").innerHTML = Array.from({ length: Racers.FULL_DECK.callouts }, (_, i) =>
+    `<i class="${i < ct.callouts ? "" : "used"}"></i>`).join("");
+  let state = "", hint;
+  if (over)                    hint = "&nbsp;";
+  else if (ct.callouts <= 0) { state = "spent"; hint = "No Callouts left."; }
+  else if (due)              { state = "urgent"; hint = `Run-in &mdash; call it: ${due.card.ability}`; }
+  // in the run-in with nothing timed for it: what she has left would not help now
+  else if (me.pos / G.course.distance > Racers.RUN_IN) hint = "Nothing left worth calling";
+  else                         hint = ph === 2 ? "Not yet &mdash; hold it for the run-in" : "Save it for the run-in";
+  box.className = "callout" + (state ? " " + state : "");
+  const wantHints = !window.Settings || Settings.get("showHints");
+  $("cohint").innerHTML = wantHints ? hint : "&nbsp;";
+}
+
 function loop(now){
   if (!G) { looping = false; return; }
   /* Sim time is derived from the wall clock, so a pause cannot simply skip stepping --
@@ -988,7 +1089,8 @@ function loop(now){
       const sdt = Math.min(0.02, wantT - G.S.t);
       Sim.step(G.S, sdt);
       for (const e of Racers.updateAll(G.ctrls, G.S, G.course, sdt)) {
-        G.floats.push({ id: e.racer.id, text: e.msg, t0: G.S.t });
+        // a Dream Trophy rival spending her own Callout says so
+        G.floats.push({ id: e.racer.id, text: e.free ? "CALLOUT: " + e.msg : e.msg, t0: G.S.t });
         if (e.racer === G.me) mine = true;
       }
       for (const e of G.S.events) {
@@ -1338,6 +1440,20 @@ function showResults(order, rank){
     coach = `<div class="coach"><b>${unspent} Callout${unspent > 1 ? "s" : ""} unspent</b> on only
       ${ct.played.length} cards played. A cheaper deck plays more, but only if you redraw.</div>`;
   }
+  /* A full-deck race has no dead hand to rescue, so the note is about timing instead --
+     the thing validate-balance measured: the run-in pays, early costs. */
+  if (ct.fullDeck) {
+    const early = G.calledAt.filter(f => f <= Racers.RUN_IN);
+    const pct = f => Math.round(f * 100) + "%";
+    coach = early.length
+      ? `<div class="coach"><b>Called at ${early.map(pct).join(" and ")} of the trip.</b> In the run-in, the
+          last tenth, a Callout is worth about two places; earlier, she plays pace she cannot afford.</div>`
+      : G.calledAt.length
+      ? `<div class="coach good"><b>Called in the run-in.</b> Exactly when a free card pays.</div>`
+      : unspent > 0
+      ? `<div class="coach"><b>${unspent} Callout${unspent > 1 ? "s" : ""} unspent.</b> In the run-in each one
+          plays the card that is due, free, and they do not carry over.</div>` : "";
+  }
 
   const t0 = order[0].finishT;
   $("modal").style.display = "flex";
@@ -1346,7 +1462,8 @@ function showResults(order, rank){
     <div class="rb">
       <div class="rb-place${rank===1?" win":""}">${rank}<small>${ordinal(rank)}</small></div>
       <div class="rb-who"><b>${def.name}</b>
-        <span>${G.course.distance}m ${G.course.surface} &middot; ${order.length} ran</span></div>
+        <span>${G.course.distance}m ${G.course.surface} &middot; ${order.length} ran &middot;
+          <span class="${G.mode === "dream" ? "rb-mode" : ""}">${EX_MODES[G.mode || "normal"].name}</span></span></div>
       <div class="rb-xp"><small>XP</small>+${gained}</div>
     </div>
     ${coach}${lvNote}
@@ -1410,8 +1527,13 @@ $("btnCam").onclick = () => {
 $("btnCallout").onclick = () => {
   // not before the off: Space skips the fanfare, and must not also spend a Callout
   if (!G || G.done || G.me.finished || G.atGate) return;
-  if (!Racers.canCallout(G.myCtrl) || !Racers.callout(G.myCtrl)) return;
-  G.floats.push({ id: G.me.id, text: "CALLOUT", t0: G.S.t });
+  if (!Racers.canCallout(G.myCtrl, G.S, G.course)) return;
+  // a full-deck Callout hands back the card she played; say which, over her head
+  const res = Racers.callout(G.myCtrl, G.S, G.course);
+  if (!res) return;
+  G.calledAt.push(G.me.pos / G.course.distance);      // when, for the results sheet's note
+  G.floats.push({ id: G.me.id, text: res.card ? "CALLOUT: " + res.card.ability : "CALLOUT", t0: G.S.t });
+  if (res.card && window.Shell) Shell.notify("cardPlayed");
   FX.sparkleOn($("btnCallout"), { count: 16, spread: 46 });
   renderPlayed();
   if (window.Shell) Shell.notify("callout");

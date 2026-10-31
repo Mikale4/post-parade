@@ -82,6 +82,24 @@
   const SPIRIT_BUDGET = 15;
   const SPIRIT_CAP = 8;
 
+  /* Full-deck races (the Dream Trophy career): no hand, no draw. All fifteen cards are in
+     reach from the gate, so the deck cannot run dry and spirit is the only thing that
+     limits her. A Callout cannot redraw anything, so it changes meaning: the trainer
+     shouts "now", and she plays the card that is right for this moment -- read by the
+     trainer, not through her own wit -- without paying spirit for it. Same two per race,
+     same button. `spirit` was set by validate-balance's full-deck section. */
+  const FULL_DECK = { spirit: 15, callouts: 2 };
+
+  /* The Dream Trophy field reads a race better than the URA field does: less of the wit
+     misjudgement (the lever the Cool Head passive halves), and they spend their own
+     Callouts -- which no URA rival ever does. Measured with validate-career's same-race
+     comparison, the read is the part that tells: against rivals racing decks as good as
+     hers, x0.5 took her from winning 87% of the races she won in a URA field to 72%, and
+     steadier hands (less impulsive firing) measured nothing, so they are not here. 0.85
+     is the setting the whole scenario was tuned at. validate-balance shows the full
+     effect at parity. */
+  const SHARP = { biasMul: 0.85, calls: true };
+
   function shuffle(arr, rng) {
     for (let i = arr.length - 1; i > 0; i--) {
       const j = (rng() * (i + 1)) | 0;
@@ -169,30 +187,40 @@
    * Build the controller for one racer. `deck` is the constructed 15; ACTIVE_SIZE of
    * them are drawn at the gate. Played cards are spent -- the active set only refills
    * when the coach spends a Callout.
+   *
+   * `rules` (optional): { fullDeck } puts the whole deck in reach and turns the Callout
+   * into "play the right card now"; { sharp } is the Dream Trophy field's better read.
    */
-  function makeController(racer, personalityKey, seed, deck) {
+  function makeController(racer, personalityKey, seed, deck, rules) {
+    rules = rules || {};
     const rng = Sim.mulberry32(seed >>> 0);
     const p = PERSONALITIES[personalityKey] || PERSONALITIES.calculating;
     const full = shuffle((deck && deck.length ? deck.slice() : buildDeck(racer, rng)), rng);
+    const fullDeck = !!rules.fullDeck, sharp = !!rules.sharp;
     return {
-      racer, rng, p, personality: personalityKey,
-      library: full.slice(ACTIVE_SIZE),
-      active: full.slice(0, ACTIVE_SIZE),
+      racer, rng, p, personality: personalityKey, fullDeck, sharp,
+      library: fullDeck ? [] : full.slice(ACTIVE_SIZE),
+      active: fullDeck ? full : full.slice(0, ACTIVE_SIZE),
       discard: [], played: [], spent: 0, cooldown: 0,
-      callouts: CALLOUTS,
-      bias: witBias(racer.stats.wit) * ((racer.mods && racer.mods.biasMul) || 1),
+      callouts: fullDeck ? FULL_DECK.callouts : CALLOUTS,
+      bias: witBias(racer.stats.wit) * ((racer.mods && racer.mods.biasMul) || 1) *
+            (sharp ? SHARP.biasMul : 1),
       poise: clamp((0.20 + 0.80 * clamp(racer.stats.wit / 1150, 0, 1.1)) *
                    (0.72 + 0.28 * p.poise), 0.08, 1),
-      budget: SPIRIT_BUDGET + ((racer.mods && racer.mods.spirit) || 0),
+      budget: (fullDeck ? FULL_DECK.spirit : SPIRIT_BUDGET) +
+              ((racer.mods && racer.mods.spirit) || 0),
     };
   }
 
-  function createField(S, personalities, seed, decks) {
+  /* `rules` is either one rules object for the whole field or a function of the racer,
+     so a career can hand the trainee and her rivals different ones. */
+  function createField(S, personalities, seed, decks, rules) {
     return S.racers.map((r, i) => makeController(
       r,
       (personalities && personalities[r.id]) || "calculating",
       (seed + i * 6151) >>> 0,
-      decks && decks[r.id]
+      decks && decks[r.id],
+      typeof rules === "function" ? rules(r) : rules
     ));
   }
 
@@ -216,7 +244,8 @@
    * Refuses when the library is empty -- discarding a hand for nothing is never right,
    * and the UI should not offer it.
    */
-  function callout(ct) {
+  function callout(ct, S, course) {
+    if (ct.fullDeck) return callNow(ct, S, course);
     if (ct.callouts <= 0 || !ct.library.length) return false;
     ct.callouts--;
     for (const c of ct.active) if (c) ct.discard.push(c);
@@ -225,8 +254,79 @@
     return true;
   }
 
+  /* The trainer's read: no wit misjudgement, no temperament. Whatever her personality
+     would have reached for, the rail sees the race as it is. */
+  const TRAINER_EYE = { fracBias: 0, hpBias: 0, poise: 1,
+    favours: { Burst: 1, Gamble: 1, Recovery: 1, Tempo: 1, Counter: 1, Support: 1 } };
+
+  /**
+   * The card a full-deck Callout would play right now, or null. Legal now apart from
+   * spirit (the Callout pays for it), and the best-timed by the trainer's read; when
+   * nothing is timed for this moment at all, the strongest.
+   */
+  function callPick(ct, S, course) {
+    const r = ct.racer;
+    if (!S || !course || r.finished) return null;
+    const phase = Sim.phaseOf(clamp(r.pos / course.distance, 0, 1));
+    let best = -1, bestScore = -1;
+    for (let i = 0; i < ct.active.length; i++) {
+      const c = ct.active[i];
+      if (!c || Cards.playable(c, r, S, 99, phase)) continue;
+      const w = Cards.weight(c);
+      const sc = timingScore(c, r, S, course, TRAINER_EYE, 0) * (1 + w * 0.012) + w * 1e-4;
+      if (sc > bestScore) { best = i; bestScore = sc; }
+    }
+    return best < 0 ? null : { idx: best, card: ct.active[best], score: bestScore };
+  }
+
+  /** Full-deck Callout: she plays the pick now, free. Returns the play, as update() does. */
+  function callNow(ct, S, course) {
+    if (ct.callouts <= 0) return false;
+    const pick = callPick(ct, S, course);
+    if (!pick) return false;
+    ct.callouts--;
+    return fire(ct, pick.idx, S, true);
+  }
+
   /** Would a Callout actually give this racer anything? */
-  const canCallout = ct => ct.callouts > 0 && ct.library.length > 0;
+  const canCallout = (ct, S, course) => ct.callouts > 0 &&
+    (ct.fullDeck ? !S || !!callPick(ct, S, course) : ct.library.length > 0);
+
+  /** Spend a card from the active set. `free` is a full-deck Callout's play. */
+  function fire(ct, idx, S, free) {
+    const card = ct.active[idx];
+    if (!free) ct.spent += card.cost;
+    ct.active.splice(idx, 1);
+    ct.discard.push(card);
+    ct.played.push(card.id);
+    ct.cooldown = 1.1;
+    const res = Cards.play(card, ct.racer, S, Sim);
+    return { racer: ct.racer, card, msg: card.ability, target: res.target, free: !!free };
+  }
+
+  /* When a full-deck Callout is well spent: in the run-in, the last tenth of the trip, on
+     a card that is actually timed for it. Measured at parity (validate-balance), across
+     weak, middling and strong fields alike, this was the one rule that always paid --
+     about two places. Earlier is worse, not better: the free card she plays as the final
+     phase opens is usually pace she then cannot afford, and calls at the gate go on cards
+     that would have come good anyway. The race screen marks the moment; sharp rivals
+     call on it. */
+  const RUN_IN = 0.9;
+  function callDue(ct, S, course) {
+    if (!ct.fullDeck || ct.callouts <= 0 || ct.racer.finished) return null;
+    if (ct.racer.pos / course.distance <= RUN_IN) return null;
+    const pick = callPick(ct, S, course);
+    return pick && pick.score > 0.1 ? pick : null;
+  }
+
+  /** A sharp rival spends her own Callouts, and spends them when they pay. */
+  function sharpCall(ct, S, course) {
+    if (!ct.sharp || !SHARP.calls || ct.cooldown > 0) return null;
+    const pick = callDue(ct, S, course);
+    if (!pick) return null;
+    ct.callouts--;
+    return fire(ct, pick.idx, S, true);
+  }
 
   function update(ct, S, course, dt) {
     const r = ct.racer;
@@ -234,6 +334,9 @@
 
     ct.cooldown -= dt;
     if (ct.cooldown > 0) return null;
+
+    const called = sharpCall(ct, S, course);
+    if (called) return called;
 
     const frac = clamp(r.pos / course.distance, 0, 1);
     const spirit = spiritOf(ct, course);
@@ -250,21 +353,14 @@
     if (!best) return null;
 
     const BAR = 0.62;
-    let fire = bestScore >= BAR;
-    if (!fire && bestScore > 0.15) {
+    let go = bestScore >= BAR;
+    if (!go && bestScore > 0.15) {
       const impulse = (1 - ct.poise) * 0.55;
-      if (ct.rng() < impulse * dt) fire = true;
+      if (ct.rng() < impulse * dt) go = true;
     }
-    if (!fire && frac > 0.88 && bestScore > 0.10) fire = true;
-    if (!fire) return null;
-
-    ct.spent += best.cost;
-    ct.active.splice(bestIdx, 1);
-    ct.discard.push(best);
-    ct.played.push(best.id);
-    ct.cooldown = 1.1;
-    const res = Cards.play(best, r, S, Sim);
-    return { racer: r, card: best, msg: best.ability, target: res.target };
+    if (!go && frac > 0.88 && bestScore > 0.10) go = true;
+    if (!go) return null;
+    return fire(ct, bestIdx, S, false);
   }
 
   function updateAll(controllers, S, course, dt) {
@@ -276,9 +372,9 @@
     return events;
   }
 
-  const api = { PERSONALITIES, DECK_SIZE, ACTIVE_SIZE, CALLOUTS, SPIRIT_BUDGET,
-                createField, makeController, updateAll, update, callout, canCallout, spiritOf,
-                timingScore, buildDeck, shuffle };
+  const api = { PERSONALITIES, DECK_SIZE, ACTIVE_SIZE, CALLOUTS, SPIRIT_BUDGET, FULL_DECK, SHARP,
+                RUN_IN, createField, makeController, updateAll, update, callout, canCallout,
+                callPick, callDue, spiritOf, timingScore, buildDeck, shuffle };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Racers = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

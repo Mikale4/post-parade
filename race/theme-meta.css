@@ -1388,3 +1388,55 @@
             max-width:340px}
 .cintro-uni b{color:#6b4e00;font-size:13.5px}
 .cintro-uni i{font-style:normal;font-size:11.5px;color:#8a7233;line-height:1.45}
+
+/* ---------- the Dream Trophy ----------
+   The second career scenario wears the tote board: the dark board and its LED amber,
+   where URA Finale wears gold. The same race-day language, under the lights. Used on the
+   picker, the calendar block, the finale card and schedule, the grade reveal and the
+   ending. */
+.scn-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:2px 0 12px}
+.scn{display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:6px;padding:0 0 12px;
+  background:var(--paper);border:1px solid var(--rule-2);border-radius:var(--r-lg);overflow:hidden;
+  color:var(--ink);box-shadow:0 3px 0 var(--rule-2);cursor:pointer;transition:transform .08s,box-shadow .12s}
+.scn:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--rule-2)}
+.scn.sel{box-shadow:inset 0 0 0 3px var(--turf),0 3px 0 var(--turf-lo)}
+.scn-hd{font:800 11px/1 var(--font-ui);letter-spacing:.08em;text-transform:uppercase;padding:7px 14px 6px;
+  background:var(--gold);color:#3a2800}
+.scn.s-dream .scn-hd{background:var(--board);color:var(--led)}
+.scn-name{font:400 21px/1.1 var(--font-display);padding:4px 14px 0}
+.scn.s-dream .scn-name{color:var(--board)}
+.scn-blurb{font-size:12.5px;line-height:1.45;color:var(--ink-2);padding:0 14px}
+.scn-facts{display:flex;flex-direction:column;gap:4px;padding:6px 14px 0;font-size:12px;font-weight:700;color:var(--ink)}
+.scn-facts span{display:flex;gap:8px;line-height:1.35}
+.scn-facts i{flex:none;width:62px;font-style:normal;font:800 10.5px/1.6 var(--font-ui);color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.04em}
+
+.cal.dream .cal-yr{background:var(--board);color:var(--led)}
+.cal.dream.camp .cal-yr{background:var(--sky);color:#fff}
+.cal-scn{align-self:stretch;text-align:center;font:800 10px/1 var(--font-ui);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--led);background:var(--board-2);padding:3px 0 4px}
+
+.ura.dream .ustep.now{background:var(--led);border-color:var(--led-dim);color:var(--board)}
+.ura.dream .ura-card{background:var(--board);border-color:var(--led-dim)}
+.ura.dream .ura-title{color:var(--led)}
+.ura.dream .ura-sub,.ura.dream .ura-card p{color:#cfd8d0}
+.ura.dream .ura-card p b{color:#fff}
+
+.cal-year.finale.dream{border-bottom-color:var(--board)}
+.cal-year.finale.dream .cy-name{color:var(--board)}
+
+.cmoment.kfinale.dream .cm-title{color:var(--led)}
+.cmoment.kfinale.dream .cm-kicker{background:var(--board);color:var(--led);box-shadow:0 3px 0 #000}
+
+.gr-champ.dream{background:var(--board);color:var(--led);box-shadow:inset 0 0 0 2px var(--led-dim),0 6px 22px rgba(0,0,0,.5)}
+
+.end-rewards small{display:block;font:700 11px var(--font-ui);color:var(--ink-3);margin-top:2px}
+.end-panel.dream .end-rewards{background:var(--board);box-shadow:inset 0 0 0 1px var(--led-dim)}
+.end-panel.dream .end-rewards i{color:#a8b8ac}
+.end-panel.dream .end-rewards b{color:var(--led)}
+.end-panel.dream .end-rewards small{color:#a8b8ac}
+
+.cintro-dream{display:flex;flex-direction:column;gap:4px;background:rgba(23,34,27,.88);
+  border-left:4px solid var(--led);border-radius:8px;padding:10px 13px;max-width:400px;font-size:12.5px;font-weight:700}
+.cintro-dream b{color:var(--led);font-size:13.5px;margin-bottom:2px}
+.cintro-dream span{color:#e6ece8}

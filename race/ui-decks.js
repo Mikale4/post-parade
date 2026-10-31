@@ -12,8 +12,8 @@
  * All the rules live in stable.js (Stable.checkDeck is the single source of what is
  * legal). This file shows what it returns and never decides anything itself.
  *
- * A deck may hold the same card more than once, up to the number of copies owned --
- * that is what a duplicate pull buys, so the grid counts rather than toggles.
+ * A deck may hold a card twice (Stable.COPY_MAX), if two copies are owned -- that is what
+ * a duplicate pull buys, so the grid counts rather than toggles.
  *
  * Exposes UIDecks.
  */
@@ -201,47 +201,104 @@
   }
 
   // ---------------------------------------------------------------- auto-build
-  /* "Let her decide", in two questions: how to spend (the focus), then which running
-     style to build for. Three focuses, because there is no single right answer --
-     stable.js measured them and the notes below are what the measurement says, not
-     flavour text. `mix` is offered first because it wins most often. */
-  async function askFocus(def) {
-    const S = Stable.PICK_STYLES;
+  /* "Let her decide". First, how much to plan: her simple thoughts (one tap -- her own
+     style, her best distance and track, the Balanced plan) or a planned strategy, four
+     questions: the focus, the running style, the distance, the track. Every answer moves
+     the deck: stable.js builds it from plans measured per race (deckplans.js). Back on any
+     question returns to the one before; cancelling the first ends it. */
+  const aptOf = (def, k) => ((def && def.aptitude) || {})[k] || "?";
+  const styleName = k => (root.Sim && Sim.STYLES[k]) ? Sim.STYLES[k].name : k;
+
+  async function askMode(def) {
+    const best = Stable.bestFor(def), D = Stable.DISTANCES[best.distance], T = Stable.TRACKS[best.surface];
     return UIMeta.choose({
       title: "Let " + esc(def.name) + " decide",
-      message: "She builds from the cards you own. Which way?",
-      options: ["mix", "expensive", "cheap"].map(k => ({
-        value: k, label: S[k].name, note: S[k].note, art: Stable.spriteFor(def.id), bust: def,
-      })),
+      message: "She builds from the cards you own. How much should she plan?",
+      options: [
+        { value: "simple", label: "Her simple thoughts", art: Stable.spriteFor(def.id), bust: def,
+          note: "She picks what she feels is best for her overall: running as a " + styleName(def.style) +
+                ", over her best distance (" + D.name + ") on her best track (" + T.name + ")." },
+        { value: "planned", label: "Her planned strategy",
+          note: "You talk it through: how to spend, which running style, what distance, which track." },
+      ],
     });
   }
 
-  /* The second question. Her own style is the default and is marked as hers; the others
-     are there because the player asked to be able to build for them. Listed in race order,
-     lead to back, so the four read as one scale. */
+  async function askFocus(def) {
+    const F = Stable.FOCUSES;
+    return UIMeta.choose({
+      title: "Planned strategy",
+      message: "How should " + esc(def.name) + " spend?",
+      options: Object.keys(F).map(k => ({ value: k, label: F[k].name, note: F[k].note, sel: k === "mix" })),
+      cancel: "Back",
+    });
+  }
+
+  /* Her own style is the default and is marked as hers. Listed lead to back. */
   async function askRunStyle(def, focus) {
     const B = Stable.BUILD_FOR;
-    const name = k => (root.Sim && Sim.STYLES[k]) ? Sim.STYLES[k].name : k;
     return UIMeta.choose({
-      title: Stable.PICK_STYLES[focus].name + " build",
+      title: Stable.FOCUSES[focus].name + " build",
       message: "Which running style should she build for? She races as " +
-        (/^[AEIOU]/.test(name(def.style)) ? "an " : "a ") + "<b>" + esc(name(def.style)) + "</b>.",
+        (/^[AEIOU]/.test(styleName(def.style)) ? "an " : "a ") + "<b>" + esc(styleName(def.style)) + "</b>.",
       options: Object.keys(B).map(k => ({
         value: k, sel: k === def.style,
-        label: name(k) + (k === def.style ? " \u00b7 hers" : ""),
+        label: styleName(k) + (k === def.style ? " · hers" : ""),
         note: B[k].note,
       })),
       cancel: "Back",
     });
   }
 
-  /** Both questions. Back on the second returns to the first; null means cancelled. */
+  /* Her aptitude on each, so the trainer can see where she is strong. Her best is marked. */
+  async function askDistance(def, focus) {
+    const D = Stable.DISTANCES, best = Stable.bestFor(def).distance;
+    return UIMeta.choose({
+      title: Stable.FOCUSES[focus].name + " build",
+      message: "What distance is it for? Long races, and races her stamina will not last, want heals; short ones want pace.",
+      options: Object.keys(D).map(k => ({
+        value: k, sel: k === best,
+        label: D[k].name + " · " + D[k].range + (k === best ? " · her best" : ""),
+        note: "Her aptitude: " + aptOf(def, k),
+      })),
+      cancel: "Back",
+    });
+  }
+
+  async function askTrack(def, focus) {
+    const T = Stable.TRACKS, best = Stable.bestFor(def).surface;
+    return UIMeta.choose({
+      title: Stable.FOCUSES[focus].name + " build",
+      message: "Which track? On ground she is weak on (C or worse) she runs behind, and cards that work on the racer in front pay more.",
+      options: Object.keys(T).map(k => ({
+        value: k, sel: k === best,
+        label: T[k].name + (k === best ? " · her best" : ""),
+        note: "Her aptitude: " + aptOf(def, k),
+      })),
+      cancel: "Back",
+    });
+  }
+
+  /** The questions. Back steps to the previous one; null means cancelled. */
   async function askBuild(def) {
     for (;;) {
-      const focus = await askFocus(def);
-      if (!focus) return null;
-      const runStyle = await askRunStyle(def, focus);
-      if (runStyle) return { focus, runStyle };
+      const mode = await askMode(def);
+      if (!mode) return null;
+      if (mode === "simple") {
+        const best = Stable.bestFor(def);
+        return { simple: true, focus: "mix", runStyle: def.style, distance: best.distance, surface: best.surface };
+      }
+      const steps = [
+        p => askFocus(def).then(v => v && (p.focus = v)),
+        p => askRunStyle(def, p.focus).then(v => v && (p.runStyle = v)),
+        p => askDistance(def, p.focus).then(v => v && (p.distance = v)),
+        p => askTrack(def, p.focus).then(v => v && (p.surface = v)),
+      ];
+      const pick = {};
+      let i = 0;
+      while (i >= 0 && i < steps.length) i = (await steps[i](pick)) ? i + 1 : i - 1;
+      if (i === steps.length) return pick;
+      // Back from the first planned question: ask simple or planned again
     }
   }
 
@@ -263,8 +320,10 @@
     const pick = await askBuild(def);
     if (!pick) return;
 
-    const cards = Stable.suggestDeck(racerId, pick.focus, pick.runStyle);
-    const res = Stable.createDeck(Stable.suggestDeckName(racerId, pick.focus, pick.runStyle), cards, racerId);
+    const opts = { distance: pick.distance, surface: pick.surface, simple: !!pick.simple };
+    const ctx = Stable.planContext(def, pick.runStyle, opts);
+    const cards = Stable.suggestDeck(racerId, pick.focus, pick.runStyle, opts);
+    const res = Stable.createDeck(Stable.suggestDeckName(racerId, pick.focus, pick.runStyle, opts), cards, racerId);
     if (!res.ok) return UIMeta.notify(res.error);
     Stable.equipDeck(res.deck.id, racerId);
     selected = res.deck.id;
@@ -272,16 +331,20 @@
 
     const picked = cards.map(id => Cards.byId[id]).filter(Boolean);
     const avg = picked.length ? (picked.reduce((a, c) => a + c.cost, 0) / picked.length).toFixed(1) : "0";
-    const styleName = (root.Sim && Sim.STYLES[pick.runStyle]) ? Sim.STYLES[pick.runStyle].name : pick.runStyle;
+    const twice = new Set(cards.filter((id, i) => cards.indexOf(id) !== i)).size;
+    const D = Stable.DISTANCES[ctx.distance], T = Stable.TRACKS[ctx.surface];
+    const reading = [ctx.tight ? "her stamina runs short here" : "", ctx.weak ? "she runs behind on this track" : ""]
+      .filter(Boolean).join("; ");
     await UIMeta.reward({
-      kicker: Stable.PICK_STYLES[pick.focus].name + " build",
+      kicker: pick.simple ? "Her simple thoughts" : Stable.FOCUSES[pick.focus].name + " build",
       title: res.deck.name,
-      message: def.name + " picked these, and is running them.",
+      message: def.name + " picked these, and is running them." + (reading ? " She reckons " + reading + "." : ""),
       items: [
-        { icon: "flag", label: "Built for", amount: styleName },
-        { icon: "cards", label: "Cards", amount: String(picked.length) },
+        { icon: "flag", label: "Built for", amount: styleName(pick.runStyle) },
+        { icon: "calendar", label: "Race", amount: D.name + " " + T.name },
+        { icon: "cards", label: "Cards", amount: picked.length + (twice ? " (" + twice + " doubled)" : "") },
         { icon: "bolt", label: "Average cost", amount: avg },
-        { icon: "sparkle", label: "Shape", amount: kindMix(picked) || "\u2014" },
+        { icon: "sparkle", label: "Shape", amount: kindMix(picked) || "—" },
         { icon: "calendar", label: "Timing", amount: timing(picked) },
       ],
       close: "Nice",
@@ -332,8 +395,7 @@
   }
 
   // ================================================================ the builder
-  /* `working` is a LIST, not a set: the same card can appear as many times as the
-     trainer owns copies of it. */
+  /* `working` is a LIST, not a set: the same card can appear twice, if two are owned. */
   let working = null;
 
   function edit(racerId, id) {
@@ -401,7 +463,7 @@
           <h3 class="de-h3">Your cards <span class="fine">click to add, again for a second copy</span></h3>
           <div class="dgrid de-pool">
             ${owned.map(c => {
-              const have = Stable.cardCount(c.id), used = inDeck[c.id] || 0;
+              const have = Stable.copiesAllowed(c.id), used = inDeck[c.id] || 0;
               const full = used >= have || working.cards.length >= MAX();
               return `
               <div class="dcard ${used ? "in" : ""} ${full ? "maxed" : ""}" data-add="${c.id}">
@@ -450,6 +512,8 @@
       const used = working.cards.filter(x => x === id).length;
       if (working.cards.length >= MAX())
         return UIMeta.notify("A deck holds " + MAX() + " cards. Drop one first.");
+      if (used >= Stable.COPY_MAX)
+        return UIMeta.notify("A deck holds at most " + Stable.COPY_MAX + " copies of a card.");
       if (used >= Stable.cardCount(id))
         return UIMeta.notify("You own " + Stable.cardCount(id) + " cop" +
           (Stable.cardCount(id) === 1 ? "y" : "ies") + " of that card. Scout another to run more.");
@@ -467,8 +531,9 @@
       if (!def) return;
       const pick = await askBuild(def);
       if (!pick) return;
-      working.cards = Stable.suggestDeck(working.racerId, pick.focus, pick.runStyle);
-      if (!working.id) working.name = Stable.suggestDeckName(working.racerId, pick.focus, pick.runStyle);
+      const opts = { distance: pick.distance, surface: pick.surface, simple: !!pick.simple };
+      working.cards = Stable.suggestDeck(working.racerId, pick.focus, pick.runStyle, opts);
+      if (!working.id) working.name = Stable.suggestDeckName(working.racerId, pick.focus, pick.runStyle, opts);
       editBuild(el);
     };
     el.querySelector("#deClear").onclick = () => { working.cards = []; editBuild(el); };
