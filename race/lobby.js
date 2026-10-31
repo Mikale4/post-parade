@@ -1219,7 +1219,9 @@
     for (const b of skyDoors) b.material.color.copy(sky.out);
     lookOf(room);
     if (clockEl) {
-      const h = Math.floor(sky.hour), m = Math.floor((sky.hour - h) * 60), text = `${h}:${String(m).padStart(2, "0")}`;
+      // a 12-hour clock: "6:42 PM", not "18:42"
+      const h = Math.floor(sky.hour), m = Math.floor((sky.hour - h) * 60);
+      const text = `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
       if (clockEl.dataset.text !== text) {
         clockEl.dataset.text = text;
         const day = sky.hour >= 6 && sky.hour < 18.5;
@@ -2737,7 +2739,14 @@
     table: { station: "scout", label: "Scout", sub: "Recruiting table", x: -5, z: 4.6, face: 0, ax: -5, ay: 2.4, az: 5.6 },
     rail:  { station: "scout", label: "Scout", sub: "Watch from the rail", x: 13, z: 4.6, face: PI, ax: 13, ay: 2.3, az: 3.75 },
   };
-  const TRACK_SEATS = TRACK_BENCHES.flatMap(bx => [bx - 0.4, bx + 0.4].map(x => ({ x, z: 5.6875, face: PI, act: "sit", seat: true })));
+  const TRACK_SEATS = [
+    ...TRACK_BENCHES.flatMap(bx => [bx - 0.4, bx + 0.4].map(x => ({ x, z: 5.6875, face: PI, act: "sit", seat: true }))),
+    /* The grandstand's front step, half a metre up like a bench: two places in each bay
+       between the roof posts, sat on near its edge with the legs over it, facing the track.
+       She gets on from the grass in front -- the stand itself is blocked to walking. */
+    ...[-16.625, -14.125, -11.625, -9.125].flatMap(bx => [bx - 0.55, bx + 0.55].map(x =>
+      ({ x, z: -14.7, face: 0, act: "sit", seat: true, stand: true, from: { x, z: -13.55 } }))),
+  ];
   const TRACK_POIS = [
     // stretching in the infield in front of the coach, and drills along the cones
     { x: 3.5, z: -6.25, face: 0, act: "stretch" }, { x: 5.0, z: -6.75, face: 0, act: "stretch" }, { x: 6.5, z: -6.25, face: 0, act: "stretch" },
@@ -2749,7 +2758,7 @@
   ];
   const TRACK_HUDDLES = [[0.5, -1.75], [14.5, 7.25], [-14, 2]];
   const TRACK_THINGS = [
-    ...TRACK_SEATS.map((p, i) => ({ kind: "sit", label: "Sit", poi: [5 + i] })),
+    ...TRACK_SEATS.map((p, i) => ({ kind: "sit", label: p.stand ? "Sit and watch" : "Sit", poi: [5 + i] })),
     { kind: "fountain", label: "Have a drink", poi: [5 + TRACK_SEATS.length], x: 21.5, z: 7.0, face: 0, ax: 21.5, ay: 1.5, az: 7.9 },
     { kind: "stretch", label: "Stretch", poi: [0], x: 3.5, z: -6.25, face: 0, ax: 3.5, ay: 2.0, az: -6.25 },
     { kind: "jog", label: "Jog a lap", x: JOG.entry.x, z: JOG.entry.z, face: -PI / 2, ax: 0, ay: 1.9, az: JOG.entry.z },
@@ -3252,7 +3261,7 @@
   function say(n, html, ms) {
     if (n.R !== room || n.gone) return;
     n.bubble.innerHTML = html;
-    n.bubble.hidden = false;
+    n.bubble.hidden = false; n.bsz = null;
     n.bubbleUntil = performance.now() + (ms || 2600);
   }
 
@@ -3591,6 +3600,7 @@
      out of the window; admire the trophies; read the board. A step, a click or E again
      ends the ones she stays at. */
   let act = null, held = null, nearThing = null, hintEl = null;
+  const hintBox = { el: null, s: null };                  // the hint, as clearOf sees it
   const motes = [];
   const STAYS = { sit: true, look: true, admire: true, read: true, nap: true };
   const LIES = 1.4;                                              // how fast she lies down on a bed, and gets up
@@ -3717,7 +3727,7 @@
   function sayMe(text, ms) {
     if (!player || !player.bubble) return;
     player.bubble.innerHTML = `<b>${esc(player.def.trainer ? "You" : player.def.name)}</b>${esc(text)}`;
-    player.bubble.hidden = false;
+    player.bubble.hidden = false; player.bsz = null;
     player.bubbleUntil = performance.now() + (ms || 2600);
   }
 
@@ -4200,6 +4210,36 @@
     for (let s = 0; s < secs && host; s += 0.05) { t += 50; step(0.05, t); }
   }
 
+  /** A sign's (or the hint's) box on screen, from where it is pinned: the bottom centre.
+      Measured once per look (`key`), since a sign grows its E key when she is near. */
+  function boxOf(o, s, key) {
+    const sz = o.sz || (o.sz = {});
+    const z = sz[key] || { w: o.el.offsetWidth, h: o.el.offsetHeight };
+    if (z.w) sz[key] = z;                                 // not laid out yet: measure again next frame
+    return { x: s.x, y: s.y, w: z.w, h: z.h };
+  }
+  /** Where a bubble's bottom goes so it covers none of `blocks`: as it is if it is clear,
+      else just over the one it hits (under it, if there is no room above). Both carry a
+      6px tail below the box. Two passes, for a bubble moved up into the next one. */
+  function clearOf(o, s, blocks) {
+    if (!blocks.length) return s.y;
+    const z = o.bsz || { w: o.bubble.offsetWidth, h: o.bubble.offsetHeight };
+    if (z.w) o.bsz = z;
+    let y = s.y;
+    for (let pass = 0; pass < 2; pass++) {
+      let moved = false;
+      for (const b of blocks) {
+        if (Math.abs(s.x - b.x) * 2 >= z.w + b.w) continue;
+        if (y + 6 <= b.y - b.h || y - z.h >= b.y + 6) continue;
+        const up = b.y - b.h - 8;
+        y = up - z.h >= safeTop ? up : b.y + 8 + z.h;
+        moved = true;
+      }
+      if (!moved) break;
+    }
+    return y;
+  }
+
   function frame(now) {
     if (!host) return;
     raf = requestAnimationFrame(frame);
@@ -4229,11 +4269,7 @@
       t.el.style.transform = `translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px) translate(-50%,-100%)`;
       t.el.hidden = !s.vis;
       t.el.classList.toggle("near", nearId === t.id);
-    }
-    for (const n of npcs) {
-      if (n.bubble.hidden) continue;
-      const s = project(n.rx, 2.35 - 0.4 * n.perch, n.rz, w, h);
-      n.bubble.style.transform = `translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px) translate(-50%,-100%)`;
+      t.s = s;
     }
     // the hint: for the thing she is by, or for getting up from what she stays at
     // (getting up is pinned above the dock rather than over her head, where it would sit on
@@ -4250,11 +4286,27 @@
       else {
         const s = project(hint.x, hint.y, hint.z, w, h);
         hintEl.style.transform = `translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px) translate(-50%,-100%)`;
+        hintBox.s = s;
       }
+    }
+    /* What someone says has to stay readable: the recruiter at the scout table talked
+       straight into the table's own sign. A bubble that would land on a sign or the hint
+       moves clear of it -- see clearOf. Signs are only measured while someone is talking. */
+    const blocks = [];
+    if (!player.bubble.hidden || npcs.some(n => !n.bubble.hidden)) {
+      for (const t of tags) if (!t.el.hidden) blocks.push(boxOf(t, t.s, t.el.classList.contains("near") ? "near" : "far"));
+      if (hint && !hint.pinned) blocks.push(boxOf(hintBox, hintBox.s, hint.text));
+    }
+    for (const n of npcs) {
+      if (n.bubble.hidden) continue;
+      const s = project(n.rx, 2.35 - 0.4 * n.perch, n.rz, w, h);
+      s.y = clearOf(n, s, blocks);
+      n.bubble.style.transform = `translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px) translate(-50%,-100%)`;
     }
     if (!player.bubble.hidden) {
       if (now > player.bubbleUntil) player.bubble.hidden = true;
       const s = project(player.rx, 2.35 - 0.4 * player.perch, player.rz, w, h);
+      s.y = clearOf(player, s, blocks);
       player.bubble.style.transform = `translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px) translate(-50%,-100%)`;
     }
   }
@@ -4435,7 +4487,7 @@
     player.bubble.className = "lb-bub me"; player.bubble.hidden = true;
     tagsEl.appendChild(player.bubble);
     hintEl = document.createElement("button");
-    hintEl.className = "lb-tag lb-hint"; hintEl.hidden = true;
+    hintEl.className = "lb-tag lb-hint"; hintEl.hidden = true; hintBox.el = hintEl;
     hintEl.innerHTML = `<kbd>E</kbd><span><b></b></span>`;
     hintEl.onclick = e => { e.stopPropagation(); pressE(); };
     tagsEl.appendChild(hintEl);

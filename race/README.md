@@ -210,7 +210,9 @@ budget.
 - **Racers** (`track`, from the shell):
   - they warm up: jogging a lap or two of the oval at their own pace, kicking up the sand;
   - they stretch in front of the coach, do high-knee drills at the cones, sit on the
-    benches, drink at the tap, or have a word with a trainer at the rail.
+    benches or the grandstand's front step, drink at the tap, or have a word with a
+    trainer at the rail. You can sit in the grandstand too (**Sit and watch**): eight
+    places, two in each bay between its roof posts.
 - **Trainers** (`STAFF.track`), each with their own look:
   - the veteran times them with a stopwatch, his eyes on whoever is running nearest;
   - the rookie takes notes on a clipboard;
@@ -257,7 +259,7 @@ tutorial (`LESSONS`, from `Stable.TUTORIALS` through the shell, seven at most):
 **Day and night.** The academy keeps its own clock: a real minute is an hour there, so a
 whole day takes 24 minutes. It runs off the real clock (`hourNow`), so it's the same hour
 on every screen and keeps going while you're away. The clock sits bottom left, with a sun
-or a moon, the time, and what part of the day it is. The phases are night, before dawn,
+or a moon, the time on a 12-hour clock ("6:42 PM"), and what part of the day it is. The phases are night, before dawn,
 dawn, sunrise, morning, midday, afternoon, the golden hour, sunset, dusk, twilight and
 night again.
 
