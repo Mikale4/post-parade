@@ -271,7 +271,7 @@
   function next() {
     if (!run || run.done) return;
     run.i++;
-    run.ready = false;
+    run.ready = run.got = false;
     const s = current();
     if (!s) return finish(true);
 
@@ -304,10 +304,11 @@
   /** Anything the game does that a tutorial step might be waiting on: once it has
       happened, the step waits for the player's click. */
   function notify(evt) {
-    if (!run || run.done || run.ready) return;
+    // `got`, not `ready`: the timeout's way out must not swallow the thing the step asked for
+    if (!run || run.done || run.got) return;
     const s = current();
     if (!s || s.wait !== evt) return;
-    run.ready = true;
+    run.got = run.ready = true;
     clearTimeout(run.timer);
     const cta = document.getElementById("tutCta");
     if (cta) cta.textContent = "click to continue";

@@ -740,7 +740,9 @@
   function nextStep() {
     if (!tut || tut.done) return;
     tut.i++;
-    tut.ready = false;
+    tut.ready = tut.got = false;
+    // a line still typing would keep writing over the next one
+    if (tut.typing && !tut.typing.isDone()) tut.typing.skip();
     const s = tut.steps[tut.i];
     if (!s) return endTutorial(true);
     if (s.unlock && window.Game && Game.lockCallout) Game.lockCallout(false);
@@ -781,11 +783,16 @@
   /** The race app calls this when something the tutorial might be waiting on happens:
       hold the race on that moment and wait for the player's click. */
   function notify(evt) {
-    if (!tut || tut.done || tut.ready) return;
+    /* `got`, not `ready`: the timeout sets ready as a way out, and the thing the step asked
+       for must still count after it -- a Callout pressed then was being swallowed. */
+    if (!tut || tut.done || tut.got) return;
     const s = tut.steps[tut.i];
     if (!s || s.wait !== evt) return;
-    tut.ready = true;
+    tut.got = true;
     clearTimeout(tut.timer);
+    // a Callout is the player's own press, so it is the click: on to the next step, which holds the race
+    if (evt === "callout") return nextStep();
+    tut.ready = true;
     if (window.Game && Game.isRacing && Game.isRacing()) Game.setPaused(true);
     const cta = document.getElementById("coachCta");
     if (cta) cta.textContent = evt === "cardPlayed" ? "she played one — click to continue" : "click to continue";

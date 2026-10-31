@@ -278,6 +278,9 @@
       const p = new THREE.Group(), m = new THREE.Mesh(geo, MAT);
       p.position.set(i ? d.w / 2 : -d.w / 2, 0, -0.125);
       if (i) m.scale.x = -1;                         // the second leaf, mirrored, hinged on the right
+      /* A sliding leaf runs into a pocket inside the wall, so it is made thinner than the
+         wall: as thick as it, its faces would lie in the wall's own and flicker through them. */
+      if (d.slide) m.scale.z = 0.7;
       m.receiveShadow = true;
       p.add(m); g.add(p); pivots.push({ p, s: i ? -1 : 1, x0: p.position.x });
     }
