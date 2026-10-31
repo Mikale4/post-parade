@@ -47,6 +47,7 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `lobby.js` | The main menu in voxels: the academy's hall, the trainer's office, the cafeteria, the dorm, the school wing's classrooms and the training track outside, walked as your trainer or a racer, the others about their day, every mode a door that opens. |
 | `trainer.js` | The trainer creator: your own character, made at registration, with a turning 3D preview. |
 | `lines.js` | What the racers say in the lobby: each in her own voice, to the trainer, to a classmate, and to her pair. |
+| `routines.js` | Where each racer is at each hour of the academy's day, and what she is doing: class, lunch, dawn training, the lab, the council room, asleep in her room. Her lines for the hour, and a word for her friends and rivals. Pure data and logic; `validate-routines.js` checks it. |
 | `reactions.js` | How each racer takes her result after a race: a few moves and lines of her own for a win, a place, the middle of the field and the back. |
 | `weather.js` | The season and the day's weather over the career screens (falling petals, leaves, rain, snow), and the names for them. The race does its own in 3D (`voxel.js` `applySeason`). |
 | `rivals.js` | Rivalries: two racers neck and neck long enough clash, both their signatures fire, and each says to herself how she will beat the other. |
@@ -84,13 +85,13 @@ racers run above the logo. Nothing is saved. Without WebGL the key art
 
 The main menu is **the academy's main hall, walked** (`lobby.js`), after the game's own
 lobby: cream marble squares, columns under a mezzanine with a balustrade, navy wainscot
-over red carpet, burgundy drapes with gold fringe, and a library through an archway.
-Every mode is a place in it: the notice board is Quests, the library is Decks, the
+over red carpet, burgundy drapes with gold fringe, and the library's doors between two bookcases.
+Every mode is a place in it: the notice board is Quests, the library's deck archive is Decks, the
 academy terminal by the jukebox is Settings, the classroom door opens on the school wing (Tutorials), the glass doors to the track are
 Exhibition, the side doors on the right lead out to the training track (Scouting) and to the Dormitory, and the reception
 desk is How to play. A tag over each says which; walk up to one and press **E** (or click
 the tag, or the door) to go in. The dock along the bottom has every mode too, so nobody has
-to walk. Eight places in all: the hall, the trainer's office, the cafeteria, the dorm
+to walk. Nine places in all: the hall, the trainer's office, the library, the cafeteria, the dorm
 corridor, a dorm room, the school corridor, a classroom, and outside, the training track.
 The hall and the office are built at the start; the rest the first time you go in.
 
@@ -111,6 +112,37 @@ glass: your camera is carried through the window and turned about, with the same
 everything beyond that room's wall is clipped off. The picture lands on the pane pixel for
 pixel, read by screen position. So people through the window are their true size, everyone
 is moving, and the view shifts as you walk past.
+
+**The library** is through the doors at the back left of the hall, between two bookcases
+(the hall's tag says "Library · Deck archive"). Like the office it is behind the hall's back
+wall, so it faces the other way (`yaw`): the camera looks back at the doors you came in by.
+Its far wall, with the windows, is the end of the building, beside the cafeteria's corner,
+so the stretch of that wall nearer the hall has no windows.
+
+- **The shelves:** tall cases along the back wall and the left wall, each with a rolling
+  ladder on a brass rail, and two stacks standing between them, plated "A - K, Race
+  history" and "L - Z, Training", books lying on top. The books come in runs of a height,
+  like sets of volumes, with a gap here and there where one is out (`bookcase`).
+- **The desk:** the librarian (`STAFF.library`: a cardigan, glasses, grey hair in a bun)
+  works at her screen behind the checkout desk by the doors. There's a pile of returns, a
+  bell and a green lamp. She looks up when you come to the desk and has a word for you.
+- **The deck archive** is on the other side of the doors. It's a card catalogue of
+  thirty-two drawers with brass pulls and cards in their holders, one drawer pulled out, a
+  deck fanned on top by a lamp. The best decks are pinned up over it in a frame. It is
+  **Decks**: its tag is the shell's Decks station (`onEnter("deck")`), which used to stand
+  in the hall.
+- **To sit:** two long reading tables with green leather tops and banker's lamps, two
+  chairs down each side; a reading corner of two leather wing chairs on a rug, with a low
+  table between them; and seats in two of the tall windows, which have green curtains.
+- **Around the room:** a globe on a stand, a returns cart, the library's notice board, a
+  clock, a QUIET, PLEASE sign and paintings over the shelves, and a green runner from the
+  doors. The walls are 6.5 m, tall enough to fill a phone held upright.
+- **Who's there:** a few racers (`library`, from the shell). They study at the tables,
+  read in the wing chairs and the window seats, browse the stacks and the archive's
+  drawers, read the notices, look out of the window, and whisper in the aisle.
+
+The camera never turns toward a side wall in the library. It looks straight down the aisles
+between the stacks, which a turn would hide behind them.
 
 **The cafeteria** is through the doors on the hall's left wall, drawn the way *Cinderella
 Gray* draws a canteen:
@@ -278,6 +310,40 @@ night again.
 
 `Lobby._debug.setHour(h)` jumps the clock, for checking.
 
+**Where everyone is, by the hour** (`routines.js`). The clock also decides who is where.
+Each of the 26 racers has a routine, band by band:
+
+| Band | Hours | Most of the academy | Her own way |
+|---|---|---|---|
+| Late night | 0–5 | asleep in her dorm room | Tachyon in her lab; Nature up with a snack; Gold Ship roaming the corridor |
+| Dawn | 5–7 | asleep, or out early | Suzuka running alone; Rice, Oguri, Ticket, Taiki, Opera O on the track; McQueen's tea; Groove and Grass at the flowers; Ryan at the gym; Fukukitaru at the shrine; Rudolf at her paperwork |
+| Breakfast | 7–8 | cafeteria | |
+| Classes | 8–12, 13–15 | classrooms | Gold Ship on the roof; Tachyon half in her lab; Urara napping with Seiun Sky |
+| Lunch | 12–13 | cafeteria | Rudolf and Groove in the council room; Scarlet in the library; Fukukitaru's fortune stall and Opera O's matinee in the hall; Bakushin patrolling the corridor |
+| After school | 15–18 | the track | Rice in the library; Maruzensky out driving; Mayano shopping; Tachyon watching with a notebook |
+| Dinner | 18–20 | cafeteria | |
+| Evening | 20–22 | dorm rooms and corridors | Rudolf at chess in the library; Suzuka stargazing on the roof |
+| Curfew | 22–24 | in her room | |
+
+The routines come from the games, the anime, *Road to the Top*, the film and *Cinderella Gray*:
+- **From canon:** McQueen's morning tea, Tachyon's night hours, and Teio falling asleep to classical music.
+- **Inferred from character:** hours the sources don't give, e.g. Suzuka running before anyone is up.
+
+A band can carry odds ("track:jog 60, home:sleep 40"). Each pick holds for the whole band that day, and each racer moves up to half an hour off the hour, so rooms empty gradually, not all in one tick.
+
+How the lobby uses them:
+- **Coming and going:** in the room you are in, a racer due elsewhere gets up, walks to the door that leads there, opens it and goes through. One due here comes in through the door she is coming from.
+- **Out of sight:** a room you aren't in is simply right when you walk in. At night the racers in a dorm room are already asleep in their beds, with the odd "Zzz...".
+- **Doing her thing:** in a room, each racer leans toward her routine's activity: a lap or a drill on the track, a seat at a cafeteria table, a desk in the library, her own bed.
+- **Talking:** she has lines for her hour, plus a word for particular racers when they share a room (Spe calling after Suzuka, Gold Ship ambushing McQueen). Every line is written for this game; none is quoted.
+- **Crowd sizes:** each room holds a set number. Racers already there keep their places first, then those always there at that hour. Phones get fewer.
+- **The staff keep hours:** Tazuna at the front desk 7 AM–9 PM, the cook 6 AM–8:30 PM, the librarian 8 AM–9 PM. Tazuna knows where everyone off-screen is: "Looking for Gold Ship? She's up on the roof."
+- **Fallback:** without `routines.js`, the shell's fixed room lists still work.
+
+Checks:
+- `node race/validate-routines.js`: every routine reads, every racer has one, and the academy keeps its hours (mostly in bed at 2:30 AM, in class at 10, at dinner at 7).
+- `Lobby._debug.whereNow(def)` and `dueIn(room)` show what the lobby makes of it.
+
 **Doors open.** At a door she turns to it, it swings open (each leaf on its own hinge),
 she walks through, and the camera comes down behind her. Then the screen fades to the
 next room, where she steps out of its door and it shuts behind her, or to the mode. Coming
@@ -360,6 +426,15 @@ use; E or a click on it does it (`HALL_THINGS`, `OFFICE_THINGS`):
   the window.
 - **School:** a drink at the corridor's fountain and the view from its window; in a
   classroom, **take a seat** at any desk (and get writing), or look out of the window.
+- **Library:**
+  - **study** at a reading table;
+  - **sit and read** in a wing chair, or **sit by the window**, a book open in your lap;
+  - **pull a book** from the tall case, or **browse the shelves** of a stack;
+  - **read the notices** or **check the returns** cart;
+  - **look out** of the middle window;
+  - **spin the globe**: a push, and it spins and slows.
+
+  You say what you found.
 - **Training track:** **jog a lap** of the oval with the others (from the gap in the outer
   rail, a full lap on their line), **stretch** on the infield, sit on a bench by the rail,
   or have a drink at the tap.
@@ -382,13 +457,15 @@ use; E or a click on it does it (`HALL_THINGS`, `OFFICE_THINGS`):
   - It plays at the music volume, and a change of volume reaches it at once.
   - While your pick plays, coloured lights rise off the jukebox's dome.
 
-**Places with music of their own.** Two places in the lobby have their own music, from the
+**Places with music of their own.** Three places in the lobby have their own music, from the
 same rip as the rest. It plays while you're there, in place of the home theme:
 
 - **The school wing** (its corridor and every classroom): "URA Classes" and "Fun Behind
   the School".
 - **The training track:** "Dark Bay Swaying in the Wind" and "Training Camp by the
   Seaside".
+- **The library:** the quiet `ambient` tracks ("Silence", "It Will Be All Right" and the
+  rest), already in the folder.
 
 How it works:
 - The lobby names each room's music (`music` on the room) and tells the shell as you go

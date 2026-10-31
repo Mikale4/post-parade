@@ -382,8 +382,11 @@
     const oguri = mine.concat(rest).find(d => d.name === "Oguri Cap");
     const left = mine.concat(rest.filter(d => !home.includes(d))).filter(d => d !== oguri);
     // (the corridor's company each keep to their own dorm's floor)
-    return { cast: left.slice(0, 7), cafe: (oguri ? [oguri] : []).concat(left.slice(7, 11)), track: left.slice(11, 15),
-             school: left.slice(15, 16), classes: left.slice(16, 19), corridor: left.slice(19), home };
+    /* `academy` is everyone at once: with routines.js loaded, the lobby places them by the hour
+       itself (in class, at lunch, on the track at dawn, asleep in their rooms) and the lists
+       above are only its fallback. */
+    return { cast: left.slice(0, 6), library: left.slice(6, 9), cafe: (oguri ? [oguri] : []).concat(left.slice(9, 12)), track: left.slice(12, 15),
+             school: left.slice(15, 16), classes: left.slice(16, 19), corridor: left.slice(19), home, academy: mine.concat(rest) };
   }
   /** The tutorials as the school wing's lessons, a classroom each, and which are done. */
   const lessons = () => Stable.TUTORIALS.map(t => ({ id: t.id, name: t.name, text: t.text, carrots: t.carrots, done: Stable.tutorialDone(t.id) }));

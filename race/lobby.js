@@ -1,20 +1,21 @@
 /*
  * The home screen: Tracen Academy, in voxels, to walk around in.
  *
- * Eight places. The main hall is the real game's home screen: a polished cream marble floor,
+ * Nine places. The main hall is the real game's home screen: a polished cream marble floor,
  * square pillars holding up a mezzanine, red carpet along a navy-panelled wall, burgundy
  * drapery with gold fringe and little teal crystals, a vending machine and a jukebox,
- * benches, a notice board, the library through an archway, and the academy's racers in
+ * benches, a notice board, the library's doors between bookcases, and the academy's racers in
  * their signature outfits going about their day in it. Every mode lives somewhere in the building:
- * the doors to the track are Exhibition, the library is where decks are built, the
- * notice board holds the quests, and the double doors at the back are the trainer's
+ * the doors to the track are Exhibition, the library's deck archive is where decks are built,
+ * the notice board holds the quests, and the double doors at the back are the trainer's
  * office. That is the second room: the trainer works there, and its far door opens on the
  * stable, where a career is begun. The doors on the left go through to the cafeteria; the
  * ones on the right to the dorm, a corridor of rooms two to a room, each room dressed for
  * the pair who live in it. The classroom door at the back opens on the school wing, a
  * corridor of classrooms, one for each tutorial, the lesson taught at its board. And the
  * Scouting doors go outside, to the old training track, where the racers warm up and the
- * trainers watch from the rail.
+ * trainers watch from the rail. The library, through the doors at the back left, is stacks
+ * and reading tables, the librarian at her desk, and the card catalogue of decks.
  *
  * Doors open. Walk up to one and press E (or click its sign): she turns, the door swings,
  * the camera follows her through, and afterwards she comes back out of the same door.
@@ -31,7 +32,8 @@
  *     school, classes: the school wing's corridor, and who is in class; lessons: the
  *     tutorials, a classroom each ({ id, name, text, done }); onLesson(id): one was started
  *     at its classroom's board; onMusic(role): she has gone into a place with music of its
- *     own (null: back where the home theme plays)
+ *     own (null: back where the home theme plays); track, library: who is out on the
+ *     training track, and who is in the library
  *   Lobby.stop()
  *   Lobby.setPlayer(def)
  */
@@ -338,7 +340,6 @@
   const HALL = { x0: -24, x1: 24, z0: -11, z1: 15, h: 11 };
   const WALK = { x0: -23.5, x1: 23.5, z0: -10.6, z1: 7.5 };
   const MEZZ = { z: -7, y: 5 };
-  const LIB = { x0: -21, x1: -15, z0: -15 };
   const COLS = [-20, -12, -4, 4, 12, 20];               // under the mezzanine edge
   const PILLARS = [[-11, 2.5], [11, 2.5]];              // the two out in the hall
   const ENTRANCE = { z0: -4, z1: 2, h: 4.25 };
@@ -354,6 +355,8 @@
                     : (Y > 2.0 && Y < 2.07 && X > w / 2 + 0.375 && X < w / 2 + 0.6) ? C.panel : 0xf6f2e8);
               }),
               beyond: { top: 0xeef2ea, bottom: 0xc8d4c0, floor: 0xc8a878 } },
+    library: { x: -18, z: HALL.z0, yaw: 0, w: 3, h: 3.25, leaves: 2, leaf: leafPanelGlass(C.woodL), frame: frameArch(C.woodD, C.woodD),
+               beyond: { top: 0xf4e6c8, bottom: 0xc8946a, floor: C.libFloor } },
     scout:  { x: HALL.x1, z: -5.5, yaw: -PI / 2, w: 2.5, h: 3, leaves: 2, leaf: leafEmblem(0xb8343a, C.fringe, star),
               frame: frameArch(C.fringe, C.brassD), beyond: { top: 0xf6e2d6, bottom: 0xd8a890, floor: 0xa86a4a } },
     dorm:   { x: HALL.x1, z: 0.5, yaw: -PI / 2, w: 2.5, h: 3, leaves: 2, leaf: leafEmblem(C.woodL, C.brass, horseshoe),
@@ -376,7 +379,6 @@
     });
     // the red runner under the mezzanine, gold at its edge
     box(HALL.x0, -0.25, HALL.z0, HALL.x1, 0, -9, (X, Y, Z) => Z >= -9.25 ? C.carpetEdge : jit(C.carpet, 0.04));
-    box(LIB.x0, -0.25, LIB.z0, LIB.x1, 0, HALL.z0, () => jit(C.libFloor, 0.05));
     // the walls: skirting, navy panelling, a wooden rail, cream above
     const wallFn = (X, Y) => Y < 0.25 ? C.skirt : Y < 1.25 ? C.panel : Y < 1.5 ? C.rail : (Y > 9 ? C.wallTop : C.wall);
     box(HALL.x0, 0, HALL.z0 - 0.25, HALL.x1, HALL.h, HALL.z0, wallFn);
@@ -399,22 +401,6 @@
     // the window into the trainer's office, beside its door (what it shows: paintWindow)
     clear(HALL_WINDOW.x0, HALL_WINDOW.y0, HALL.z0 - 0.25, HALL_WINDOW.x1, HALL_WINDOW.y1, HALL.z0);
     // (no ceiling: the camera never looks that far up)
-    // the library: an archway through the back wall into a room of shelves
-    clear(LIB.x0, 0, HALL.z0 - 0.25, LIB.x1, 3.75, HALL.z0);
-    box(LIB.x0 - 0.25, 0, LIB.z0, LIB.x0, 4, HALL.z0, wallFn);
-    box(LIB.x1, 0, LIB.z0, LIB.x1 + 0.25, 4, HALL.z0, wallFn);
-    box(LIB.x0, 0, LIB.z0 - 0.25, LIB.x1, 4, LIB.z0, wallFn);
-    box(LIB.x0, 3.75, LIB.z0, LIB.x1, 4, HALL.z0, C.ceiling);
-    box(LIB.x0 - 0.25, 3.75, HALL.z0, LIB.x1 + 0.25, 4.25, HALL.z0 + 0.25, C.wood);   // the arch's lintel
-    const shelfRow = (x0, x1, z0, z1) => box(x0, 0, z0, x1, 3, z1, (X, Y, Z) => {
-      if (Y < 0.25 || ((Y + 0.001) % 0.75) < 0.25) return C.shelf;
-      const k = vi(X) * 7 + vi(Z) * 3 + Math.floor(Y / 0.75) * 5;
-      return BOOKS[((k % BOOKS.length) + BOOKS.length) % BOOKS.length];
-    });
-    shelfRow(LIB.x0, LIB.x1, LIB.z0, LIB.z0 + 0.75);
-    shelfRow(LIB.x0, LIB.x0 + 0.75, LIB.z0 + 1, HALL.z0 - 0.5);
-    shelfRow(LIB.x1 - 0.75, LIB.x1, LIB.z0 + 1, HALL.z0 - 0.5);
-    box(LIB.x0 + 2.25, 0, -13.5, LIB.x1 - 2.25, 0.75, -12.5, C.wood);                  // a reading table
     // the mezzanine: its floor, a wooden edge, a balustrade
     box(HALL.x0, MEZZ.y, HALL.z0, HALL.x1, MEZZ.y + 0.5, MEZZ.z, (X, Y, Z) => Z >= MEZZ.z - 0.25 ? C.mezzEdge : C.mezz);
     for (let x = vi(HALL.x0); x < vi(HALL.x1); x++) {
@@ -450,7 +436,7 @@
       else clear(HALL.x1, 0, d.z - d.w / 2, HALL.x1 + 0.25, d.h, d.z + d.w / 2);
     }
     // the camera is always inside: no floor's underside, no wall's outside
-    return c.mesh((X, Y, Z, nx, ny, nz) => !(ny < 0 && Y < 0) && !(nz < 0 && Z < HALL.z0 - 0.2 && Z > LIB.z0)
+    return c.mesh((X, Y, Z, nx, ny, nz) => !(ny < 0 && Y < 0) && !(nz < 0 && Z < HALL.z0 - 0.2)
       && !(nz > 0 && Z >= HALL.z1) && !(nx < 0 && X < HALL.x0 - 0.2) && !(nx > 0 && X >= HALL.x1));
   }
 
@@ -655,6 +641,9 @@
     jukebox(c, 13, -10.25);
     terminal(c, 14.875, HALL.z0);
     for (const x of [-13.5, 5.75, 15.5]) sconce(c, x, HALL.z0, 2.5);
+    // bookcases either side of the library's doors
+    bookcase(c, { a0: -22.5, a1: -20.0, b: HALL.z0, dir: 1, h: 2.5 });
+    bookcase(c, { a0: -16.0, a1: -14.0, b: HALL.z0, dir: 1, h: 2.5 });
     // the office window's frame on this side: white, its glazing bars where the office's are
     {
       const W = HALL_WINDOW, z = HALL.z0;
@@ -675,7 +664,8 @@
   const HALL_PLACES = {
     career:   { station: "career", x: 0, z: -9.4, face: PI, ax: 0, ay: 3.9, az: -10.8, door: "office", room: "office", arrive: "hall" },
     quests:   { station: "quests", x: -9, z: -9.4, face: PI, ax: -9, ay: 3.7, az: -10.8 },
-    deck:     { station: "deck", x: -18, z: -10.2, face: PI, ax: -18, ay: 4.6, az: -10.8 },
+    library:  { label: "Library", sub: "Deck archive", icon: "book", x: -18, z: -9.4, face: PI, ax: -18, ay: 4.45, az: -10.8,
+                door: "library", room: "library", arrive: "hall" },
     settings: { station: "settings", x: 14.875, z: -9.75, face: PI, ax: 14.875, ay: 2.15, az: -10.7 },
     tutorial: { station: "tutorial", x: 19, z: -9.4, face: PI, ax: 19, ay: 3.9, az: -10.8, door: "class", room: "school", arrive: "hall" },
     race:     { station: "race", x: -22.4, z: -1, face: -PI / 2, ax: -23.8, ay: 5.1, az: -1, door: "track" },
@@ -691,9 +681,9 @@
     { x: -9.6, z: -9.6, face: PI, act: "read", icon: "clipboard" },
     { x: -8.3, z: -9.6, face: PI, act: "read", icon: "clipboard" },
     { x: 12.6, z: -9.4, face: PI, act: "listen", icon: "sparkle" },
-    { x: -19.5, z: -14, face: PI, act: "browse", icon: "book" },
-    { x: -16.5, z: -14, face: PI, act: "browse", icon: "book" },
-    { x: -18, z: -12.1, face: PI, act: "browse", icon: "book" },
+    { x: -21.75, z: -9.95, face: PI, act: "browse", icon: "book" },
+    { x: -20.75, z: -9.95, face: PI, act: "browse" },
+    { x: -15.0, z: -9.95, face: PI, act: "browse", icon: "book" },
     { x: -4.75, z: -10.1, face: 0, act: "sit" }, { x: -3.25, z: -10.1, face: 0, act: "sit" },
     { x: 3.5, z: -10.1, face: 0, act: "sit" }, { x: 5, z: -10.1, face: 0, act: "sit", icon: "carrot" },
     { x: -15.6, z: 5.4, face: PI, act: "ask", icon: "info" },
@@ -740,12 +730,10 @@
     [-13.5, -11, -12.5, -9.7], [9.75, -11, 10.75, -9.7], [15.75, -11, 16.75, -9.7],
     [-23.6, 6, -22.4, 7.1], [22.4, 6, 23.6, 7.1],
     [-17.9, 3.1, -12.1, 4.9],
-    [LIB.x0 + 2.1, -13.6, LIB.x1 - 2.1, -12.4],
+    [-22.6, -11, -19.9, -10.6], [-16.1, -11, -13.9, -10.6],            // the bookcases by the library
   ];
   function hallWalkable(x, z, r) {
-    const inHall = x >= WALK.x0 + r && x <= WALK.x1 - r && z >= WALK.z0 + r && z <= WALK.z1;
-    const inLib = x >= LIB.x0 + 0.9 + r && x <= LIB.x1 - 0.9 - r && z >= LIB.z0 + 1 + r && z <= HALL.z0 + 1;
-    if (!inHall && !inLib) return false;
+    if (x < WALK.x0 + r || x > WALK.x1 - r || z < WALK.z0 + r || z > WALK.z1) return false;
     for (const b of HALL_BLOCKS) if (x > b[0] - r && x < b[2] + r && z > b[1] - r && z < b[3] + r) return false;
     return true;
   }
@@ -768,7 +756,7 @@
     for (const id in HALL_DOORS) { const d = makeDoor(HALL_DOORS[id]); R.doors[id] = d; g.add(d.g); }
     hangSign(g, "TRAINER'S OFFICE", 0, 3.62, HALL.z0 + 0.14, 0, 0.85);
     hangSign(g, "CLASSROOM", 19, 3.34, HALL.z0 + 0.07, 0, 0.62);
-    hangSign(g, "LIBRARY", -18, 4.6, HALL.z0 + 0.3, 0, 1);
+    hangSign(g, "LIBRARY", -18, 3.95, HALL.z0 + 0.14, 0, 0.9);
     hangSign(g, "TO THE TRACK", HALL.x0 + 0.08, ENTRANCE.h + 0.42, -1, PI / 2, 1);
     hangSign(g, "SCOUTING", HALL.x1 - 0.08, 3.62, -5.5, -PI / 2, 0.8);
     hangSign(g, "DORMITORY", HALL.x1 - 0.08, 3.62, 0.5, -PI / 2, 0.8);
@@ -2789,6 +2777,432 @@
     return g;
   }
 
+  // ================================================================ the library
+  /* Through the doors at the back of the hall, left of the office: the academy's library.
+     It is behind the hall's back wall, as the office is, so it faces the other way -- the
+     camera looks back at the wall it shares with the hall, and the doors in it. Tall cases
+     along that wall and the one beside it, rolling ladders to reach their tops; two stacks
+     standing between them; long reading tables with green lamps; the librarian at her desk
+     by the doors; on the other side of them the card catalogue, which is the deck archive --
+     every deck filed in its drawers, the best pinned up over it; tall windows onto the
+     grounds, with seats in two of them; a reading corner of leather chairs on a rug; a
+     globe, a returns cart, the library's own notice board. Its far side, the windows' wall,
+     is the end of the building, over the cafeteria's corner. */
+  const LIBR = { x0: -8.5, x1: 8.5, z0: -6, z1: 7, h: 6.5 };                    // (tall enough to fill a phone's screen, upright)
+  const LW = { x0: -8.2, x1: 8.2, z0: -5.7, z1: 6.75 };
+  const LIB_WINDOWS = [[-1.75, 0.25], [1.75, 3.75], [5.0, 6.5]];      // in the right wall, z from..to
+  const LIB_TABLES = [[5.25, -1.0], [5.25, 2.75]];
+  const LIB_STACKS = [-6.25, -4.0], STACK_Z = [-2.75, 2.0];            // each stack's spine (x), and how far along z they run
+  const LIB_DESK = { x0: -3.5, x1: 0.25, z0: -4.5, z1: -3.875, h: 1.0 };
+  const LIB_CHAIRS = [[-6.25, 4.75, PI / 2], [-3.25, 4.75, -PI / 2]];   // the reading corner's: x, z, which way each faces
+  const GLOBE = { x: -1.25, z: 4.75, y: 1.0625 };
+  const LIB_DOORS = {
+    // the far side of the hall's library doors (beyond them, the hall's red carpet)
+    hall: { x: 2.5, z: LIBR.z0, yaw: 0, w: 3, h: 3.25, leaves: 2, leaf: leafPanelGlass(C.woodL), frame: frameArch(C.woodD, C.woodD),
+            beyond: { top: 0xf6eee0, bottom: 0xe2d6bf, floor: C.carpet } },
+  };
+  /** Boxes laid out along x, or along z (`alongZ`): (along, up, across), corners either way round. */
+  const alongPut = (c, alongZ) => (u0, y0, w0, u1, y1, w1, col) => {
+    const p0 = Math.min(w0, w1), p1 = Math.max(w0, w1), q0 = Math.min(u0, u1), q1 = Math.max(u0, u1);
+    if (alongZ) c.box(p0, y0, q0, p1, y1, q1, col); else c.box(q0, y0, p0, q1, y1, p1, col);
+  };
+  /** A bookcase at the fine grain: a back, uprights about `bay` apart, a board every `step`
+      with books along it, a plinth, a cornice a little proud. It runs from `a0` to `a1` along x
+      (along z: `alongZ`), its back at `b`, facing `dir` (+1 or -1) across that; `rail`: the
+      brass rail a rolling ladder hangs from. The books stand back against the back, so their
+      own backs are never drawn, and come in runs of a height, as sets of volumes do. */
+  function bookcase(c, o) {
+    const { a0, a1, b, dir, h } = o, deep = o.deep || 0.3125, step = o.step || 0.5, f = b + dir * deep, put = alongPut(c, o.alongZ);
+    put(a0, 0, b, a1, h, b + dir * F, C.woodD);                                   // the back
+    put(a0, 0, b, a1, 0.125, f, C.woodD);                                         // the plinth
+    put(a0 - F, h - 0.125, b, a1 + F, h, f + dir * F, C.woodD);                   // the cornice
+    const n = Math.max(1, Math.round((a1 - a0) / (o.bay || 1))), w = (a1 - a0) / n;
+    for (let i = 0; i <= n; i++) { const u = Math.min(a1 - F, a0 + i * w); put(u, 0.125, b, u + F, h - 0.125, f, C.wood); }
+    const rows = [];
+    for (let y = 0.125; y < h - 0.4375; y += step) rows.push(y);
+    rows.forEach((y, k) => {
+      const top = k + 1 < rows.length ? rows[k + 1] - F : h - 0.125;          // the next board up, or the cornice
+      if (k) put(a0, y - F, b, a1, y, f, C.wood);                             // the board this row stands on
+      for (let i = 0; i < n; i++) {
+        const end = a0 + (i + 1) * w;
+        let bh = 0, run = 0;
+        for (let u = a0 + i * w + F; u < end - F;) {
+          const bw = c.rnd() < 0.35 ? 2 * F : c.rnd() < 0.2 ? 3 * F : F;
+          if (u + bw > end) break;
+          if (run-- <= 0) { bh = Math.min(top - y - F, 0.25 + Math.floor(c.rnd() * 4) * F); run = 2 + Math.floor(c.rnd() * 5); }
+          const col = BOOKS[Math.floor(c.rnd() * BOOKS.length)];
+          // (now and then a gap, where one is out)
+          if (c.rnd() > 0.05) put(u, y, b + dir * F, u + bw, y + bh, f - dir * F,
+            (X, Y) => bw > F && Y >= y + bh - 0.125 && Y < y + bh - F ? mixC(col, 0xf6efd8, 0.6) : col);
+          u += bw;
+        }
+      }
+    });
+    if (o.rail) put(a0, h - 0.5, f, a1, h - 0.4375, f + dir * F, C.brass);
+  }
+  /** A library ladder leaning on a case's front (`f`, the case facing `dir`), at `u` along it:
+      two rails, a rung every so often, castors at its feet, its hooks over the rail at the top. */
+  function ladder(c, o) {
+    const put = alongPut(c, o.alongZ), top = o.h - 0.4375, foot = 0.875;
+    for (let y = 0; y < top; y += F) {
+      const w = o.f + o.dir * (F + foot * (1 - y / top));
+      for (const du of [0, 0.4375]) put(o.u + du, y, w, o.u + du + F, y + F, w + o.dir * 2 * F, 0xdcae6e);   // pale, against the books
+      if (y > 0.2 && y % 0.3125 < F / 2) put(o.u + F, y, w, o.u + 0.4375, y + F, w + o.dir * F, 0xc8965a);
+    }
+    for (const du of [0, 0.4375]) put(o.u + du, 0, o.f + o.dir * (F + foot), o.u + du + F, F, o.f + o.dir * (3 * F + foot), 0x2a2a30);
+    put(o.u - F, top, o.f, o.u + 0.5625, top + F, o.f + o.dir * 2 * F, C.brass);
+  }
+  /** A green banker's lamp standing at (x, y, z): a brass foot and stem, the shade. */
+  function bankerLamp(c, x, z, y) {
+    c.box(x - 0.125, y, z - 0.0625, x + 0.125, y + F, z + 0.0625, C.brassD);
+    c.box(x, y + F, z, x + F, y + 0.3125, z + F, C.brass);
+    c.box(x - 0.1875, y + 0.3125, z - 0.0625, x + 0.25, y + 0.375, z + 0.125, C.green);
+    c.box(x - 0.125, y + 0.375, z - F, x + 0.1875, y + 0.4375, z + 0.0625, C.greenL);
+  }
+  /** A reading-room chair: plain legs, a green seat, a back of two rails, its back away from the table (`face` 0 or PI). */
+  function libChair(c, x, z, face) {
+    const s = 0.1875, top = 0.4375, zb = face === 0 ? z - s : z + s - F;
+    for (const dx of [-s, s - F]) for (const dz of [-s, s - F]) c.box(x + dx, 0, z + dz, x + dx + F, top, z + dz + F, C.woodD);
+    c.box(x - s, top, z - s, x + s, top + F, z + s, C.green);
+    for (const dx of [-s, s - F]) c.box(x + dx, top + F, zb, x + dx + F, top + 0.5, zb + F, C.woodD);
+    for (const y of [top + 0.25, top + 0.4375]) c.box(x - s, y, zb, x + s, y + F, zb + F, C.wood);
+  }
+  /** A long reading table, green leather let into its top, a lamp in the middle, books open at some of its places. */
+  function readingTable(c, tx, tz) {
+    const x0 = tx - 1.5, x1 = tx + 1.5, z0 = tz - 0.5, z1 = tz + 0.5, top = 0.75;
+    for (const lx of [x0 + F, x1 - 3 * F]) for (const lz of [z0 + F, z1 - 3 * F]) c.box(lx, 0, lz, lx + 2 * F, top - 0.125, lz + 2 * F, C.woodD);
+    c.box(x0 + F, top - 0.125, z0 + F, x1 - F, top - F, z1 - F, C.wood);
+    c.box(x0, top - F, z0, x1, top, z1, (X, Y, Z) => X >= x0 + 0.25 && X < x1 - 0.25 && Z >= z0 + 0.1875 && Z < z1 - 0.1875 ? C.greenL : C.woodL);
+    bankerLamp(c, tx, tz, top);
+    for (const [ox, oz] of [[-0.75, -0.3125], [0.75, 0.125]]) {                  // open books, the spine down the middle
+      const bx = tx + ox - 0.1875, bz = tz + oz;
+      c.box(bx, top, bz, bx + 0.375, top + F, bz + 0.1875, X => X >= bx + 0.1875 - F && X < bx + 0.1875 + F ? 0xb8a888 : 0xf6f0e0);
+    }
+    for (let i = 0; i < 3; i++) c.box(x1 - 0.4375 + (i % 2) * F, top + i * F, tz - 0.125, x1 - 0.1875 + (i % 2) * F, top + (i + 1) * F, tz + 0.1875, BOOKS[(i * 5 + 2) % BOOKS.length]);
+  }
+  /** A leather wing chair facing `dir` along x (+1 or -1): short feet, a deep seat, rolled arms, wings by her head. */
+  function wingChair(c, x, z, dir) {
+    const put = alongPut(c, false), A = a => x + dir * a;
+    for (const a of [-0.3125, 0.25]) for (const b of [-0.3125, 0.25]) put(A(a), 0, z + b, A(a + F), 0.125, z + b + F, C.woodD);
+    put(A(-0.375), 0.125, z - 0.375, A(0.375), 0.3125, z + 0.375, C.leatherD);
+    put(A(-0.25), 0.3125, z - 0.25, A(0.375), 0.5, z + 0.25, C.leather);
+    put(A(-0.375), 0.3125, z - 0.375, A(-0.25), 1.1875, z + 0.375, (X, Y, Z) => Y > 0.5 && Y < 1.125 && ((Y + Z) * 8 | 0) % 3 === 0 ? C.leatherD : C.leather);
+    for (const s of [-1, 1]) {
+      put(A(-0.375), 0.3125, z + s * 0.25, A(0.375), 0.6875, z + s * 0.375, C.leatherD);     // the arms
+      put(A(-0.375), 0.6875, z + s * 0.25, A(-0.125), 1.125, z + s * 0.375, C.leather);      // the wings
+    }
+  }
+  /** The checkout desk by the doors: a panelled counter, the screen turned to the librarian
+      (its back to the room), her keyboard, a pile of returns, the bell, a green lamp. */
+  function libraryDesk(c) {
+    const D = LIB_DESK, top = D.h, sx = -0.6;
+    c.box(D.x0, 0, D.z0, D.x1, top - F, D.z1, (X, Y, Z) => Z >= D.z1 - F && Y > 0.1875 && Y < top - 0.1875
+      && (X - D.x0) % 0.75 > 0.125 && (X - D.x0) % 0.75 < 0.625 ? C.wood : C.woodD);
+    c.box(D.x0 - F, top - F, D.z0 - F, D.x1 + F, top, D.z1 + 0.0625, C.woodL);
+    c.box(sx - 0.25, top + F, D.z0 + 0.0625, sx + 0.25, top + 0.4375, D.z0 + 0.1875, (X, Y, Z) =>
+      Z < D.z0 + 0.125 && X >= sx - 0.1875 && X < sx + 0.1875 && Y >= top + 0.125 && Y < top + 0.375 ? 0x8ab8d8 : 0x2a2a30);
+    c.box(sx - F, top, D.z0 + 0.125, sx + F, top + F, D.z0 + 0.3125, 0x2a2a30);
+    c.box(-1.875, top, D.z0 + 0.0625, -1.3125, top + F, D.z0 + 0.25, 0xd8dce4);
+    for (let i = 0; i < 4; i++) c.box(-3.25 + (i % 2) * F, top + i * F, D.z0 + 0.125, -2.8125 + (i % 2) * F, top + (i + 1) * F, D.z0 + 0.4375, BOOKS[(i * 3 + 1) % BOOKS.length]);
+    c.box(-0.1875, top, D.z1 - 0.25, -0.0625, top + F, D.z1 - 0.125, C.brassD);
+    c.box(-0.1875 + F, top + F, D.z1 - 0.25 + F, -0.0625, top + 0.125, D.z1 - 0.125, C.brass);    // the bell
+    bankerLamp(c, -2.25, D.z0 + 0.25, top);
+  }
+  /** The deck archive: a card catalogue against the back wall, eight drawers across and four
+      high, each with its pull and a card in its holder, one of them out; a deck fanned on top
+      by a lamp; and over it, in a frame, the best decks pinned up. */
+  function catalogue(c) {
+    const x0 = 4.75, x1 = 7.75, zb = LIBR.z0, zf = zb + 0.625, top = 1.25, cw = 0.375, rh = 0.25;
+    c.box(x0, 0, zb, x1, 0.25, zf, C.woodD);
+    c.box(x0, 0.25, zb, x1, top, zf - F, C.wood);
+    c.box(x0, 0.25, zf - F, x1, top, zf, (X, Y) => {
+      const u = Math.round(((X - x0) % cw) / F), v = Math.round(((Y - 0.25) % rh) / F);
+      if (u === 0 || v === 0) return C.woodD;
+      return v === 2 && (u === 2 || u === 3) ? 0xf6f0e0 : C.woodL;
+    });
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 4; j++) c.box(x0 + i * cw + 2 * F, 0.25 + j * rh + F, zf, x0 + i * cw + 4 * F, 0.25 + j * rh + 2 * F, zf + F, C.brass);
+    // the drawer that is out: its cards standing in it
+    const ox = x0 + 3 * cw, oy = 0.25 + 2 * rh;
+    c.box(ox + F, oy + F, zf - F, ox + cw, oy + rh, zf, 0x2a1a10);
+    c.box(ox + F, oy + F, zf, ox + cw, oy + rh, zf + 0.3125, C.woodL);
+    c.clear(ox + 2 * F, oy + 2 * F, zf, ox + cw - F, oy + rh, zf + 0.25);
+    c.box(ox + 2 * F, oy + 2 * F, zf + F, ox + cw - F, oy + rh - F, zf + 0.25, (X, Y, Z) => Math.round(Z / F) % 2 ? 0xf6f0e0 : 0xd8ccb0);
+    c.box(x0 - F, top, zb, x1 + F, top + F, zf + F, C.woodD);
+    bankerLamp(c, x1 - 0.375, zb + 0.25, top + F);
+    for (let k = 0; k < 5; k++) c.box(5.0 + k * 0.1875, top + F, zb + 0.25 + (k % 2) * F, 5.3125 + k * 0.1875, top + 2 * F, zb + 0.5 + (k % 2) * F,
+      X => X >= 5.25 + k * 0.1875 ? 0xf6f0e0 : BOOKS[k]);
+    // the frame over it: green baize, ten cards pinned in two rows
+    c.box(4.9375, 1.75, zb, 7.5625, 2.8125, zb + 0.125, C.woodD);
+    c.clear(5.0, 1.8125, zb + F, 7.5, 2.75, zb + 0.125);
+    c.box(5.0, 1.8125, zb, 7.5, 2.75, zb + F, C.greenD);
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 2; j++) {
+      const x = 5.125 + i * 0.5, y = 1.875 + j * 0.4375;
+      c.box(x, y, zb + F, x + 0.375, y + 0.375, zb + 2 * F, (X, Y) =>
+        X < x + F || X >= x + 0.375 - F || Y < y + F || Y >= y + 0.375 - F ? 0xf6f0e0 : BOOKS[(i + j * 3) % BOOKS.length]);
+    }
+  }
+  /** The library's notice board, on the solid stretch of the window wall. */
+  function libNotices(c) {
+    const xw = LIBR.x1, z0 = -5.375, z1 = -3.375, y0 = 1.375, y1 = 2.625;
+    c.box(xw - 0.1875, y0, z0, xw, y1, z1, C.woodD);
+    c.clear(xw - 0.1875, y0 + 0.125, z0 + 0.125, xw - 0.125, y1 - 0.125, z1 - 0.125);
+    c.box(xw - 0.125, y0 + 0.125, z0 + 0.125, xw - F, y1 - 0.125, z1 - 0.125, () => c.rnd() < 0.12 ? C.corkD : c.jit(C.cork, 0.06));
+    for (const [z, y, w, h, col, pin] of [[-5.125, 1.625, 0.5, 0.625, 0xf6f2e8, 0xd8302a], [-4.5, 1.875, 0.4375, 0.5, 0xc8e0f0, 0xf0c040],
+      [-3.9375, 1.5625, 0.375, 0.5625, 0xf0c8d8, 0x3a8ad0], [-4.5, 1.5, 0.375, 0.3125, 0xf6e0a0, 0x5ab84a]]) {
+      c.box(xw - 0.1875, y, z, xw - 0.125, y + h, z + w, col);
+      c.box(xw - 0.25, y + h - 0.125, z + 0.1875, xw - 0.1875, y + h - F, z + 0.25, pin);
+    }
+  }
+  /** The returns cart: two shelves of books between wooden ends, castors, a handle. */
+  function returnsCart(c, x0, z0) {
+    const x1 = x0 + 1.0, z1 = z0 + 0.5;
+    for (const [wx, wz] of [[x0 + F, z0], [x1 - 2 * F, z0], [x0 + F, z1 - F], [x1 - 2 * F, z1 - F]]) c.box(wx, 0, wz, wx + F, 0.125, wz + F, 0x2a2a30);
+    for (const x of [x0, x1 - F]) c.box(x, 0.125, z0, x + F, 0.875, z1, C.wood);
+    for (const y of [0.1875, 0.5625]) c.box(x0, y, z0, x1, y + F, z1, C.woodL);
+    books(c, x0 + F, x1 - F, 0.25, z0 + F, z1 - F, 0.3125);
+    books(c, x0 + F, x1 - F, 0.625, z0 + F, z1 - F, 0.25);
+    for (const z of [z0 + 0.0625, z1 - 0.125]) c.box(x1, 0.625, z, x1 + 0.125, 0.6875, z + F, C.chromeD);
+    c.box(x1 + 0.0625, 0.625, z0 + 0.0625, x1 + 0.125, 0.875, z1 - 0.0625, C.chromeD);
+  }
+  /** The ball of the globe, on its own so that it can be spun: seas, land, the ice at the poles. */
+  function globeBall() {
+    const gc = canvas(F, 404);
+    gc.box(-0.3125, -0.3125, -0.3125, 0.3125, 0.3125, 0.3125, (X, Y, Z) => {
+      const px = X + gc.h, py = Y + gc.h, pz = Z + gc.h, r = Math.hypot(px, py, pz);
+      if (r > 0.29) return undefined;
+      const lon = Math.atan2(pz, px), lat = Math.asin(clamp(py / r, -1, 1));
+      if (Math.abs(lat) > 1.2) return 0xf2f2ea;
+      const land = Math.sin(lon * 2 + 0.6) * Math.cos(lat * 2.4) + 0.55 * Math.sin(lon * 5 - lat * 3) > 0.5;
+      return land ? (gc.rnd() < 0.3 ? 0xc8b070 : 0x6a9a4a) : gc.jit(0x3a6ab0, 0.06);
+    });
+    return gc.mesh();
+  }
+  const libWall = (X, Y) => Y < 0.25 ? C.skirt : Y < 1.25 ? C.wainscot : Y < 1.375 ? C.wainTop
+    : Y >= 4.5 && Y < 4.75 ? C.wainTop : Y >= LIBR.h - 0.25 ? C.crown : 0xf2e8d2;              // (a picture rail over the tall cases)
+  /** A painting for over the shelves: the academy's racecourse, or the hills behind it. */
+  function painting(kind, w, h) {
+    const cv = document.createElement("canvas");
+    cv.width = 256; cv.height = Math.round(256 * h / w);
+    const g = cv.getContext("2d"), W = cv.width, H = cv.height, sky = g.createLinearGradient(0, 0, 0, H * 0.6);
+    sky.addColorStop(0, "#8cbce0"); sky.addColorStop(1, "#f4e8cc");
+    g.fillStyle = sky; g.fillRect(0, 0, W, H);
+    if (kind === "hills") {
+      for (const [y, col, k] of [[0.5, "#7a9ab0", 3], [0.62, "#5a8a5a", 5], [0.78, "#4a7a3a", 7]]) {
+        g.fillStyle = col; g.beginPath(); g.moveTo(0, H);
+        for (let x = 0; x <= W; x += 8) g.lineTo(x, H * y + Math.sin(x / W * k + y * 9) * H * 0.06);
+        g.lineTo(W, H); g.fill();
+      }
+    } else {
+      g.fillStyle = "#e8e0d0"; g.fillRect(W * 0.08, H * 0.34, W * 0.3, H * 0.2);           // the grandstand
+      g.fillStyle = "#b84a3a"; g.fillRect(W * 0.06, H * 0.3, W * 0.34, H * 0.06);
+      g.fillStyle = "#5aa04a"; g.fillRect(0, H * 0.54, W, H * 0.46);                          // the turf, the rail
+      g.fillStyle = "#f8f8f2"; g.fillRect(0, H * 0.66, W, H * 0.025);
+      ["#d8302a", "#2a5ab0", "#f0c040", "#7a3a8a"].forEach((col, i) => {                      // and the field, racing by
+        const x = W * (0.42 + i * 0.12), y = H * (0.74 + (i % 2) * 0.07);
+        g.fillStyle = "#3a2a1e"; g.fillRect(x, y, W * 0.07, H * 0.06);
+        g.fillStyle = col; g.fillRect(x + W * 0.02, y - H * 0.06, W * 0.03, H * 0.06);
+      });
+    }
+    return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv) }));
+  }
+  const LIB_PAINTINGS = [["track", -7.0, 5.25], ["hills", -2.0, 5.25], ["track", 6.25, 5.25]];   // over the back wall's cases and the archive
+  function libraryShell() {
+    const c = canvas(S, 4747), { box, clear, jit } = c, L = LIBR;
+    // parquet: a metre square of four boards, the next square turned the other way; a dark band round the walls
+    box(L.x0, -0.25, L.z0, L.x1, 0, L.z1, (X, Y, Z) => {
+      const x = X - L.x0, z = Z - L.z0;
+      if (x < 0.5 || x >= L.x1 - L.x0 - 0.5 || z < 0.5) return jit(C.seam, 0.04);
+      const k = Math.floor(((Math.floor(x) + Math.floor(z)) % 2 ? x : z) % 1 / 0.25);
+      return jit([C.plankA, C.plankB, C.plankC, C.plankB][k], 0.035);
+    });
+    // a green runner from the doors, gold at its edges
+    box(1.5, -0.25, L.z0, 3.5, 0, L.z1, X => X < 1.75 || X >= 3.25 ? C.fringe : jit(C.green, 0.04));
+    box(L.x0, 0, L.z0 - 0.25, L.x1, L.h, L.z0, libWall);
+    box(L.x0 - 0.25, 0, L.z0 - 0.25, L.x0, L.h, L.z1, libWall);
+    box(L.x1, 0, L.z0 - 0.25, L.x1 + 0.25, L.h, L.z1, libWall);
+    for (const id in LIB_DOORS) { const d = LIB_DOORS[id]; clear(d.x - d.w / 2, 0, L.z0 - 0.25, d.x + d.w / 2, d.h, L.z0); }
+    for (const [a, b] of LIB_WINDOWS) clear(L.x1, 1.0, a, L.x1 + 0.25, 4.0, b);
+    return c.mesh((X, Y, Z, nx, ny, nz) => !(ny < 0 && Y < 0) && !(nz < 0 && Z < L.z0 - 0.2)
+      && !(nx < 0 && X < L.x0 - 0.2) && !(nx > 0 && X >= L.x1));
+  }
+  function libraryProps() {
+    const c = canvas(F, 4848), { box } = c, L = LIBR;
+    // the tall cases on the back wall and the left one, each with its ladder; the two stacks
+    bookcase(c, { a0: L.x0, a1: -0.75, b: L.z0, dir: 1, h: 4, rail: true });
+    bookcase(c, { alongZ: true, a0: L.z0 + 0.375, a1: 6.75, b: L.x0, dir: 1, h: 4, rail: true });
+    ladder(c, { u: -7.75, f: L.z0 + 0.3125, dir: 1, h: 4 });
+    ladder(c, { alongZ: true, u: 2.5, f: L.x0 + 0.3125, dir: 1, h: 4 });
+    for (const xs of LIB_STACKS) {
+      for (const dir of [-1, 1]) bookcase(c, { alongZ: true, a0: STACK_Z[0], a1: STACK_Z[1], b: xs, dir, h: 2.25, bay: 0.95 });
+      for (const z of [STACK_Z[0] - F, STACK_Z[1]]) box(xs - 0.375, 0, z, xs + 0.375, 2.25, z + F, C.woodD);
+      // on top: a few books lying flat, a brass bookend pair holding up some more
+      const t = 2.25;
+      for (let i = 0; i < 3; i++) box(xs - 0.1875 + (i % 2) * F, t + i * F, -1.5, xs + 0.1875 + (i % 2) * F, t + (i + 1) * F, -1.125, BOOKS[(i * 3 + (xs > -5 ? 2 : 5)) % BOOKS.length]);
+      for (const z of [0.25, 0.875]) box(xs - 0.125, t, z, xs + 0.125, t + 0.25, z + F, C.brass);
+      for (let z = 0.25 + F, k = 0; z < 0.875; z += F, k++) box(xs - 0.125, t, z, xs + 0.125, t + 0.1875 + (k % 3) * F, z + F, BOOKS[(k * 5 + 1) % BOOKS.length]);
+    }
+    libraryDesk(c);
+    catalogue(c);
+    libNotices(c);
+    for (const [tx, tz] of LIB_TABLES) readingTable(c, tx, tz);
+    for (const p of LIB_SEATS) if (p.act === "study") libChair(c, p.x, p.z, p.face);
+    // the reading corner: a rug, the two wing chairs, a low round table between them, a cup and a book on it
+    box(-7.0, 0, 3.5, -2.5, F, 6.0, (X, Y, Z) => {
+      const u = X + c.h + 7.0, v = Z + c.h - 3.5, e = Math.min(u, 4.5 - u, v, 2.5 - v), m = Math.abs(u - 2.25) / 1.6 + Math.abs(v - 1.25) / 0.8;
+      return e < 0.125 ? C.fringe : e < 0.25 ? C.rugA : m < 0.8 ? C.rugA : m < 1 ? C.fringe : C.rugB;
+    });
+    for (const [x, z, face] of LIB_CHAIRS) wingChair(c, x, z, face > 0 ? 1 : -1);
+    cyl(c, -4.75, 3.875, 0.1875, F, 2 * F, C.woodD);
+    cyl(c, -4.75, 3.875, 0.0625, 2 * F, 0.3125, C.wood);
+    cyl(c, -4.75, 3.875, 0.375, 0.3125, 0.375, C.woodD);
+    cyl(c, -4.5625, 3.75, 0.0625, 0.375, 0.4375, 0xf6f2ea);
+    box(-5.0, 0.375, 3.875, -4.6875, 0.4375, 4.125, C.green);
+    // the globe's stand and its brass meridian (the ball: buildLibrary)
+    box(GLOBE.x - 0.3125, 0, GLOBE.z - F, GLOBE.x + 0.3125, F, GLOBE.z + F, C.woodD);
+    box(GLOBE.x - F, 0, GLOBE.z - 0.3125, GLOBE.x + F, F, GLOBE.z + 0.3125, C.woodD);
+    cyl(c, GLOBE.x, GLOBE.z, 0.0625, F, 0.625, C.wood);
+    cyl(c, GLOBE.x, GLOBE.z, 0.125, 0.625, 0.6875, C.woodD);
+    box(GLOBE.x - 0.375, 0.6875, GLOBE.z, GLOBE.x + 0.375, GLOBE.y + 0.375, GLOBE.z + F, (X, Y) =>
+      Math.abs(Math.hypot(X + c.h - GLOBE.x, Y + c.h - GLOBE.y) - 0.34) < 0.035 ? C.brass : undefined);
+    returnsCart(c, -2.5, 0.5);
+    // the windows: white frames, a bar down and a transom across, the sills, green curtains drawn back
+    for (const [a, b] of LIB_WINDOWS) {
+      const x = L.x1, m = (a + b) / 2;
+      box(x - F, 0.8125, a - 0.1875, x, 4.1875, b + 0.1875, C.frame);
+      c.clear(x - F, 1.0, a, x, 4.0, b);
+      box(x + 0.0625, 1.0, m, x + 0.125, 4.0, m + F, C.frame);
+      box(x + 0.0625, 3.25, a, x + 0.125, 3.3125, b, C.frame);
+      box(x - 0.25, 0.9375, a - 0.1875, x, 1.0, b + 0.1875, C.frame);
+      for (const z of [a - 0.4375, b + 0.1875]) box(x - 0.1875, 0.625, z, x - F, 4.3125, z + 0.25, (X, Y, Z) => Math.round(Z / F) % 2 ? C.green : C.greenD);
+      box(x - 0.25, 4.1875, a - 0.4375, x - F, 4.5, b + 0.4375, C.greenD);
+    }
+    // seats in the first window and the last, a radiator under the middle one
+    for (const [a, b] of [LIB_WINDOWS[0], LIB_WINDOWS[2]]) {
+      box(7.875, 0, a + 0.0625, L.x1, 0.375, b - 0.0625, (X, Y, Z) => X < 7.875 + F && Y > F && Y < 0.3125 && (Z - a) % 0.5 > 0.125 ? C.wood : C.woodD);
+      box(7.875 + F, 0.375, a + 0.0625, L.x1, 0.5, b - 0.0625, (X, Y) => X < 7.875 + 2 * F && Y >= 0.4375 ? C.fringe : C.greenL);
+    }
+    box(8.25, 0.25, 1.9375, L.x1, 0.875, 3.5625, (X, Y, Z) => Math.round(Z / F) % 2 ? 0xeae6dc : 0xd6d2c6);
+    // a clock between the shelves and the doors, a lamp under it; a plant in the corner
+    box(-0.3125, 2.6875, L.z0, 0.3125, 3.3125, L.z0 + F, (X, Y) => {
+      const dx = X + c.h, dy = Y + c.h - 3.0, r = Math.hypot(dx, dy);
+      if (r > 0.3125) return undefined;
+      if (r > 0.25) return C.woodD;
+      return (Math.abs(dx) < 0.035 && dy > 0 && dy < 0.2) || (Math.abs(dy) < 0.035 && dx < 0 && dx > -0.14) ? 0x2a2a30 : 0xf8f2e2;
+    });
+    sconce(c, 0, L.z0, 1.75);
+    plant(c, -7.5, 6.3, 1.0);
+    for (const [, x, y] of LIB_PAINTINGS) box(x - 0.875, y - 0.625, L.z0, x + 0.875, y + 0.625, L.z0 + 0.125, C.brassD);   // their frames
+    return c.mesh((X, Y, Z, nx, ny, nz) => notUnder(X, Y, Z, nx, ny) && !(nz < 0 && Z < L.z0 + F)
+      && !(nx < 0 && X < L.x0 + F) && !(nx > 0 && X >= L.x1 - F));
+  }
+  /* Where they sit: at the reading tables, two down each side of each, got into from behind
+     the chair; in the reading corner's wing chairs; on the window seats. */
+  const LIB_SEATS = [];
+  for (const [tx, tz] of LIB_TABLES) for (const dx of [-0.75, 0.75]) for (const s of [-1, 1])
+    LIB_SEATS.push({ x: tx + dx, z: tz + s * 0.8, face: s < 0 ? 0 : PI, act: "study", seat: true, from: { x: tx + dx, z: tz + s * 1.55 } });
+  for (const [x, z, face] of LIB_CHAIRS) LIB_SEATS.push({ x, z, face, act: "read", seat: true });
+  for (const [a, b] of [LIB_WINDOWS[0], LIB_WINDOWS[2]]) for (const z of [a + 0.375, b - 0.375])
+    LIB_SEATS.push({ x: 8.2, z, face: -PI / 2, act: "read", seat: true, from: { x: 7.35, z } });
+  const LIB_N = LIB_SEATS.length;
+  const LIBRARY_POIS = [
+    ...LIB_SEATS,
+    { x: -7.45, z: -1.0, face: -PI / 2, act: "browse", icon: "book" },          // the case along the wall
+    { x: -7.2, z: 1.0, face: PI / 2, act: "browse" },                           // the first stack, both sides
+    { x: -5.3, z: -1.75, face: -PI / 2, act: "browse", icon: "book" },
+    { x: -4.95, z: 0.75, face: PI / 2, act: "browse" },                         // the second
+    { x: -3.05, z: -1.75, face: -PI / 2, act: "browse" },
+    { x: -6.0, z: -4.85, face: PI, act: "browse", icon: "book" },               // the case on the back wall
+    { x: 5.4, z: -4.6, face: PI, act: "browse", icon: "cards" },                // the deck archive's drawers
+    { x: 7.7, z: -4.4, face: PI / 2, act: "read", icon: "clipboard" },          // the notice board
+    { x: 7.75, z: 2.75, face: PI / 2, act: "look" },                            // out of the middle window
+    { x: GLOBE.x + 0.8, z: GLOBE.z, face: -PI / 2, act: "look" },               // the globe (from beside it: in front, it hides her)
+    { x: -2.0, z: 0.0, face: 0, act: "browse" },                                // the returns cart
+  ];
+  const LIBRARY_HUDDLES = [[1.0, 5.25]];
+  const LIBRARY_LINES = ["Oh -- Trainer. I was just reading up on the next course.", "Shh... the librarian's watching.",
+                         "I'm studying for the written exam.", "Have you read this one? It's all about pacing.",
+                         "I always end up falling asleep in here.", "The race records go back years and years."];
+  const LIBRARY_PEER_LINES = ["Shh!", "Studying too?", "Have you read this one?", "I can't find the book I wanted.",
+                              "The written exam's next week...", "These chairs are so comfy."];
+  const LIBRARY_THINGS = [
+    ...LIB_SEATS.map((p, i) => p.act === "study" ? { kind: "sit", label: "Study", pose: "study", poi: [i] }
+      : { kind: "sit", label: p.x > 0 ? "Sit by the window" : "Sit and read", pose: "read", poi: [i] }),
+    { kind: "read", label: "Pull a book", poi: [LIB_N], x: -7.45, z: -1.0, face: -PI / 2, ax: -8.0, ay: 2.5, az: -1.0,
+      say: ["'Patience Wins Races.' I'll borrow this one.", "'A Short History of the Derby'... six hundred pages?",
+            "'Carrots, and Other Training Foods.' Hm.", "This one's been checked out forty times."] },
+    { kind: "read", label: "Browse the shelves", poi: [LIB_N + 4], x: -3.05, z: -1.75, face: -PI / 2, ax: -3.7, ay: 2.6, az: -1.75,
+      say: ["Race records, all the way back to the first Derby.", "Somebody's put Training Theory back in the wrong place.",
+            "So many books on stamina..."] },
+    { kind: "read", label: "Read the notices", poi: [LIB_N + 7], x: 7.7, z: -4.4, face: PI / 2, ax: 8.4, ay: 3.45, az: -4.375,
+      say: ["Quiet hours after six.", "The written exam is next week. Study hard!", "Lost: one pink ribbon. Ask at the desk."] },
+    { kind: "look", label: "Look out", poi: [LIB_N + 8], x: 7.75, z: 2.75, face: PI / 2, ax: 8.4, ay: 2.6, az: 2.75,
+      say: ["It's so peaceful out there.", "Somebody's running laps already.", "The sun's lovely through this window."] },
+    { kind: "look", label: "Spin the globe", spin: true, poi: [LIB_N + 9], x: GLOBE.x + 0.8, z: GLOBE.z, face: -PI / 2, ax: GLOBE.x, ay: 1.75, az: GLOBE.z,
+      say: ["Longchamp is... about here.", "The world's a big place to race in.", "Round and round it goes."] },
+    { kind: "read", label: "Check the returns", poi: [LIB_N + 10], x: -2.0, z: 0.0, face: 0, ax: -2.0, ay: 1.5, az: 0.75,
+      say: ["'Mastering the Final Corner.' Due back yesterday.", "Someone left a bookmark in this one.", "A whole stack on the Japan Cup."] },
+  ];
+  const LIBRARY_PLACES = {
+    hall: { label: "Main hall", sub: "Back out", icon: "door", x: 2.5, z: -4.4, face: PI, ax: 2.5, ay: 4.5, az: -5.9,
+            door: "hall", room: "hall", arrive: "library" },
+    // the deck archive, which is Decks
+    deck: { station: "deck", sub: "Deck archive", x: 6.6, z: -4.55, face: PI, ax: 6.25, ay: 3.8, az: -5.8 },
+  };
+  const LIB_BLOCKS = [
+    [LIBR.x0, -6, -0.7, -5.55], [LIBR.x0, -6, -8.1, 7],                                 // the cases along the walls
+    ...LIB_STACKS.map(x => [x - 0.4, STACK_Z[0] - 0.1, x + 0.4, STACK_Z[1] + 0.1]),
+    [-7.85, -5.7, -7.15, -4.7], [-8.2, 2.4, -7.2, 3.1],                                 // the ladders' feet
+    [LIB_DESK.x0 - 0.1, -6, LIB_DESK.x1 + 0.1, LIB_DESK.z1 + 0.1],                      // the desk, and the librarian behind it
+    [4.65, -6, 7.85, -5.25],                                                             // the card catalogue
+    ...LIB_TABLES.map(([tx, tz]) => [tx - 1.65, tz - 1.1, tx + 1.65, tz + 1.1]),         // the tables and their chairs
+    ...LIB_CHAIRS.map(([x, z]) => [x - 0.45, z - 0.45, x + 0.45, z + 0.45]),
+    [-5.15, 3.45, -4.35, 4.25],                                                          // the low table
+    [GLOBE.x - 0.4, GLOBE.z - 0.4, GLOBE.x + 0.4, GLOBE.z + 0.4],
+    [-2.6, 0.4, -1.4, 1.1],                                                              // the returns cart
+    ...[LIB_WINDOWS[0], LIB_WINDOWS[2]].map(([a, b]) => [7.85, a + 0.05, 8.5, b - 0.05]),  // the window seats
+    [8.2, 1.9, 8.5, 3.6],                                                                // the radiator
+    [-7.85, 6.0, -7.15, 6.6],                                                            // the plant
+  ];
+  function libraryWalkable(x, z, r) {
+    if (x < LW.x0 + r || x > LW.x1 - r || z < LW.z0 + r || z > LW.z1 - r) return false;
+    for (const b of LIB_BLOCKS) if (x > b[0] - r && x < b[2] + r && z > b[1] - r && z < b[3] + r) return false;
+    return true;
+  }
+  function buildLibrary(R) {
+    const g = new THREE.Group(), L = LIBR;
+    const shell = new THREE.Mesh(libraryShell(), MAT); shell.receiveShadow = true; g.add(shell);
+    const props = new THREE.Mesh(libraryProps(), MAT); props.receiveShadow = true; g.add(props);
+    for (const [a, b] of LIB_WINDOWS) g.add(pane(b - a, 3, L.x1 + 0.09, 2.5, (a + b) / 2, -PI / 2));
+    g.add(outdoors({ x: L.x1 + 0.25, dir: 1, z0: -2.5, z1: 6.75, seed: 73 }));
+    // the lamps: the green ones on the tables and the desk, the catalogue's, the one by the doors
+    for (const [tx, tz] of LIB_TABLES) glow(g, tx, 1.15, tz, 1.4);
+    glow(g, -2.25, 1.4, LIB_DESK.z0 + 0.25, 1.0);
+    glow(g, 7.375, 1.65, L.z0 + 0.25, 0.9);
+    glow(g, 0, 1.95, L.z0 + 0.2, 1.2);
+    // the globe's ball, on its own so that it can be spun (updateAct)
+    R.globe = new THREE.Mesh(globeBall(), MAT);
+    R.globe.position.set(GLOBE.x, GLOBE.y, GLOBE.z); g.add(R.globe);
+    R.doors = {};
+    for (const id in LIB_DOORS) { const d = makeDoor(LIB_DOORS[id]); R.doors[id] = d; g.add(d.g); }
+    hangSign(g, "MAIN HALL", 2.5, 3.95, L.z0 + 0.14, 0, 0.6);
+    hangSign(g, "DECK ARCHIVE", 6.25, 3.25, L.z0 + 0.03, 0, 0.65, "#7a4e30", "#fff6dc");
+    hangSign(g, "QUIET, PLEASE", -4.5, 5.25, L.z0 + 0.03, 0, 0.8, "#2f6a4e", "#f6efdc");
+    for (const [kind, x, y] of LIB_PAINTINGS) { const p = painting(kind, 1.5, 1.0); p.position.set(x, y, L.z0 + 0.13); g.add(p); }
+    hangSign(g, "LIBRARY NEWS", L.x1 - 0.03, 2.95, -4.375, -PI / 2, 0.5, "#7a4e30", "#fff6dc");
+    // what each stack holds, on the end of it that faces the room
+    [["A - K", "Race history"], ["L - Z", "Training"]].forEach((lines, i) => {
+      const p = plate(lines, 0.625, 0.3125, "#f6f0e2", "#3a2a1e");
+      p.position.set(LIB_STACKS[i], 1.85, STACK_Z[1] + F + 0.004); g.add(p);
+    });
+    return g;
+  }
+  /* The librarian, at her desk by the doors: a cardigan, her glasses, her hair in a bun; at
+     her screen until somebody comes to the desk. */
+  STAFF.library = [{ id: "staff-librarian", name: "The librarian", x: -1.6, z: -5.05, yaw: 0, monitor: 1,
+    trainer: { sex: "f", style: "bun", hair: 6, skin: 0, eyes: 4, attire: "sweater", colour: 5, bottoms: "long", glasses: true },
+    lines: ["Welcome to the library. Quietly, please.", "Your decks are filed in the archive, by the doors.",
+            "Returns go on the cart, dear.", "Shh... some of them are studying for the written exam.", "That one's overdue. Again."] }];
+
   // ================================================================ the window between them
   /* The office shares a wall with the hall, and a window in it. Both rooms go on living all
      the time, and the window is a real opening onto the other: each frame it is on screen,
@@ -2933,6 +3347,14 @@
              cam: { x: [-12, 16], z: [-9, 4], h: 8, d: 14, ly: 0.5, la: 6, fov: 42, turn: [15, 23, 0.4] },
              nav: { x0: -22, z0: -18, nx: 192, nz: 116 }, spawn: { x: -19.6, z: -5.5, yaw: PI / 2 },
              roam: { x: [-18, 22], z: [-12, 8] }, jog: JOG },
+    // the library: behind the hall's back wall like the office, so it faces the other way. The
+    // camera never turns toward a side wall here: it looks straight down the aisles between the
+    // stacks, which a turn would hide behind them
+    library: { id: "library", music: "ambient", yaw: PI, build: buildLibrary, walkable: libraryWalkable, places: LIBRARY_PLACES, pois: LIBRARY_POIS,
+               huddles: LIBRARY_HUDDLES, lines: LIBRARY_LINES, peerLines: LIBRARY_PEER_LINES, things: LIBRARY_THINGS, bg: 0xf0e4cc, fog: [40, 90],
+               cam: { x: [-5.25, 4.5], z: [-2.5, 4], h: 6.2, d: 9.5, ly: 1.0, la: 2.4, fov: 42 },
+               nav: { x0: -8.5, z0: -6, nx: 68, nz: 52 }, spawn: { x: 2.5, z: -4.4, yaw: 0 },
+               roam: { x: [-7.5, 7.5], z: [-5, 6] } },
   };
   // who has a room in the dorm, for the shell to send some of them home
   const RESIDENTS = DORM_ROOMS.flatMap(r => r.names);
@@ -3067,13 +3489,13 @@
   let room = null;                                       // the room she is in
   let host = null, tagsEl = null, raf = 0, last = 0, opts = null, safeTop = -1;
   let player = null, tags = [], keys = {}, nearId = null, clickGoal = null;
-  const crowds = { hall: [], office: [], cafe: [], dorm: [], room: [], school: [], class: [], track: [] };   // everyone else, room by room
+  const crowds = { hall: [], office: [], cafe: [], dorm: [], room: [], school: [], class: [], track: [], library: [] };   // everyone else, room by room
   let npcs = crowds.hall;                                // the company of the room she is in
   let seq = null;                                        // a walk through a door, under way
   let saved = { room: "hall", x: 0, z: 3, yaw: PI, via: null, v: 0 };   // where she was last time
   // who is where: `home` are the dorm's residents who are in their rooms today, `classes`
   // the ones in class, a classroom each by turns
-  const casts = { hall: [], office: [], cafe: [], dorm: [], home: [], school: [], classes: [], track: [] };
+  const casts = { hall: [], office: [], cafe: [], dorm: [], home: [], school: [], classes: [], track: [], library: [] };
   let camYaw = 0, snapCam = true;
   const camTarget = new THREE.Vector3(), tmp = new THREE.Vector3(), ray = new THREE.Raycaster();
   const PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -3152,19 +3574,153 @@
     for (const n of crowds[R.id]) dropNpc(n);
     R.taken = new Map();
     const names = R.id === "room" ? DORM_ROOMS[R.v].names : null;
-    const defs = names ? casts.home.filter(d => names.includes(bareName(d.name)))
+    const due = routined(R) ? dueIn(R) : null;
+    const defs = due ? due.map(o => o.d)
+      : names ? casts.home.filter(d => names.includes(bareName(d.name)))
       : R.id === "dorm" ? casts.dorm.filter(d => floorOf(bareName(d.name)) === R.v)     // in the corridor of her own floor
       : R.id === "class" ? casts.classes.filter((d, i) => i % LESSONS.length === R.v)   // in this lesson's class
       : R.jog && LOW_POWER ? casts[R.id].slice(0, 2)                                   // the big outdoors: fewer out on a phone
       : casts[R.id] || [];
-    crowds[R.id] = defs.map(d => {
+    crowds[R.id] = defs.map((d, i) => {
       const n = makeNpc(d, R);
       if (names) n.home = names.indexOf(bareName(d.name));          // her side of the room
-      if (R.jog && afterDark()) goneIn(n);                           // out on the track after dark: already gone in
+      if (due) { n.want = due[i].w.act; if (n.want === "sleep") tuck(n, performance.now()); }   // in bed already
+      else if (R.jog && afterDark()) goneIn(n);                      // out on the track after dark: already gone in
       return n;
     }).concat((STAFF[R.id] || []).map(st => staffNpc(st, R)));
     R.peopled = true;
   }
+
+  // ---------------------------------------------------------------- routines
+  /* With the whole academy handed over (`opts.academy`) and routines.js loaded, who is
+     where is down to the hour: in class in the morning, at lunch at noon, out on the track
+     at dawn and after school, asleep in their rooms at night, each by her own lights (Suzuka
+     running alone before anyone is up, Oguri wherever the food is, Tachyon in her lab long
+     after lights out). The rooms fill and empty to match. As a band turns over, whoever is
+     due elsewhere gets up, walks out through the door that way and is gone; whoever is due
+     here comes in through the door she is coming from. The office keeps its own company. */
+  let academy = [], syncAt = 0;
+  const ROUTINE_CAP = { hall: 10, cafe: 9, track: 8, library: 6, school: 4, class: 4, dorm: 5, room: 2 };
+  const ROUTINE_CAP_LOW = { hall: 7, cafe: 6, track: 2, library: 4 };   // on a phone: fewer to draw
+  const routined = R => academy.length > 0 && ROUTINE_CAP[R.id] != null;
+  const academyDay = () => Math.floor((Date.now() + clockShift) / GAME_HOUR / 24);
+  /** Where racer `d` is at `hour` (now, by default): a room id and which (`v`), what she is
+      at there (`act`), or `away` and where, in words. */
+  function whereNow(d, hour) {
+    const name = bareName(d.name), w = Routines.where(name, hour == null ? hourNow() : hour, academyDay());
+    if (w.place === "home") {
+      const v = DORM_ROOMS.findIndex(r => r.names.includes(name));
+      return v >= 0 ? { id: "room", v, act: w.act, sure: w.sure } : { id: "away", away: "in her room" };
+    }
+    if (w.place === "corridor") return { id: "dorm", v: floorOf(name), act: w.act, sure: w.sure };
+    if (w.place === "class") return { id: "class", v: Routines.hash(name) % LESSONS.length, act: w.act, sure: w.sure };
+    if (w.place === "away") return { id: "away", away: w.away };
+    return { id: w.place, act: w.act, sure: w.sure };
+  }
+  const isIn = (w, R) => w.id === R.id && (w.v == null || w.v === R.v);
+  /** Who is due in room R now: whoever her routine puts here, as many as it holds -- the ones
+      already in it first, so nobody sat at her lunch is turned out for somebody new; then the
+      ones who are always here at this hour (Suzuka on the track at dawn) before the maybes;
+      then the same order all day, so the room does not reshuffle. */
+  function dueIn(R) {
+    const day = academyDay(), cap = (LOW_POWER && ROUTINE_CAP_LOW[R.id]) || ROUTINE_CAP[R.id];
+    const here = new Set((crowds[R.id] || []).filter(n => !n.fixed && !n.out && !n.leaving).map(n => n.def.id));
+    const rank = o => (here.has(o.d.id) ? 0 : 2 * 4294967296) + (o.w.sure ? 0 : 4294967296) + Routines.hash(o.d.name + day);
+    return academy.map(d => ({ d, w: whereNow(d) })).filter(o => isIn(o.w, R) && !(player && player.def.id === o.d.id))
+      .sort((a, b) => rank(a) - rank(b)).slice(0, cap);
+  }
+  /** The way out of room R toward `to` (a whereNow): the place leading there, else the way
+      to the dorms, the school or the hall, else any door. */
+  function doorToward(R, to) {
+    const ps = Object.values(R.places || {}).filter(p => p.room);
+    const want = to.id === "away" ? (R.id === "hall" ? "school" : "hall") : to.id;
+    return ps.find(p => p.room === want && (p.v == null || to.v == null || p.v === to.v))
+      || (want === "room" || want === "dorm" ? ps.find(p => p.room === "dorm") : null)
+      || (want === "class" ? ps.find(p => p.room === "school") : null)
+      || ps.find(p => p.room === "hall") || ps[0] || null;
+  }
+  /** Room R as the hour has it. In view, the comings and goings walk through the doors;
+      out of view, they just happen. */
+  function syncRoom(R, now) {
+    if (!routined(R) || !R.peopled) return;
+    const due = dueIn(R), crowd = crowds[R.id], seen = R === room;
+    for (const n of crowd) {
+      if (n.fixed || n.leaving || n.out) continue;
+      const o = due.find(o => o.d.id === n.def.id);
+      if (o) {
+        // still here, at something else now: she gets round to it shortly
+        if (o.w.act !== n.want) { n.want = o.w.act; if (n.state === "stay") n.until = Math.min(n.until, now + Math.random() * 4000); }
+      } else if (seen) leave(n, whereNow(n.def), now);
+      else n.out = true;
+    }
+    for (const o of due) {
+      if (crowd.some(n => n.def.id === o.d.id && !n.out)) continue;
+      const n = makeNpc(o.d, R);
+      n.want = o.w.act;
+      if (R.id === "room") n.home = DORM_ROOMS[R.v].names.indexOf(bareName(o.d.name));
+      if (seen) comeIn(n, now);
+      crowd.push(n);
+    }
+  }
+  /** Off to `to`: up off her seat, over to the door that way, and out through it. */
+  function leave(n, to, now) {
+    const p = doorToward(n.R, to);
+    if (!p) { n.out = true; return; }
+    n.leaving = p; n.until = 0;
+    if (n.state === "jog" || n.state === "walk") n.state = "idle";
+    if (n.perch > 0 && n.state !== "rise") n.state = "rise";
+  }
+  /** In through the door she is coming from (where she was a little while ago). */
+  function comeIn(n, now) {
+    const was = whereNow(n.def, hourNow() - 0.75);
+    const p = doorToward(n.R, isIn(was, n.R) ? { id: "hall" } : was);
+    if (!p) return;
+    n.door = { p, t: 0 }; n.state = "in";
+    n.x = n.rx = p.x + Math.sin(p.face) * DOORWAY; n.z = n.rz = p.z + Math.cos(p.face) * DOORWAY;
+    n.yaw = p.face + PI;
+  }
+  /** The door at place `p` held open a moment for somebody going through it. */
+  function holdDoor(p, now) {
+    const d = p.door && room.doors[p.door];
+    if (d) d.npcUntil = now + 700;
+  }
+  /** Her bed, in her dorm room: the room's nap spot on her side. */
+  const bedOf = n => n.R.id === "room" && n.home != null && n.home >= 0
+    ? (n.R.things || []).find(t => t.kind === "nap" && t.poi && t.poi[0] === n.home) : null;
+  function bedGoal(n) {
+    const th = bedOf(n);
+    if (!th || n.R.taken.has("p" + n.home)) return null;
+    n.slot = "p" + n.home; n.R.taken.set(n.slot, n);
+    return { x: th.x, z: th.z, face: th.face, bed: th.bed, act: "sleep", stay: 600000 };
+  }
+  /** Asleep in her bed already, as she is found when the door opens at night. */
+  function tuck(n, now) {
+    const g = bedGoal(n);
+    if (!g) return;
+    n.goal = g; n.x = n.rx = g.x; n.z = n.rz = g.z; n.yaw = g.face;
+    n.state = "stay"; n.act = "sleep"; n.perch = 1; n.until = now + g.stay;
+  }
+  /* What her routine has her doing, as the spots in a room that suit it. */
+  const WANT_POIS = { eat: ["eat"], study: ["study"], read: ["read", "browse"], browse: ["browse", "look"], look: ["look", "browse"],
+                      sit: ["sit", "study"], stretch: ["stretch"], train: ["drill", "stretch"], sleep: ["sit"] };
+  /** A goal for what she is here to do, if the room has one free; false if not. */
+  function wantGoal(n, now) {
+    const R = n.R, w = n.want;
+    if (w === "sleep") { const g = bedGoal(n); if (g) { n.goal = g; n.state = "walk"; return true; } }
+    if (R.jog && (w === "jog" || (w === "train" && Math.random() < 0.45))) {
+      n.goal = { x: R.jog.entry.x + (Math.random() - 0.5) * 2, z: R.jog.entry.z, act: "jog", jog: true, stay: 0 };
+      n.state = "walk"; return true;
+    }
+    const acts = WANT_POIS[w];
+    if (!acts) return false;
+    const free = R.pois.map((p, i) => ({ p, i })).filter(o => acts.includes(o.p.act) && !R.taken.has("p" + o.i) && !o.p.who
+      && (o.p.owner == null || n.home == null || o.p.owner === n.home));
+    if (!free.length) return false;
+    goPoi(n, free[Math.floor(Math.random() * free.length)]);
+    return true;
+  }
+  /** Who is in the room with her, by name: for a word to somebody in particular. */
+  const company = n => (n.R === room ? npcs : crowds[n.R.id]).filter(o => o !== n && !o.fixed && !o.out).map(o => bareName(o.def.name));
   /** In for the night, off the track: at the school's doors, out of sight, until morning. */
   function goneIn(n) {
     if (n.slot) { n.R.taken.delete(n.slot); n.slot = null; }
@@ -3185,7 +3741,7 @@
     if (opts && opts.onMusic) opts.onMusic(room.music || null);         // a place with music of its own, or the home theme
     if (root.Quests) Quests.record("lobbyRoom", { room: room.id, v });  // "make the rounds", which dorm room (quests.js)
     if (room.dress) room.dress(room, v || 0);
-    if (!room.peopled || room.dress) people(room);
+    if (!room.peopled || room.dress || routined(room)) people(room);    // (by the hour, with routines)
     npcs = crowds[room.id];
     showRoom(room);
     lookOf(room);
@@ -3211,6 +3767,11 @@
       racer the player is walking as. The staff and the trainer have their own. */
   function lineOf(n) {
     if (n.def.lines) return pickOf(n.def.lines);
+    // her own, for the hour and what she is at, or for somebody here (routines.js)
+    if (academy.length && !n.def.trainer && Math.random() < 0.6) {
+      const l = Routines.line(bareName(n.def.name), hourNow(), n.act || n.want, company(n));
+      if (l) return l;
+    }
     if (n.def.trainer) return pickOf(OFFICE_LINES).replace("{name}", player ? player.def.name : "");
     if (root.Lines && player) return Lines.line(n.def.name, player.def.trainer ? { trainer: true } : player.def);
     return pickOf(linesFor(n.R));
@@ -3273,15 +3834,22 @@
     if (n.goal && n.goal.seat && n.goal.seat.tray) n.goal.seat.tray.visible = false;   // her lunch goes with her
     n.last = { x: n.x, z: n.z, t: now };
     n.act = null; n.perch = 0; n.path = null;
+    // due elsewhere (her routine): over to the door that way
+    if (n.leaving) {
+      n.goal = { x: n.leaving.x, z: n.leaving.z, act: "idle", leave: true, stay: 0 };
+      n.state = "walk"; return;
+    }
     // a place of her own (Oguri's, at the end of the table): most of the time, she is there
     const own = R.pois.findIndex(p => p.who && p.who === bareName(n.def.name));
     if (own >= 0 && !taken.has("p" + own) && Math.random() < 0.8) return goPoi(n, { p: R.pois[own], i: own });
+    // what her routine has her here for leads, most of the time: lunch, a lap, her books, her bed
+    if (n.want && n.want !== "chat" && Math.random() < 0.75 && wantGoal(n, now)) return;
     // out on the track, a good share of the time she goes for a jog: over to the line, and round
     if (R.jog && Math.random() < 0.4) {
       n.goal = { x: R.jog.entry.x + (Math.random() - 0.5) * 2, z: R.jog.entry.z, act: "jog", jog: true, stay: 0 };
       n.state = "walk"; return;
     }
-    const r = Math.random();
+    const r = n.want === "chat" && Math.random() < 0.6 ? 0 : Math.random();   // out to talk: a huddle, mostly
     if (r < 0.38) {
       // a huddle: prefer one somebody is already standing in
       const order = R.huddles.map((h, i) => ({ h, i, busy: [0, 1, 2].filter(k => taken.has("h" + i + ":" + k)).length }))
@@ -3355,11 +3923,25 @@
     }
     return n;
   }
+  /* The staff's hours, by room: Tazuna at the front desk, the cook at the pans, the librarian
+     at the desk. Outside them the place is theirs no longer. (The track's go in after dark.) */
+  const STAFF_HOURS = { hall: [7, 21], cafe: [6, 20.5], library: [8, 21] };
+  /** What one of the staff says. Tazuna, who knows where everybody is, often says that:
+      "Looking for Symboli Rudolf? She's in the student council room." */
+  function staffLine(st) {
+    if (st.id === "staff-tazuna" && academy.length && Math.random() < 0.45) {
+      const off = academy.map(d => ({ d, w: whereNow(d) })).filter(o => o.w.id === "away" && o.w.away && o.w.away !== "out");
+      if (off.length) { const o = off[Math.floor(Math.random() * off.length)]; return `Looking for ${bareName(o.d.name)}? She's ${o.w.away}.`; }
+    }
+    return st.lines[Math.floor(Math.random() * st.lines.length)];
+  }
   function updateStaff(n, dt, now) {
     const st = n.fixed, m = n.m, t = now / 1000 + m.seed;
-    // out on the track, only the old hand stays on after dark
-    if (n.R.jog) {
-      const away = !st.night && afterDark();
+    // out on the track, only the old hand stays on after dark; indoors, the staff keep their hours
+    const hours = STAFF_HOURS[n.R.id];
+    if (n.R.jog || hours) {
+      const h = hourNow();
+      const away = n.R.jog ? !st.night && afterDark() : !(h >= hours[0] && h < hours[1]);
       if (away !== !!n.gone) { n.gone = away; m.root.visible = !away && n.R === room; if (away) n.bubble.hidden = true; }
       if (away) return;
     }
@@ -3402,7 +3984,7 @@
     }
     if (d < 3 && !n.greeted && !seq) {
       n.greeted = true;
-      say(n, `<b>${esc(n.def.name)}</b>${esc(st.lines[Math.floor(Math.random() * st.lines.length)])}`, 3400);
+      say(n, `<b>${esc(n.def.name)}</b>${esc(staffLine(st))}`, 3400);
     }
     if (d > 6) n.greeted = false;                         // a word again the next time
     if (!n.bubble.hidden && now > n.bubbleUntil) n.bubble.hidden = true;
@@ -3412,8 +3994,9 @@
     if (n.fixed) return updateStaff(n, dt, now);
     let run = 0;
     const here = n.R === room;
-    // out on the track: in at dusk (off the seat, to the school's doors, gone), out again in the morning
-    if (n.R.jog) {
+    // out on the track: in at dusk (off the seat, to the school's doors, gone), out again in the
+    // morning -- unless routines keep the hours, and take her in themselves
+    if (n.R.jog && !academy.length) {
       const dark = afterDark();
       if (n.gone) {
         if (dark) return;
@@ -3435,17 +4018,33 @@
       if (here && Math.random() < dt * 5) mote(n.x + (Math.random() - 0.5) * 0.3, 0.08, n.z + (Math.random() - 0.5) * 0.3, 0xcaa878, 0.07, 0.7, 0.35);
       if (n.lap.left <= 0) plan(n, now);
     }
+    if (n.state === "through" || n.state === "in") {
+      // through a doorway (routines): out of the room and gone, or in from beyond it and on in
+      const p = n.door.p, out = n.state === "through";
+      n.door.t = Math.min(1, n.door.t + dt / 1.1);
+      const k = out ? n.door.t : 1 - n.door.t;
+      n.x = p.x + Math.sin(p.face) * DOORWAY * k; n.z = p.z + Math.cos(p.face) * DOORWAY * k;
+      n.yaw = turn(n.yaw, out ? p.face : p.face + PI, dt * 8);
+      run = 0.3;
+      if (here) holdDoor(p, now);
+      if (n.door.t >= 1) {
+        if (out) { n.out = true; n.m.root.visible = false; n.bubble.hidden = true; return; }
+        n.door = null; n.state = "idle"; n.until = now + 300;
+      }
+    }
     if (n.state === "idle" || n.state === "stay") {
       // getting up off a seat comes first: off it, back onto the floor in front
       if (now > n.until) { if (n.perch > 0) n.state = "rise"; else plan(n, now); }
     }
     if (n.state === "rise") {
-      n.perch = Math.max(0, n.perch - dt * SIT_RATE);
+      n.perch = Math.max(0, n.perch - dt * (n.goal && n.goal.bed ? LIES : SIT_RATE));
       if (n.perch === 0) plan(n, now);
     }
     if (n.state === "walk" && n.goal && !n.path) {
       n.path = findPath(n.R, n.x, n.z, n.goal.x, n.goal.z);
-      // nowhere to go from here after all: stand a moment and think of something else
+      // nowhere to go from here after all: stand a moment and think of something else (or,
+      // on her way out, just go)
+      if (!n.path && n.leaving) { n.out = true; n.m.root.visible = false; return; }
       if (!n.path) { if (n.slot) { n.R.taken.delete(n.slot); n.slot = null; } n.state = "idle"; n.until = now + 1500; }
     }
     if (n.state === "walk" && n.goal) {
@@ -3457,7 +4056,8 @@
         n.last = { x: n.x, z: n.z, t: now };
       }
       if (arrived && n.goal.home) { goneIn(n); return; }                      // in for the night
-      if (arrived && n.goal.jog) {                                               // on the line: off she goes, a lap or two
+      if (arrived && n.goal.leave) { n.state = "through"; n.door = { p: n.leaving, t: 0 }; }   // at the door: out
+      else if (arrived && n.goal.jog) {                                               // on the line: off she goes, a lap or two
         n.state = "jog"; n.jogV = 2.8 + Math.random() * 1.0;
         n.lap = { s: n.R.jog.s0 - n.x, left: n.R.jog.P * (1 + Math.floor(Math.random() * 2)) };   // (the entry is on the near straight)
       } else if (arrived) {
@@ -3470,9 +4070,17 @@
       if (want != null) n.yaw = turn(n.yaw, want, dt * 4);
       // turned round with the seat behind her: down she sits
       if (n.goal.seat && Math.abs(turn(0, n.goal.face - n.yaw, 1)) < 0.3) n.perch = Math.min(1, n.perch + dt * SIT_RATE);
-      // the talking: a "..." over somebody in the huddle every so often
+      // at her bed: in it, and asleep, now and then saying so
+      if (n.goal.bed) {
+        n.perch = Math.min(1, n.perch + dt * LIES);
+        if (here && n.perch === 1 && n.bubble.hidden && Math.random() < dt * 0.06) say(n, "Zzz...", 1800);
+      }
+      // the talking: a "..." over somebody in the huddle every so often -- or a word, often for
+      // somebody in particular (routines.js)
       if (n.act === "chat" && n.bubble.hidden && Math.random() < dt * 0.12) {
-        if (root.Lines && Math.random() < 0.35) say(n, `<b>${esc(n.def.name)}</b>${esc(Lines.line(n.def.name, null))}`, 3000);
+        const mine = academy.length && Math.random() < 0.45 ? Routines.line(bareName(n.def.name), hourNow(), "chat", company(n)) : null;
+        if (mine) say(n, `<b>${esc(n.def.name)}</b>${esc(mine)}`, 3200);
+        else if (root.Lines && Math.random() < 0.35) say(n, `<b>${esc(n.def.name)}</b>${esc(Lines.line(n.def.name, null))}`, 3000);
         else say(n, "<span class='dots'><i></i><i></i><i></i></span>", 2200);
       }
     }
@@ -3480,13 +4088,20 @@
     if (run > 0) n.m.phase += dt * (1.6 + n.speed * 0.5) * PI * 2;
     // where she is drawn: n.x/n.z stays on the floor in front of the seat, so the walking
     // never starts from inside the furniture; the perch carries the model back onto it
-    const k = ease(n.perch), seat = n.goal && n.goal.seat;
+    // (on a bed, laid back along it, her head on the pillow, as the player naps)
+    const k = ease(n.perch), seat = n.goal && n.goal.seat, bed = n.goal && n.goal.bed;
     n.rx = n.x; n.rz = n.z;
-    if (k > 0 && seat) { n.rx += (seat.x - n.x) * k; n.rz += (seat.z - n.z) * k; }
-    n.m.root.position.set(n.rx, 0, n.rz);
-    n.m.root.rotation.y = n.yaw;
+    if (bed && k > 0) {
+      n.m.root.position.set(lerp(n.x, bed.x, k), (bed.y + 3.5 * n.m.rig.scale.x) * k, lerp(n.z, bed.z, k));
+      n.m.root.rotation.set(-PI / 2 * k, n.yaw, 0, "YXZ");
+      n.rx = lerp(n.x, bed.x, k); n.rz = lerp(n.z, bed.z - 1.2, k);              // her bubble over her head
+    } else {
+      if (k > 0 && seat) { n.rx += (seat.x - n.x) * k; n.rz += (seat.z - n.z) * k; }
+      n.m.root.position.set(n.rx, 0, n.rz);
+      n.m.root.rotation.set(0, n.yaw, 0);
+    }
     pose(n.m, run, now / 1000, {});
-    if (k > 0) {
+    if (k > 0 && !bed) {
       // thighs out level along the seat, hips just above it
       n.m.legL.rotation.x = n.m.legR.rotation.x = -1.45 * k;
       n.m.rig.position.y = n.m.sitLift * k;
@@ -3504,12 +4119,13 @@
         n.m.head.rotation.y = clamp(a, -0.8, 0.8);
       }
     }
-    if (here && !room.greet && player && !seq && n.bubble.hidden && now > (n.spoke || 0) && now > chatterAt
+    const asleep = !!bed && n.perch > 0;                  // (no words from her: she is asleep)
+    if (here && !asleep && !room.greet && player && !seq && n.bubble.hidden && now > (n.spoke || 0) && now > chatterAt
         && Math.hypot(player.x - n.rx, player.z - n.rz) < 1.9) {
       n.spoke = now + 25000; chatterAt = now + 3500;
       if (Math.random() < 0.5) sayLine(n);
     }
-    if (here && room.greet && player && !n.greeted && !seq && Math.hypot(player.x - n.rx, player.z - n.rz) < 2.2) {
+    if (here && !asleep && room.greet && player && !n.greeted && !seq && Math.hypot(player.x - n.rx, player.z - n.rz) < 2.2) {
       n.greeted = true;
       sayLine(n);
     }
@@ -3535,6 +4151,11 @@
     m.armR.rotation.x = -1.05 + Math.sin(t * 7) * 0.06; m.armR.rotation.z = 0.1;
     m.armL.rotation.x = -0.95; m.head.rotation.x = 0.3;
   }
+  /** Sat with a book open in her lap, a page turned now and then. */
+  function readPose(m, t) {
+    m.armL.rotation.x = -0.85; m.armR.rotation.x = -0.85 - (Math.sin(t * 0.7) > 0.93 ? 0.35 : 0);
+    m.armL.rotation.z = -0.15; m.armR.rotation.z = 0.15; m.head.rotation.x = 0.32;
+  }
   /** What she does with herself once she is there. */
   function gesture(n, now) {
     const m = n.m, t = now / 1000 + m.seed;
@@ -3554,6 +4175,7 @@
         m.head.rotation.z = Math.sin(t * 2.4) * 0.12;
         break;
       case "read": case "browse":
+        if (n.perch === 1) { readPose(m, t); break; }                     // in a chair, with a book
         m.head.rotation.x = n.act === "browse" ? 0.12 : -0.1;
         m.armL.rotation.x = -0.5; m.armR.rotation.x = -0.5;
         break;
@@ -3815,6 +4437,10 @@
         if (a.left <= 0) { sayMe(["Phew! This sand really works the legs.", "One lap down!", "That felt good."][Math.floor(Math.random() * 3)], 2400); release(); act = null; return 0; }
         return 0.62;
       }
+      case "look":
+        // the library's globe: a push, and it spins, slowing
+        if (th.spin && room.globe && t > 0.3) room.globe.rotation.y += dt * 7 * Math.max(0, 1 - (t - 0.3) / 4);
+        break;
       case "juke":
         // a press of the buttons, and the choice is the shell's (it has the music)
         if (t > 0.55 && !a.asked) {
@@ -3868,6 +4494,7 @@
           m.head.rotation.x = 0.2;
         }
         if (a.th.pose === "study" && player.perch === 1) studyPose(m, s);
+        if (a.th.pose === "read" && player.perch === 1) readPose(m, s);
         if (a.eating != null && !a.ate) eatPose(m, s);
         break;
       case "nap":                                         // arms by her sides, her head propped on the pillow
@@ -3898,8 +4525,9 @@
         break;
       case "bin": m.armR.rotation.x = t < 0.25 ? -2.4 : -1.2; break;
       case "look":
+        if (a.th.spin && t < 0.6) { m.armR.rotation.x = -1.3; m.armR.rotation.z = 0.2 - t * 0.5; m.head.rotation.x = 0.2; break; }   // a push
         m.armL.rotation.x = m.armR.rotation.x = 0.35;
-        m.head.rotation.x = -0.1; m.head.rotation.y = Math.sin(s * 0.5) * 0.3;
+        m.head.rotation.x = a.th.spin ? 0.2 : -0.1; m.head.rotation.y = Math.sin(s * 0.5) * 0.3;
         break;
       case "admire":
         m.armL.rotation.x = m.armR.rotation.x = -0.3;
@@ -4178,7 +4806,26 @@
     const seqRun = seq ? updateSeq(dt) : null;
     if (!host || !player) return false;
     updatePlayer(dt, now, seqRun);
+    // the rooms as the hour has them (routines): the one she is in, and the hall through its window
+    if (academy.length && now > syncAt) {
+      syncAt = now + 1000;
+      syncRoom(room, now);
+      if (room !== ROOMS.hall) syncRoom(ROOMS.hall, now);
+    }
     for (const k in crowds) for (const n of crowds[k]) updateNpc(n, dt, now);
+    // whoever has gone out of a door is gone
+    for (const k in crowds) {
+      const c = crowds[k];
+      for (let i = c.length - 1; i >= 0; i--) if (c[i].out) { dropNpc(c[i]); c.splice(i, 1); }
+    }
+    // a door somebody is going through stays open for them, and shuts after
+    for (const k in room.doors) {
+      const d = room.doors[k];
+      if (d.npcUntil) {
+        if (now < d.npcUntil) d.target = 1;
+        else { d.npcUntil = 0; if (!seq || seq.door !== d) d.target = 0; }
+      }
+    }
     for (const k in room.doors) swingDoor(room.doors[k], dt);
     updateMotes(dt);
     updateFeast(dt);
@@ -4465,7 +5112,9 @@
     casts.office = others(opts.office).slice(0, 3);
     casts.cafe = others(opts.cafe); casts.dorm = others(opts.corridor); casts.home = others(opts.home);
     casts.school = others(opts.school); casts.classes = others(opts.classes); casts.track = others(opts.track);
-    LESSONS = opts.lessons && opts.lessons.length ? opts.lessons.slice(0, 7) : LESSONS_PLAIN;
+    casts.library = others(opts.library);
+    academy = root.Routines ? others(opts.academy) : [];      // who is where is then down to the hour
+    LESSONS =opts.lessons && opts.lessons.length ? opts.lessons.slice(0, 7) : LESSONS_PLAIN;
     room = ROOMS[saved.room] || ROOMS.hall;
     // the hall and the office have their company from the start (the window shows the one she
     // is not in); the others when she first goes in
@@ -4522,6 +5171,8 @@
       crowds[k].splice(i, 1);
     }
     for (const k in casts) casts[k] = casts[k].filter(d => d.id !== def.id);
+    // with routines, the one she was keeps her own hours from here on
+    if (academy.length) { academy = academy.filter(d => d.id !== def.id); if (!was.trainer) academy.push(was); }
     // the one she was goes home: the trainer to the office, a racer to the hall
     const into = was.trainer ? "office" : "hall";
     if (!casts[into].some(d => d.id === was.id)) casts[into].push(was);
@@ -4570,6 +5221,6 @@
                  _debug: { get player() { return player; }, get npcs() { return npcs; }, get room() { return room; },
                            get seq() { return seq; }, get act() { return act; }, get held() { return held; }, get camera() { return camera; },
                            get hour() { return hourNow(); }, setHour: h => { clockShift += ((h - hourNow()) % 24) * GAME_HOUR; },
-                           get nearThing() { return nearThing; }, startThing, pressE, tick, crowds, ROOMS, walkable, makeNpc, walkTo, startSeq, enterRoom, casts,
+                           get nearThing() { return nearThing; }, get academy() { return academy; }, whereNow, dueIn, syncRoom, startThing, pressE, tick, crowds, ROOMS, walkable, makeNpc, walkTo, startSeq, enterRoom, casts,
                            findPath: (sx, sz, gx, gz) => findPath(room, sx, sz, gx, gz) } };
 })(typeof globalThis !== "undefined" ? globalThis : this);
