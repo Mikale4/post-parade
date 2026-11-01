@@ -211,7 +211,7 @@
 .rcard:active{transform:translateY(2px);box-shadow:0 1px 0 var(--rule-2)}
 .rc-art{height:150px;overflow:hidden;border-bottom:1px solid var(--rule);
         background:repeating-linear-gradient(90deg,#e3f1dc 0 18px,#d9ecd0 18px 36px);display:flex;align-items:flex-end}
-.rc-art img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.rc-art img,.rc-art canvas.vbust{display:block;width:100%;height:100%;object-fit:cover;object-position:top center}
 .rc-name{font:400 14px/1.2 var(--font-display);margin:8px 10px 0;color:var(--ink)}
 .rc-meta{display:flex;justify-content:flex-start;gap:7px;align-items:center;margin:4px 10px 0;font-size:12px}
 .rc-meta .lv{font:800 italic 15px/1 var(--font-num);color:var(--ink-2)}
@@ -1218,10 +1218,10 @@
   .gr-art,.gr-rating,.gr-champ,.end-side > .es,.sparks .spark{transition:none;opacity:1;transform:none}
 }
 
-/* ---------- stable: dealt in ---------- */
-.rcard.deal{opacity:0;transform:translateY(14px) scale(.96);
+/* ---------- stable: dealt in (not `.deal`: that is the scout's card deal, a grid) ---------- */
+.rcard.dealt-in{opacity:0;transform:translateY(14px) scale(.96);
   transition:opacity .3s ease,transform .38s cubic-bezier(.2,1.2,.4,1)}
-.rcard.deal.in{opacity:1;transform:none}
+.rcard.dealt-in.in{opacity:1;transform:none}
 .unlockbar i{transition:width .8s cubic-bezier(.2,.9,.3,1)}
 
 /* ---------- one racer: her page arrives ---------- */
@@ -1260,7 +1260,7 @@
   box-shadow:0 0 0 2px var(--grn),0 0 14px rgba(124,192,42,.6);pointer-events:none}
 
 @media (prefers-reduced-motion: reduce){
-  .rcard.deal,.racer-info > .es{transition:none;opacity:1;transform:none}
+  .rcard.dealt-in,.racer-info > .es{transition:none;opacity:1;transform:none}
   .racer-art.enter img,.of-ghost,#racerArt.of-in,.of-sweep,.of-tag{animation:none}
   .of-ghost,.of-sweep{display:none}
 }

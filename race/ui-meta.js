@@ -649,7 +649,9 @@
                 const np = Stable.nextPassive(d.id);
                 return `
                 <button class="rcard" data-racer="${d.id}">
-                  <div class="rc-art"><img src="${art(Stable.spriteFor(d.id))}" alt=""></div>
+                  <div class="rc-art">${root.Voxel && Voxel.ok && Voxel.bustHTML
+                    ? Voxel.bustHTML(d, "", art(Stable.spriteFor(d.id)))         // her voxel bust, live; her picture without 3D
+                    : `<img src="${art(Stable.spriteFor(d.id))}" alt="">`}</div>
                   <div class="rc-name">${esc(d.name)}</div>
                   <div class="rc-meta">
                     <span class="stars">${RARITY_STAR(d.rarity || 1)}</span>
@@ -674,7 +676,7 @@
     el.querySelectorAll("[data-racer]").forEach((b, i) => {
       b.onclick = () => go("scr-racer", e2 => racerBuild(e2, b.dataset.racer));
       // dealt in rather than all at once -- a stable of thirty should feel like a hand
-      b.classList.add("deal");
+      b.classList.add("dealt-in");
       setTimeout(() => b.classList.add("in"), 30 * i);
     });
     const bar = el.querySelector(".unlockbar i");
