@@ -189,6 +189,7 @@
 .pull b{display:block;font-size:12.5px;margin-top:5px;line-height:1.25;font-weight:800}
 .pull i{display:block;font-style:normal;font-size:11.5px;color:var(--ink-3);margin-top:2px}
 .pull i.good{color:var(--turf);font-weight:800}
+.pull i .amt{white-space:nowrap}
 .pull.rR,.pull.s2{border-color:#9ec8f2;box-shadow:0 3px 0 #9ec8f2}
 .pull.rE,.pull.s3{border-color:var(--gold);box-shadow:0 3px 0 var(--gold-lo);background:var(--gold-pale)}
 .pull.big{outline:3px solid var(--gold);outline-offset:2px}

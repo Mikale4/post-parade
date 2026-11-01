@@ -615,13 +615,15 @@
     const tag = r.isNew ? "NEW"
       : r.passive ? "PASSIVE: " + (Progress.PASSIVES[r.passive] || {}).name
       : prog ? `${prog.have}/${prog.at} toward ${(Progress.PASSIVES[prog.key] || {}).name}`
-      : `+${Icon("carrot")} ${r.refund}`;
+      : null;
+    // past her last passive a copy pays carrots back: the carrot is markup, so it stays out of esc()
+    const said = tag != null ? esc(tag) : `Max copies: <span class="amt">+${Icon("carrot")} ${num(r.refund || 0)}</span>`;
     return `
       <div class="pull racer s${r.rarity} ${r.rarity >= 3 || r.passive ? "big" : ""}">
         <img src="${art(r.def.sprite)}" alt="">
         <b>${esc(r.def.name)}</b>
         <span class="stars">${RARITY_STAR(r.rarity)}</span>
-        <i class="${r.passive ? "good" : ""}">${esc(tag)}</i>
+        <i class="${r.passive ? "good" : ""}">${said}</i>
       </div>`;
   }
 
