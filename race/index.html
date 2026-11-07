@@ -4,6 +4,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Umamusume: Post Parade</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1d6a2c">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Post Parade">
+<script>
+  /* INSTALL: the game as an app -- an icon on the home screen or desktop, full screen, and
+     playable offline once it has loaded (manifest.webmanifest, sw.js). Chrome, Edge and
+     Android offer it, and Settings has the button (shell.js); on an iPhone or iPad it is
+     Share, then Add to Home Screen. The offer can come before the game's scripts are in,
+     so it is caught here. The offline copy is not used on this computer's own test servers,
+     where every edit has to show up at once (?sw=1 turns it on there, for a test). */
+  window.AppInstall = {
+    evt: null, changed: null,
+    installed: matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone === true,
+    ios: /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)),
+    prompt: async function () {
+      var e = AppInstall.evt; if (!e) return false;
+      e.prompt();
+      try { var c = await e.userChoice; if (c && c.outcome === "accepted") AppInstall.evt = null; } catch (x) {}
+      return true;
+    },
+  };
+  addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); AppInstall.evt = e; if (AppInstall.changed) AppInstall.changed(); });
+  addEventListener("appinstalled", function () {
+    AppInstall.installed = true; AppInstall.evt = null;
+    if (window.UIMeta && UIMeta.notify) UIMeta.notify("Installed: Post Parade is on your home screen.");
+    if (AppInstall.changed) AppInstall.changed();
+  });
+  (function () {
+    var local = /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(location.hostname) && !/[?&]sw=1/.test(location.search);
+    if ("serviceWorker" in navigator && !local) addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  })();
+</script>
 <!-- The interface's three faces (see theme.css). Offline they fall back to system fonts. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

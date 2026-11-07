@@ -8,6 +8,10 @@ real game's stats and signature skills and play their own cards by temperament.
 **Play:** https://mikale4.github.io/post-parade/ (computer or phone). Accounts and saves
 live in your browser, so each device keeps its own.
 
+**Install it** as an app, to get an icon on your home screen or desktop, full screen, and play offline once it has loaded:
+- **Chrome or Edge:** Settings > Install Post Parade, or the install icon in the address bar.
+- **iPhone or iPad:** in Safari, tap Share, then Add to Home Screen.
+
 Or locally: double-click **`Play Post Parade.bat`**. It serves this folder over a small
 local web server (Python 3 must be installed) and opens the game. Opening
 `race/index.html` straight off the disk does not work: the browser blocks it from loading

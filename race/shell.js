@@ -918,6 +918,32 @@
     });
   }
 
+  /* Installing the game as an app (index.html keeps AppInstall): the button when the browser
+     offers it, the steps on an iPhone or iPad, and a word once it is installed. */
+  function installHtml() {
+    const A = root.AppInstall || {};
+    const how = A.installed ? 'You are playing the installed app.'
+      : A.evt ? 'An icon on your home screen or desktop, full screen, and it plays offline once it has loaded.'
+      : A.ios ? 'On an iPhone or iPad: tap Share (the square with the arrow) in Safari, then Add to Home Screen. ' +
+                'It opens full screen from its icon, and plays offline once it has loaded.'
+      : 'Your browser can install it as an app: in Chrome or Edge, use the install icon at the right of the ' +
+        'address bar, or the menu: Install Post Parade. On a phone, use the browser menu: Add to Home Screen.';
+    return '<b>Install the game</b>' +
+           (!A.installed && A.evt ? '<button class="btn" id="setInstall">' + Icon("down") + 'Install Post Parade</button>' : '') +
+           '<i>' + how + '</i>';
+  }
+  function wireInstall(el) {
+    const box = el.querySelector("#setApp");
+    if (!box || !root.AppInstall) return;
+    const wire = () => {
+      const b = box.querySelector("#setInstall");
+      if (b) b.onclick = async () => { await AppInstall.prompt(); box.innerHTML = installHtml(); wire(); };
+    };
+    wire();
+    // the offer can arrive while Settings is open: show the button then
+    AppInstall.changed = () => { if (box.isConnected) { box.innerHTML = installHtml(); wire(); } };
+  }
+
   function settingsBuild(el) {
     const acc = Auth.current();
     el.innerHTML =
@@ -925,6 +951,7 @@
       '<div class="panel set-panel pop">' +
         '<div class="panel-hd blue">' + Icon("gear") + 'Settings</div>' +
         '<div class="set-body">' + settingsHtml() +
+          '<div class="set-app" id="setApp">' + installHtml() + '</div>' +
           '<div class="set-danger">' +
             '<b>This account</b>' +
             '<div class="set-danger-row">' +
@@ -939,6 +966,7 @@
         '<div class="set-actions"><button class="btn" id="setBack">Back</button></div>' +
       '</div>';
     wireSettings(el);
+    wireInstall(el);
     wireScrollHint(el.querySelector(".set-body"), el.querySelector("#setHint"));
     el.querySelector("#setBack").onclick = () => go("scr-menu", menuBuild);
     el.querySelector("#setReset").onclick = async () => {

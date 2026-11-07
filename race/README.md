@@ -47,6 +47,7 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `lobby.js` | The main menu in voxels: the academy's hall, the trainer's office, the cafeteria, the dorm, the school wing's classrooms and the training track outside, walked as your trainer or a racer, the others about their day, every mode a door that opens. |
 | `trainer.js` | The trainer creator: your own character, made at registration, with a turning 3D preview. |
 | `lines.js` | What the racers say in the lobby: each in her own voice, to the trainer, to a classmate, and to her pair. |
+| `manifest.webmanifest`, `sw.js`, `icons/` | The game as an installable app: its name, colours and icons, and the offline copy. See "Installing it as an app". |
 | `routines.js` | Where each racer is at each hour of the academy's day, and what she is doing: class, lunch, dawn training, the lab, the council room, asleep in her room. Her lines for the hour, and a word for her friends and rivals. Pure data and logic; `validate-routines.js` checks it. |
 | `reactions.js` | How each racer takes her result after a race: a few moves and lines of her own for a win, a place, the middle of the field and the back. |
 | `weather.js` | The season and the day's weather over the career screens (falling petals, leaves, rain, snow), and the names for them. The race does its own in 3D (`voxel.js` `applySeason`). |
@@ -65,6 +66,29 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `validate-economy.js` | The stable, the scout, the unlock tree and the quest board: what it pays against the economy, a normal day and week played through, tiers, old saves. `node race/validate-economy.js` |
 
 Card art is rendered by `cards/build.py`; `assets/cards/` holds the thumbnails.
+
+## Installing it as an app
+
+Post Parade installs like an app, the same way KNOCK//BACK does: an icon on your home screen or desktop, full screen, and offline play once it has loaded.
+
+The pieces:
+- **`manifest.webmanifest`:** the name, the colours, full screen.
+- **`icons/`:** the game's pixel horseshoe, in gold on mown turf, made with Pillow. Sizes: 192 and 512, a maskable 512, and the 180 Apple touch icon.
+- **`sw.js`:** the offline copy (a service worker).
+- **A small script at the top of `index.html`:** keeps `AppInstall`. It catches the browser's install offer as soon as it comes, before the game's scripts are in, and registers `sw.js`.
+
+The install button:
+- **Settings > Install the game** (`shell.js` `installHtml`) shows **Install Post Parade** when the browser offers it.
+- On an iPhone or iPad, where there is no offer, it gives the Share > Add to Home Screen steps.
+- Once installed, it says so.
+
+**The offline copy goes to the network first, always.** The scripts are stamped with the load time (`?v=`), so they would be new names every load and a copy-first cache would only pile up stale ones. Instead:
+- Each response is kept under its address without the stamp, one copy each, overwritten as it comes.
+- The copy is served only when there is no connection.
+- Music streamed in ranges isn't kept.
+- Bump `VERSION` in `sw.js` to clear the old copies.
+
+**Not on this computer's test servers.** It is not registered on `localhost`, `127.0.0.1` or `*.localhost`, where every edit has to show up at once. `?sw=1` turns it on there for a test.
 
 ## Front of house
 
