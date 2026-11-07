@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Umamusume: Post Parade</title>
-<link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1d6a2c">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -16,10 +15,14 @@
      playable offline once it has loaded (manifest.webmanifest, sw.js). Chrome, Edge and
      Android offer it, and Settings has the button (shell.js); on an iPhone or iPad it is
      Share, then Add to Home Screen. The offer can come before the game's scripts are in,
-     so it is caught here. The offline copy is not used on this computer's own test servers,
-     where every edit has to show up at once (?sw=1 turns it on there, for a test). */
+     so it is caught here.
+     Only the live site installs. A copy served from this computer (Play Post Parade.bat, the
+     test servers) has no manifest and no offline copy: an app installed from it would only
+     run while that server is open -- and every edit has to show up there at once anyway.
+     (?sw=1 turns both on there, for a test.) */
   window.AppInstall = {
     evt: null, changed: null,
+    local: /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(location.hostname) && !/[?&]sw=1/.test(location.search),
     installed: matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone === true,
     ios: /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)),
     prompt: async function () {
@@ -29,16 +32,14 @@
       return true;
     },
   };
+  if (!AppInstall.local) document.write('<link rel="manifest" href="manifest.webmanifest">');
   addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); AppInstall.evt = e; if (AppInstall.changed) AppInstall.changed(); });
   addEventListener("appinstalled", function () {
     AppInstall.installed = true; AppInstall.evt = null;
     if (window.UIMeta && UIMeta.notify) UIMeta.notify("Installed: Post Parade is on your home screen.");
     if (AppInstall.changed) AppInstall.changed();
   });
-  (function () {
-    var local = /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(location.hostname) && !/[?&]sw=1/.test(location.search);
-    if ("serviceWorker" in navigator && !local) addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
-  })();
+  if ("serviceWorker" in navigator && !AppInstall.local) addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
 </script>
 <!-- The interface's three faces (see theme.css). Offline they fall back to system fonts. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1966,6 +1967,18 @@ window.Game = {
 
 Shell.boot();
 })();
+</script>
+<script>
+  /* If the game's own files never arrived -- this computer's server is not running, or there
+     is no connection and no offline copy yet -- say so, rather than leave the bare page. */
+  if (!window.Shell) document.body.style.cssText = "margin:0;min-height:100vh;background:#0a1610";
+  if (!window.Shell) document.body.innerHTML =
+    '<div style="max-width:520px;margin:12vh auto;padding:24px;font:15px/1.6 system-ui,sans-serif;color:#e8efe6;background:#123a1c;border-radius:8px">' +
+    '<b style="font-size:18px">Post Parade could not load its files.</b>' +
+    '<p>If you play it from this computer, start <b>Play Post Parade.bat</b> first, then reload. ' +
+    'Otherwise, check your connection and reload. The live game is at ' +
+    '<a style="color:#f2b705" href="https://mikale4.github.io/post-parade/">mikale4.github.io/post-parade</a>.</p>' +
+    '<button onclick="location.reload()" style="font:700 15px system-ui,sans-serif;padding:8px 18px;border:0;border-radius:6px;background:#f2b705;color:#3a2800;cursor:pointer">Reload</button></div>';
 </script>
 </body>
 </html>

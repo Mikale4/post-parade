@@ -88,7 +88,12 @@ The install button:
 - Music streamed in ranges isn't kept.
 - Bump `VERSION` in `sw.js` to clear the old copies.
 
-**Not on this computer's test servers.** It is not registered on `localhost`, `127.0.0.1` or `*.localhost`, where every edit has to show up at once. `?sw=1` turns it on there for a test.
+**Only the live site installs.** A copy served from this computer has neither the manifest nor the offline copy. That covers `localhost`, `127.0.0.1` and `*.localhost`: `Play Post Parade.bat` and the test servers.
+- An app installed from one of those would only run while that server window is open, and every edit has to show up there at once anyway. An app installed from `localhost` opened to a bare, unstyled page once the server had stopped.
+- On such a copy, Settings explains this and links to the live site.
+- `?sw=1` turns both on there, for a test.
+
+**If the files never arrive** (the local server is not running, or there is no connection and no offline copy yet), the page says so and offers Reload, instead of showing its bare markup.
 
 ## Front of house
 

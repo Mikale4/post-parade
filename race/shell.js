@@ -922,6 +922,11 @@
      offers it, the steps on an iPhone or iPad, and a word once it is installed. */
   function installHtml() {
     const A = root.AppInstall || {};
+    // a copy served from this computer only runs while its server does: install the live one
+    if (A.local) return '<b>Install the game</b><i>This copy comes from this computer (Play Post Parade.bat) and only ' +
+      'runs while that window is open, so it does not install. Install the live game instead: open ' +
+      '<a href="https://mikale4.github.io/post-parade/" target="_blank" rel="noopener">mikale4.github.io/post-parade</a> ' +
+      'in Chrome or Edge, then Settings, Install the game.</i>';
     const how = A.installed ? 'You are playing the installed app.'
       : A.evt ? 'An icon on your home screen or desktop, full screen, and it plays offline once it has loaded.'
       : A.ios ? 'On an iPhone or iPad: tap Share (the square with the arrow) in Safari, then Add to Home Screen. ' +
