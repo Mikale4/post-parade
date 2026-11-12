@@ -2,7 +2,6 @@
   "name": "Umamusume: Post Parade",
   "short_name": "Post Parade",
   "description": "An unofficial Umamusume fan game: prepare her, then find out. Voxel races, careers, and an academy to walk.",
-  "id": "./index.html",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",

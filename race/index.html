@@ -19,7 +19,10 @@
      Only the live site installs. A copy served from this computer (Play Post Parade.bat, the
      test servers) has no manifest and no offline copy: an app installed from it would only
      run while that server is open -- and every edit has to show up there at once anyway.
-     (?sw=1 turns both on there, for a test.) */
+     (?sw=1 turns both on there, for a test.)
+     The manifest has no "id" on purpose: a relative id is resolved against the site's origin,
+     not the game's folder, so "./index.html" gave this game the same identity as every other
+     game on the same site, and Chrome treated the others as already installed. */
   window.AppInstall = {
     evt: null, changed: null,
     local: /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(location.hostname) && !/[?&]sw=1/.test(location.search),
