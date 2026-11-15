@@ -2069,15 +2069,21 @@
 .adv-name b{display:block;font:400 clamp(26px,4vw,44px)/1.1 var(--font-display);color:#fff;-webkit-text-stroke:5px var(--turf-deep);paint-order:stroke fill;text-shadow:0 4px 0 var(--turf-deep)}
 .adv-name i{display:inline-block;margin-top:8px;font:800 13px/1 var(--font-ui);font-style:normal;color:#fff;background:var(--turf-lo);padding:6px 10px;border-radius:var(--r-sm)}
 .adv-name.off{opacity:0;transform:translate(-50%,-10px)}
-/* touch: two arrows on the left, the move and jump on the right */
-.adv-pad{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:14px;pointer-events:none}
-.adv-pad button{pointer-events:auto;touch-action:none;border:0;border-radius:12px;background:rgba(23,34,27,.62);color:#fff;font:800 14px/1 var(--font-ui);box-shadow:0 3px 0 rgba(0,0,0,.35);-webkit-user-select:none;user-select:none}
+/* touch: a pad of four on the left (up, then left, down, right); light, heavy, special and
+   jump on the right */
+.adv-pad{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:12px;pointer-events:none}
+.adv-pad button{pointer-events:auto;touch-action:none;border:0;border-radius:12px;background:rgba(23,34,27,.62);color:#fff;font:800 13px/1 var(--font-ui);box-shadow:0 3px 0 rgba(0,0,0,.35);-webkit-user-select:none;user-select:none}
 .adv-pad button.dn{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35);background:rgba(23,34,27,.82)}
-.adv-pad-l,.adv-pad-r{display:flex;gap:10px;align-items:flex-end}
-.adv-pad-l button{width:66px;height:66px;display:grid;place-items:center}
-.adv-pad-l .ico{width:26px;height:26px}
-.adv-pad-r button{width:76px;height:76px}
-.adv-pad-r .jp{background:rgba(47,143,62,.85);margin-bottom:26px}
+.adv-pad-l{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:54px 54px;gap:6px}
+.adv-pad-l button{display:grid;place-items:center}
+.adv-pad-l [data-t=U]{grid-column:2;grid-row:1}
+.adv-pad-l [data-t=L]{grid-column:1;grid-row:2}
+.adv-pad-l [data-t=D]{grid-column:2;grid-row:2}
+.adv-pad-l [data-t=R]{grid-column:3;grid-row:2}
+.adv-pad-l .ico{width:24px;height:24px}
+.adv-pad-l .up .ico{transform:rotate(180deg)}
+.adv-pad-r{display:grid;grid-template-columns:repeat(2,64px);grid-template-rows:52px 64px;gap:8px}
+.adv-pad-r .jp{background:rgba(47,143,62,.85)}
 /* pause and the result */
 .adv-small{width:min(420px,100%)}
 .adv-btns{display:flex;flex-direction:column;gap:8px;padding:14px}
@@ -2093,7 +2099,13 @@
 .adv-pay{display:flex;align-items:center;justify-content:center;gap:6px;margin:12px 14px 0;font:700 13px/1 var(--font-ui);color:var(--ink-2)}
 .adv-pay b{font-size:20px;color:var(--turf-lo)}
 @media (max-width:760px){
-  .adv-cast{grid-template-columns:1fr;gap:6px;padding:8px}
+  .adv-cast{grid-template-columns:1fr 1fr;gap:6px;padding:8px}
+  .adv-who{gap:6px;padding:6px}
+  .adv-who-tx>b{font-size:14px}
+  .adv-mv{font-size:11px}
+  .adv-gr{display:grid;grid-template-columns:auto auto;gap:3px 8px}
+  .adv-gr i{font-size:10px}
+  .adv-gr .g{font-size:13px}
   .adv-who small{display:none}
   .adv-bust{flex-basis:56px;height:62px}
   .adv-st{gap:8px;padding:6px 4px}

@@ -5,8 +5,8 @@
  * cannot be, so guests live here, hand-written, and say so: `guest: true`, a "Guest" tag in
  * the stable, never offered by the scout, no duplicates. Every trainer who has picked a
  * starter has them (Stable gives them out); they race, train and walk the academy like
- * anyone else, and they are the cast of Post Parade Adventure 2 (adventure.js), the
- * arcade cabinet in the hall.
+ * anyone else. Sonic also runs in Post Parade Adventure 2 (adventure.js), the arcade
+ * cabinet in the hall, with five of his friends.
  *
  * What each guest is rests on their own canon, researched (November 2026):
  *
@@ -114,7 +114,7 @@
     },
   ];
 
-  /* Shown wherever a guest is credited (the stable, the cabinet's title card, the README). */
+  /* Shown wherever a guest is credited (the stable, the README). */
   const credit = {
     sonic: "Sonic the Hedgehog is SEGA's. A guest in a free fan game, not for sale.",
     miku: "Hatsune Miku © Crypton Future Media, Inc. 2007 — piapro.net. Used under the Piapro Character License.",
