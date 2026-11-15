@@ -129,8 +129,11 @@
      traps sit, or `chase`, or `orbit`, till something touches them or Down + C sets them off. */
   const SPECIALS = {
     sonic: {
-      shot:     { body: "shot", loops: 2, fps: 20, at: 5, wave: "fx.shot", speed: 10, life: 0.8 },               // Sonic Wave: he spins, a shockwave runs the ground
-      airshot:  { body: "airshot", loops: 2, fps: 20, at: 4, fly: "fx.airshot", speed: 11, down: 0.7, life: 0.6 }, // Sonic Storm
+      /* Sonic Wave: he spins in place, faster and faster, then lets go a sonic boom -- air
+         breaking the sound barrier, so you can see through it -- that tears along the ground
+         and throws him back. Sonic Storm is the same from the air, angled down. */
+      shot:     { body: "rev", windup: 0.5, wave: "fx.shot", speed: 28, life: 0.5, recoil: 7, ghost: 1.3 },
+      airshot:  { body: "rev", windup: 0.4, fly: "fx.airshot", speed: 26, down: 0.55, life: 0.45, recoil: 6, ghost: 1.3 },
       power:    { body: "power", fps: 18, at: 3, drive: true },                                                  // Sonic Drive: throws a ring, spins after it
       airpower: { body: "ball", fps: 24, at: 0, dive: "meteor" },                                               // Sonic Meteor
       trap:     { body: "trap", fps: 16, at: 4, trap: "mine" },                                                 // Sonic Cracker: a landmine
@@ -188,43 +191,45 @@
       mat: new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }),
       fx: new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }),
       faint: new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.38, depthWrite: false }),
+      ghost: new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.02, side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false }),
       depth: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5, side: THREE.DoubleSide }),
     });
   }
   function makeCard(who, kind) {
     const M = sheetMats(who);
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), kind === "faint" ? M.faint : kind === "fx" ? M.fx : M.mat);
-    if (kind !== "fx" && kind !== "faint") { mesh.castShadow = true; mesh.customDepthMaterial = M.depth; }
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), M[kind] && kind !== "depth" ? M[kind] : M.mat);
+    if (kind !== "fx" && kind !== "faint" && kind !== "ghost") { mesh.castShadow = true; mesh.customDepthMaterial = M.depth; }
     mesh.userData.who = who;
     return mesh;
   }
   const framesOf = (who, name) => (SHEETS[who] && SHEETS[who].f[name]) || null;
   /** Which frame `t` seconds into a run of `n` frames: looping, or held on the last. */
   const frameAt = (n, t, fps, loop) => { const i = Math.floor(t * fps); return loop ? i % n : Math.min(i, n - 1); };
-  /** Show frame `i` of `name` on a card, facing `face`, its feet (or its middle) at x, y. */
-  function setFrame(mesh, name, i, face, x, y, mid, z) {
+  /** Show frame `i` of `name` on a card, facing `face`, its feet (or its middle) at x, y, `k` times size. */
+  function setFrame(mesh, name, i, face, x, y, mid, z, k) {
+    k = k || 1;
     const who = mesh.userData.who, A = SHEETS[who], list = A.f[name] || A.f.idle;
     const [fx, fy, fw, fh, cx] = list[clamp(i, 0, list.length - 1)];
     let u0 = fx / A.w, u1 = (fx + fw) / A.w;
     if (face < 0) { const t = u0; u0 = u1; u1 = t; }
     const v1 = 1 - fy / A.h, v0 = 1 - (fy + fh) / A.h, uv = mesh.geometry.attributes.uv;
     uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0); uv.needsUpdate = true;
-    mesh.scale.set(fw * PX, fh * PX, 1);
-    mesh.position.set(x + (fw / 2 - cx) * PX * face, mid ? y : y + fh * PX / 2, z == null ? 0.06 : z);
+    mesh.scale.set(fw * PX * k, fh * PX * k, 1);
+    mesh.position.set(x + (fw / 2 - cx) * PX * k * face, mid ? y : y + fh * PX * k / 2, z == null ? 0.06 : z);
   }
-  /* A card in the cabinet's menu: the idle, drawn twice size with crisp pixels. */
+  /* A card in the cabinet's menu: the runner's Sonic Battle portrait, the one their sheet draws
+     with a white outline, at twice size with crisp pixels, standing on the card's floor. */
   const IMGS = {};
-  function paintCard(cv, who, i) {
+  function paintCard(cv, who) {
     const A = SHEETS[who]; if (!A) return;
     const img = IMGS[who] || (IMGS[who] = Object.assign(new Image(), { src: A.url }));
     const go = () => {
-      const g = cv.getContext("2d"), list = A.f.idle, f = list[i % list.length], k = 2;
+      const g = cv.getContext("2d"), f = (A.f.portrait || A.f.idle)[0], k = 2;
       g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = false;
-      g.drawImage(img, f[0], f[1], f[2], f[3], Math.round(cv.width / 2 - f[4] * k), cv.height - f[3] * k - 6, f[2] * k, f[3] * k);
+      g.drawImage(img, f[0], f[1], f[2], f[3], Math.round((cv.width - f[2] * k) / 2), cv.height - f[3] * k, f[2] * k, f[3] * k);
     };
     if (img.complete && img.naturalWidth) go(); else img.addEventListener("load", go, { once: true });
   }
-  let cards = [];
 
   // ---------------------------------------------------------------- the six places
   /* Each stage names a theme: its sky, its light, what its ground is made of, and who lives
@@ -769,6 +774,8 @@
     swing: heavy => noise(heavy ? 0.16 : 0.08, heavy ? 0.09 : 0.05, heavy ? 900 : 1800),
     hit: () => { tone(260, 110, 0.09, "square", 0.08); noise(0.06, 0.07, 700); },
     cast: () => tone(500, 760, 0.1, "triangle", 0.06),
+    windup: d => { tone(160, 1300, d, "sawtooth", 0.045); tone(80, 650, d, "square", 0.03); },
+    blast: () => { noise(0.5, 0.26, 240); tone(1500, 110, 0.35, "sawtooth", 0.07); tone(95, 38, 0.45, "square", 0.1); },
     shot: () => tone(900, 300, 0.18, "sawtooth", 0.05),
     boom: () => { noise(0.4, 0.2, 160); tone(120, 40, 0.35, "square", 0.08); },
     set: () => tone(660, 440, 0.12, "square", 0.06),
@@ -846,7 +853,7 @@
     group.add(skirts(S, T));
 
     const w = { def, T, S, W, group, far, tiles: {}, ents: [], carrots: [], solids: [], plats: [], enemies: [], vents: [], bubbles: [],
-                shots: [], fx: [], traps: [], drafts: [], hazards: [], checks: [], start: { x: 2, y: 5 }, goal: null, shoes: [], total: 0,
+                shots: [], fx: [], traps: [], flashes: [], drafts: [], hazards: [], checks: [], start: { x: 2, y: 5 }, goal: null, shoes: [], total: 0,
                 parts: null, t: 0 };
     const M = materials();
     // tiles that can go
@@ -948,7 +955,10 @@
   function makePlayer(c) {
     sheetMats(c.id).mat.color.setHex(world.T.tint || 0xffffff);
     const spr = makeCard(c.id); world.group.add(spr);
-    return { c, spr, x: world.start.x, y: world.start.y, vx: 0, vy: 0, face: 1, ground: true, curl: false, coyote: 0, on: null,
+    // Sonic Advance's Spin Dash dust, kicked up behind a rev
+    const dust = framesOf(c.id, "fx.rev") ? makeCard(c.id, "fx") : null;
+    if (dust) { dust.visible = false; world.group.add(dust); }
+    return { c, spr, dust, x: world.start.x, y: world.start.y, vx: 0, vy: 0, face: 1, ground: true, curl: false, coyote: 0, on: null,
              state: "run", st: 0, hearts: 3, inv: 0, carrots: 0, nextHeal: 50, shoes: [false, false, false], falls: 0,
              check: { x: world.start.x, y: world.start.y }, airMove: false, airSp: false, airUses: 0, cd: { shot: 0, power: 0, trap: 0 },
              rev: 0, star: 0, air: AIR, inWater: false, wasWater: false, jumping: false, dead: 0, target: null, onTile: null,
@@ -1155,10 +1165,10 @@
       case "charge":                                       // a Spin Dash, revving: tap Space, let go of Down
         p.vx *= Math.pow(0.0005, dt);
         p.rev = Math.min(1, p.rev + dt * 0.5);
-        if (input.jp) { p.rev = Math.min(1, p.rev + 0.2); SFX.rev(p.rev); burst(p.x - p.face * 0.4, p.y + 0.1, [0xd8d0c0, 0xffffff], 3, 2); }
+        if (input.jp) { p.rev = Math.min(1, p.rev + 0.2); p.revKick = 1; SFX.rev(p.rev); if (p.rev > 0.45) revSpark(p); }
         if (!input.D) {
           p.state = "roll"; p.vx = p.face * (13 + p.rev * 10) * (p.inWater ? 0.7 : 1); p.rev = 0;
-          SFX.roll(); burst(p.x - p.face * 0.4, p.y + 0.1, [0xd8d0c0, 0xffffff], 8, 3);
+          SFX.roll(); effect(c.id, "fx.dust", p.x - p.face * 0.6, p.y, -p.face, 22, false);
         }
         if (!p.ground) p.state = "run";
         break;
@@ -1185,6 +1195,10 @@
       case "erupt": stepErupt(p, dt); break;
       case "climb": stepClimb(p, dir); break;
       case "teleport": if (p.st <= 0) p.state = "run"; break;
+      case "recoil":                                       // thrown back by his own blast, braking
+        p.vx = Math.abs(p.vx) <= 16 * dt ? 0 : p.vx - sgn(p.vx) * 16 * dt;
+        if (p.st <= 0) p.state = "run";
+        break;
       case "fly":
         p.flyLeft -= dt;
         if (input.D) { p.state = "run"; p.catchT = 0.3; }        // Rouge Catch: lets go
@@ -1481,6 +1495,7 @@
   function stepSpecial(p, dt) {
     const s = p.sp;
     s.t += dt;
+    if (s.windup) return stepWindup(p, s, dt);
     const i = Math.floor(s.t * s.fps);
     if (!s.air) p.vx = s.step ? p.face * s.step : p.vx * Math.pow(0.001, dt);
     if (!s.fired && i >= s.at) { s.fired = true; fire(p, s); if (p.state !== "special") { p.sp = null; return; } }
@@ -1489,14 +1504,54 @@
       if (s.drive) { p.state = "roll"; p.curl = true; p.vx = p.face * 19; p.driveT = 0.42; SFX.roll(); }
     }
   }
+  /* A special that winds up (Sonic Wave, Sonic Storm): he spins in place, the spin speeding up
+     from a turn to a blur, dust kicking up and then sparks; at the top of it, the blast, a flash
+     of light, a jolt through the picture, and he is thrown back. */
+  function stepWindup(p, s, dt) {
+    const k = Math.min(1, s.t / s.windup);
+    if (!s.sound) { s.sound = true; SFX.windup(s.windup); }
+    s.spin = (s.spin || 0) + dt * (7 + 48 * k * k);
+    p.vx *= Math.pow(0.0005, dt);
+    if (s.air) p.vy = Math.max(p.vy, -0.4);
+    s.puff = (s.puff || 0) - dt;
+    if (s.puff <= 0) {
+      s.puff = 0.05 - k * 0.025;
+      if (k > 0.4 && Math.random() < 0.55) revSpark(p);
+    }
+    if (k >= 1) {
+      s.fired = true; fire(p, s);
+      const f = p.face;
+      flash(p.x + f * 0.9, p.y + (s.air ? 0.3 : 0.55), 3.2);
+      const fy = p.y + (s.air ? 0.35 : 0.5);
+      if (framesOf(p.c.id, "fx.flare")) effect(p.c.id, "fx.flare", p.x + f * 1.3, fy, f, 26, true, "fx", 1.1);
+      if (framesOf(p.c.id, "fx.crescent")) effect(p.c.id, "fx.crescent", p.x + f * 1.1, fy, f, 30, true, "ghost", 1.8);
+      burst(p.x + f * 0.8, p.y + 0.4, [0xffffff, 0xcfe8ff, 0x9ad4ff], 16, 6);
+      if (p.ground) effect(p.c.id, "fx.dust", p.x - f * 0.5, p.y, -f, 24, false);
+      shakeCam(0.28); SFX.blast();
+      p.sp = null; p.state = "recoil"; p.st = 0.32; p.curl = false;
+      p.vx = -f * s.recoil;
+      if (s.air) p.vy = Math.max(p.vy, 3.5);
+    }
+  }
+  /** A spark off a hard rev (Sonic Advance's): somewhere about the runner's feet and front. */
+  function revSpark(p) {
+    if (!framesOf(p.c.id, "fx.spark")) return;
+    effect(p.c.id, "fx.spark", p.x + (Math.random() - 0.3) * p.face * 0.9, p.y + 0.15 + Math.random() * 0.55, Math.random() < 0.5 ? 1 : -1, 32, true);
+  }
+  /** A burst of white light that swells and fades. */
+  function flash(x, y, size) {
+    const sp = new THREE.Sprite(glowMat(0xffffff, 0.95)); sp.position.set(x, y, 0.4); sp.scale.setScalar(size * 0.3);
+    world.group.add(sp); world.flashes.push({ s: sp, size, t: 0, life: 0.24 });
+  }
   function fire(p, s) {
     const who = p.c.id, f = p.face;
-    if (s.wave) shoot(who, { fx: s.wave, x: p.x + f * 0.7, y: p.y, vx: f * s.speed, vy: 0, life: s.life, ground: true, w: 1.0, h: 1.3, face: f });
+    if (s.wave) shoot(who, { fx: s.wave, x: p.x + f * 0.7, y: p.y, vx: f * s.speed, vy: 0, life: s.life, ground: true,
+                             w: 1.0 * (s.ghost || 1), h: 1.3 * (s.ghost || 1), face: f, ghost: s.ghost });
     else if (s.fly) {
       const held = s.hold && input.C ? s.hold : 0;
       shoot(who, { fx: s.fly, x: p.x + f * (0.6 + (s.ahead || 0)), y: p.y + p.hh * 0.55, vx: f * s.speed, vy: -(s.down || 0) * s.speed,
-                   life: s.life + held, loop: s.loop, mid: true, w: 0.8, h: 0.8, face: f });
-      SFX.shot();
+                   life: s.life + held, loop: s.loop, mid: true, w: 0.8 * (s.ghost || 1), h: 0.8 * (s.ghost || 1), face: f, ghost: s.ghost });
+      if (!s.ghost) SFX.shot();
     } else if (s.lob) {
       shoot(who, { fx: s.lob, x: p.x + f * 0.5, y: p.y + p.hh + 0.5, vx: f * s.speed, vy: s.rise, g: 26, life: 3, loop: true, mid: true,
                    w: 0.9, h: 0.9, face: f, bursts: 1.5 });
@@ -1572,13 +1627,13 @@
   // ---------------------------------------------------------------- shots, effects and traps
   /** A shot: a card of the runner's sheet that flies and hits what it meets. */
   function shoot(who, o) {
-    const card = makeCard(who, "fx"); world.group.add(card);
+    const card = makeCard(who, o.ghost ? "ghost" : "fx"); world.group.add(card);
     world.shots.push(Object.assign({ card, who, t: 0, life0: o.life, gone: false }, o));
   }
   /** An effect that only shows: plays once where it is put. */
-  function effect(who, name, x, y, face, fps, mid, kind) {
+  function effect(who, name, x, y, face, fps, mid, kind, k) {
     const card = makeCard(who, kind === "body" ? "body" : "fx"); world.group.add(card);
-    world.fx.push({ card, name, x, y, face, fps, mid, t: 0, n: framesOf(who, name).length });
+    world.fx.push({ card, name, x, y, face, fps, mid, k, t: 0, n: framesOf(who, name).length });
   }
   function setTrap(p, s) {
     const live = world.traps.filter(t => !t.gone);
@@ -1617,10 +1672,19 @@
         if (n && s.bursts) { boomAt(s.x, s.y, s.bursts); s.life = 0; }
       }
       if (s.ring && Math.abs(player.x - s.x) < 0.7 && player.state === "roll") s.life = 0;
+      if (s.ghost && Math.random() < 0.6) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.5, y: s.y + (s.mid ? 0 : 0.2 + Math.random() * 0.9), z: (Math.random() - 0.5) * 0.4,
+        vx: -s.vx * 0.08, vy: 1 + Math.random() * 1.5, vz: 0, life: 0.25, s: 0.06, c: Math.random() < 0.5 ? 0xffffff : 0xcfe8ff });
       if (s.y < -3) s.life = 0;
       if (s.life <= 0) { s.gone = true; w.group.remove(s.card); s.card.geometry.dispose(); }
     }
     if (w.shots.length > 30) w.shots = w.shots.filter(s => !s.gone);
+    for (const f of w.flashes) {
+      if (f.gone) continue;
+      f.t += dt; const k = f.t / f.life;
+      f.s.scale.setScalar(f.size * (0.3 + k * 1.4)); f.s.material.opacity = 0.95 * (1 - k);
+      if (k >= 1) { f.gone = true; w.group.remove(f.s); f.s.material.dispose(); }
+    }
+    if (w.flashes.length > 12) w.flashes = w.flashes.filter(f => !f.gone);
     for (const e of w.fx) {
       if (e.gone) continue;
       e.t += dt;
@@ -1874,7 +1938,8 @@
   }
 
   // ---------------------------------------------------------------- the picture
-  let camX = 0, camY = 0;
+  let camX = 0, camY = 0, shake = 0;
+  const shakeCam = s => { shake = Math.max(shake, s); };
   const CAM_D = 17;
   function snapCamera() { if (!player) return; camX = player.x + 2; camY = Math.max(6.1, player.y + 2.1); }
   /** The runner's frame, from what they are doing. */
@@ -1888,7 +1953,11 @@
     else switch (p.state) {
       case "hurt": case "stumble": name = "hit"; fps = 12; loop = false; break;
       case "atk": name = p.mv.name; pick = () => Math.floor(p.mv.t * p.mv.fps); break;
-      case "special": name = p.sp.body; pick = () => Math.floor(p.sp.t * p.sp.fps) % count(name); break;
+      case "special":
+        name = p.sp.body;
+        pick = p.sp.windup ? () => Math.floor(p.sp.spin || 0) % count(name) : () => Math.floor(p.sp.t * p.sp.fps) % count(name);
+        break;
+      case "recoil": name = p.ground ? "skid" : "fall"; fps = 12; loop = false; break;   // braced, facing his blast
       case "seek": name = "seek"; fps = 14; loop = false; break;
       case "homing": name = "spin"; fps = 30; break;
       case "charge": name = "rev"; fps = 14 + p.rev * 22; break;              // Sonic's Spin Dash, in their colours
@@ -1942,15 +2011,29 @@
     setFrame(p.spr, name, i, face, p.x, p.y);
     p.spr.visible = !(p.inv > 0 && !p.dead && p.state !== "dash" && p.state !== "teleport" && Math.sin(world.t * 40) > 0.4);
   }
+  /* The dust behind a rev: Sonic Advance's spray, looping faster and swelling as the rev
+     builds (each tap of Space kicks it up), at the runner's heels, trailing away from them. */
+  function drawDust(p, dt) {
+    const d = p.dust; if (!d) return;
+    const winding = p.state === "special" && p.sp && p.sp.windup && p.ground;
+    const on = p.state === "charge" || winding;
+    d.visible = on && !p.dead;
+    if (!on) { p.dustT = 0; return; }
+    const rev = p.state === "charge" ? p.rev : Math.min(1, p.sp.t / p.sp.windup);
+    p.revKick = Math.max(0, (p.revKick || 0) - dt * 5);
+    p.dustT = (p.dustT || 0) + dt * (12 + rev * 18);
+    const n = framesOf(p.c.id, "fx.rev").length;
+    setFrame(d, "fx.rev", Math.floor(p.dustT) % n, -p.face, p.x - p.face * 0.62, p.y, false, 0.12, 0.8 + rev * 0.55 + p.revKick * 0.25);
+  }
   /* Shots, effects and traps, each at its frame. A trap about to go off blinks. */
   function drawCards() {
     const w = world;
     for (const s of w.shots) if (!s.gone) {
       const n = framesOf(s.who, s.fx).length;
       const i = s.loop ? Math.floor(s.t * 16) % n : Math.min(n - 1, Math.floor((1 - s.life / s.life0) * n));
-      setFrame(s.card, s.fx, i, s.face, s.x, s.y, s.mid, 0.2);
+      setFrame(s.card, s.fx, i, s.face, s.x, s.y, s.mid, 0.2, s.ghost);
     }
-    for (const e of w.fx) if (!e.gone) setFrame(e.card, e.name, Math.floor(e.t * e.fps), e.face, e.x, e.y, e.mid, e.mid ? 0.25 : 0.04);
+    for (const e of w.fx) if (!e.gone) setFrame(e.card, e.name, Math.floor(e.t * e.fps), e.face, e.x, e.y, e.mid, e.mid ? 0.25 : 0.04, e.k);
     for (const t of w.traps) if (!t.gone) {
       const n = framesOf(t.who, "fx.trap").length, k = Math.floor(t.t * 8);
       const i = t.who === "amy" ? Math.min(k, n - 1) : t.who === "rouge" ? (k < 3 ? k : 3 + (k - 3) % (n - 3)) : k % n;
@@ -1961,6 +2044,7 @@
   function draw(dt) {
     const p = player, w = world;
     drawRunner(p, dt);
+    drawDust(p, dt);
     drawCards();
     if (p.star > 0 && Math.random() < 0.5) burst(p.x, p.y + Math.random() * p.hh, [0xe8403a, 0xf2d040, 0x5ab84a, 0x3a8ae0, 0x8a5ad0], 1, 1);
     if (Math.abs(p.vx) > 13 && p.ground && Math.random() < 0.4) burst(p.x - p.face * 0.3, p.y + 0.05, [0xd8d0c0, 0xffffff], 1, 1.5);
@@ -2006,6 +2090,10 @@
     camX = lerp(camX, tx, 1 - Math.exp(-dt * 3.6));
     camY = lerp(camY, ty, 1 - Math.exp(-dt * (p.ground ? 4 : 1.8)));
     camera.position.set(camX, camY + 1.9, D);
+    if (shake > 0) {                                       // a blast shakes the picture, briefly
+      shake = Math.max(0, shake - dt);
+      camera.position.x += (Math.random() - 0.5) * shake * 1.6; camera.position.y += (Math.random() - 0.5) * shake * 1.6;
+    }
     camera.lookAt(camX, camY, 0);
     if (w.snow) w.snow.position.set(camX, 0, 0);
     sun.position.set(camX + w.T.sun[2][0], w.T.sun[2][1], w.T.sun[2][2]);
@@ -2114,7 +2202,6 @@
     } else {
       // the menu: she waits at the start, the world goes on around her
       world.t += dt; worldStep(dt * 0.6);
-      for (const k of cards) if (k.cv.isConnected && (k.t += dt) > 0.14) { k.t = 0; paintCard(k.cv, k.who, ++k.i); }
       player.state = "run"; player.vx = 0;
     }
     if (!paused) draw(dt);
@@ -2161,7 +2248,7 @@
           <div class="adv-cast">
             ${CAST.map(c => `
               <button class="adv-who ${c.id === castId ? "on" : ""}" data-cast="${c.id}">
-                <div class="adv-bust"><canvas class="adv-spr" width="74" height="92" data-who="${c.id}"></canvas></div>
+                <div class="adv-bust"><canvas class="adv-spr" width="176" height="144" data-who="${c.id}"></canvas></div>
                 <div class="adv-who-tx">
                   <b>${esc(c.name)}</b>
                   <span class="adv-mv">${ico("star")}${esc(c.moves)}</span>
@@ -2193,15 +2280,14 @@
           <div class="adv-keys">${TOUCH ? "On screen: the pad moves, crouches and picks a move (Up or Down with Heavy or Special); Jump, Light, Heavy and Special." :
             `<b>&larr; &rarr;</b> run, twice to dash &middot; <b>Space</b> jump, again in the air &middot; <b>Z</b> light &middot; <b>X</b> heavy &middot; <b>C</b> special<br>
              <b>&uarr;</b> or <b>&darr;</b> with <b>X</b> or <b>C</b> for another move &middot; <b>&darr;</b> crouch &middot; <b>&darr; + Space</b> Spin Dash, or drop through &middot; <b>Esc</b> pause`}</div>
-          <div class="adv-credit">Sonic, Tails, Knuckles, Amy, Rouge and Shadow belong to SEGA. Their sprites are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing is from Sonic Advance (2001), ripped by AsuharaMoon (both The Spriters Resource).</div>
+          <div class="adv-credit">Sonic, Tails, Knuckles, Amy, Rouge and Shadow belong to SEGA. Their sprites are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing and the Spin Dash rev, dust and blast effects are from Sonic Advance (2001), ripped by AsuharaMoon (both The Spriters Resource).</div>
         </div>
       </div>`;
-    cards = Array.from(ov.querySelectorAll(".adv-spr")).map((cv, k) => ({ cv, who: cv.dataset.who, i: k * 2, t: 0 }));
-    cards.forEach(k => paintCard(k.cv, k.who, k.i));
+    ov.querySelectorAll(".adv-spr").forEach(cv => paintCard(cv, cv.dataset.who));
     ov.querySelectorAll("[data-cast]").forEach(b => b.onclick = () => {
       castId = b.dataset.cast; saveData.cast = castId; save(saveData);
       ov.querySelectorAll("[data-cast]").forEach(x => x.classList.toggle("on", x === b));
-      world.group.remove(player.spr);
+      world.group.remove(player.spr); if (player.dust) world.group.remove(player.dust);
       player = makePlayer(castOf(castId)); snapCamera();
     });
     ov.querySelectorAll("[data-st]").forEach(b => b.onclick = () => {
@@ -2220,7 +2306,7 @@
   function play() {
     // the stage the menu has standing is fresh: run it; anything already played is built again
     if (world && world.def === stages()[stageIdx] && !world.played) {
-      world.group.remove(player.spr);
+      world.group.remove(player.spr); if (player.dust) world.group.remove(player.dust);
       world.t = 0; player = makePlayer(castOf(castId)); snapCamera(); acc = 0; last = 0;
     } else load3d(stageIdx);
     world.played = true;

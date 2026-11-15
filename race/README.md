@@ -1212,7 +1212,10 @@ pose; an effect is anchored at its middle. A runner stands in the voxel world as
 at a thirtieth of a metre to the pixel (Sonic about 1.1m), crisp, mirrored to face the way
 they run, casting a shadow of their own shape and tinted to the stage's light. A card shows
 its frame by its own UVs, so all of a runner's cards share one texture. The menu's cards are
-their idle sprites. Everywhere else in the game Sonic is still the voxel Sonic.
+their Sonic Battle portraits, the ones each sheet draws with a white outline. Each sheet's
+address carries a fingerprint of the picture (`sb-sonic.png?v=...`), so a browser holding an
+older sheet fetches the new one rather than cutting new frames out of the old layout.
+Everywhere else in the game Sonic is still the voxel Sonic.
 
 **The fighting is Sonic Battle's.** That game puts every attack on B (a three-hit combo;
 direction + B for the heavy and upper attacks; B while dashing, in the air, or chasing a
@@ -1229,15 +1232,27 @@ three buttons, with all three specials always to hand:
 A double tap of a direction is the runner's own dash (Sonic Dash and Tails Hop are hops,
 Knuckles' cannot steer, Shadow's leaves him unseen). Down crouches (the landing frames, as
 the sheets have no crouch); Down + Space is a Spin Dash for everyone but Rouge (tap Space
-to rev, let go of Down; for Rouge it does nothing), or drops through a plank. Only Sonic's sheet has one (Sonic Wave's
-spin in place, Sonic Meteor's ball), so the others spin his in their own colours: Sonic
-Battle's palettes line up, his four blues where they keep their own main colour, and the
-packer swaps them colour for colour (Knuckles' shoes go to his green, Tails' muzzle white). A jump
+to rev, let go of Down; for Rouge it does nothing), or drops through a plank. Only Sonic's
+sheets draw one -- Sonic Advance's rev (twelve frames of the ball squashing and flaring its
+spikes) and Sonic Battle's roll (Sonic Meteor) -- so the others spin his in their own colours:
+Sonic Battle's palettes line up, his four blues where they keep their own main colour, and
+the packer swaps them colour for colour (Knuckles' shoes go to his green, Tails' muzzle
+white). A rev kicks up Sonic Advance's dust spray behind the runner, swelling as it builds
+(each tap of Space puffs it), throws sparks once it is hard, and leaves a dust puff on launch. A jump
 out of a Spin Dash or a roll stays that ball and hurts what it touches; any other jump is
 the runner's own jumping and falling frames. Knuckles' climb comes from *Sonic Advance*
 (Game Boy Advance, 2001; ripped by AsuharaMoon, the sprites SEGA's, Sonic Team's and Dimps'),
-`tools/art/sonic-battle/knuckles-advance.png`: its palette is Sonic Battle's rounded another
-way, so the packer maps it colour for colour.
+`tools/art/sonic-battle/knuckles-advance.png`, and the rev, dust, sparks, flare and air
+crescent from its Sonic sheet, `sonic-advance.png`: their palette is Sonic Battle's rounded
+another way, so the packer maps them colour for colour.
+
+**Sonic Wave hits like a sonic boom.** Sonic spins in place, a turn at first and then a blur
+(half a second), the dust spray growing behind him, sparks flying and a whine rising; then
+the blast goes, with Sonic Advance's white-gold flare and a see-through crescent of air at
+his front, a flash, a jolt through the picture, and a shockwave -- see-through, because it is
+air breaking the sound barrier -- tearing along the ground at 28 m/s for about fourteen
+metres, trailing air. It throws him back a metre, braced in his braking pose. Sonic Storm is
+the same from the air, angled down.
 
 | | Moves in the platformers | Its Sonic Battle set |
 |---|---|---|

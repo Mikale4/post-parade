@@ -2005,7 +2005,7 @@
 .adv-who{display:flex;gap:10px;text-align:left;padding:8px;border:2px solid var(--rule);border-radius:var(--r);background:var(--paper);cursor:pointer;font:inherit;color:var(--ink)}
 .adv-who:hover{border-color:var(--rule-2)}
 .adv-who.on{border-color:var(--turf);background:var(--turf-pale)}
-.adv-bust{flex:0 0 74px;height:92px;border-radius:var(--r-sm);background:var(--paper-3);overflow:hidden}
+.adv-bust{flex:0 0 88px;height:72px;border-radius:var(--r-sm);background:var(--paper-3);overflow:hidden}
 .adv-bust canvas{width:100%;height:100%;display:block}
 .adv-bust canvas.adv-spr{image-rendering:pixelated}
 .adv-who-tx{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -2107,7 +2107,7 @@
   .adv-gr i{font-size:10px}
   .adv-gr .g{font-size:13px}
   .adv-who small{display:none}
-  .adv-bust{flex-basis:56px;height:62px}
+  .adv-bust{flex-basis:66px;height:54px}
   .adv-st{gap:8px;padding:6px 4px}
   .adv-st-tx i{display:none}
   .adv-st-tx b{font-size:14px}
