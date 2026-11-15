@@ -22,7 +22,9 @@
  *               one special for the ground and one for the air before a match; here all
  *               three are always to hand.)
  *   a double tap of a direction: the dash, each runner's own. Down: crouch (the landing
- *   frames). Down + Space: a Spin Dash for the four who curl up, or a drop through a plank.
+ *   frames). Down + Space: a Spin Dash for everyone but Rouge (for her it does nothing), or
+ *   a drop through a plank.
+ *   Only Sonic's sheet has a Spin Dash; the others spin his, in their own colours.
  * The moving is their platformers': everyone sinks in deep water and needs air, as in the
  * classic games (Tails alone swims, by flying).
  *   Sonic     the fastest feet; curls into a ball when he jumps; Spin Dash (Sonic 2). In the
@@ -33,8 +35,8 @@
  *   Knuckles  the slowest and lowest jumper, the hardest hitter. Space again in the air,
  *             held, glides; a glide into a wall grabs it, and Up and Down climb (Sonic &
  *             Knuckles). Spin Dash, and he curls when he jumps.
- *   Amy       never curls; her Piko Piko Hammer is in her heavy, upper and air attacks, and
- *             Up + X swings her into a Hammer Jump (Sonic Advance). Double Jump.
+ *   Amy       her Piko Piko Hammer is in her heavy, upper and air attacks, and Up + X
+ *             swings her into a Hammer Jump (Sonic Advance). Double Jump. Spin Dash.
  *   Rouge     flies on her wings for a short while, then glides down slowly; Down lets go
  *             (Rouge Catch). Kicks, and Spiral Dive drills down through rock.
  *   Shadow    the fastest in Sonic Battle, skating on his Air Shoes; Chaos Control: Space in
@@ -85,10 +87,10 @@
       grades: { Speed: "C", Jump: "C", Air: "A", Power: "S" },
       text: "Hold Space in the air to glide; glide into a wall to grab it, then climb with Up and Down. Slow, and hits the hardest." },
     { id: "amy", name: "Amy", w: 0.54, h: 1.0, run: 13.6, accel: 20, airAccel: 13, jump: 12.1,
-      air: "double", from: "Amy Rose",
+      spinDash: true, air: "double", from: "Amy Rose",
       moves: "Piko Piko Hammer",
       grades: { Speed: "A", Jump: "B", Air: "B", Power: "A" },
-      text: "A Double Jump, and her Piko Piko Hammer: Up + X swings her into a Hammer Jump. The quickest fists of the six." },
+      text: "A Double Jump, a Spin Dash, and her Piko Piko Hammer: Up + X swings her into a Hammer Jump. The quickest fists of the six." },
     { id: "rouge", name: "Rouge", w: 0.56, h: 1.14, run: 12.9, accel: 18, airAccel: 15, jump: 12.4,
       air: "fly", flyTime: 3, glides: true, from: "Rouge the Bat",
       moves: "Flight · Spiral Dive",
@@ -1212,6 +1214,7 @@
       const onPlank = p.ground && p.onTile === null && !p.on && tile(Math.floor(p.x), Math.floor(p.y - 0.1)) === "-";
       if (input.D && onPlank) { p.drop = true; p.ground = false; p.y -= 0.12; p.state = "run"; }
       else if (input.D && p.ground && c.spinDash && p.state !== "roll") startCharge(p);
+      else if (input.D && p.ground && !c.spinDash) { /* no Spin Dash (Rouge): Down + Space does nothing */ }
       else if ((p.ground || p.coyote > 0) && p.state !== "fly" && p.state !== "glide") jump(p, mud);
       else airAction(p);
     }
@@ -1221,7 +1224,7 @@
       else if ((input.zp || input.xp) && free) startAttack(p, input.zp ? "light" : "heavy");
       else if (input.cp && free) startSpecial(p);
     }
-    // Down: crouch when still, curl into a roll when running (the four who curl)
+    // Down: crouch when still, curl into a roll when running (everyone with a Spin Dash)
     if (p.state === "run" && p.ground && input.D) {
       if (c.spinDash && Math.abs(p.vx) > 4) { p.state = "roll"; p.curl = true; SFX.roll(); }
       else if (Math.abs(p.vx) < 4) p.state = "crouch";
@@ -1867,7 +1870,6 @@
     p.landT = Math.max(0, p.landT - dt); p.dblT = Math.max(0, (p.dblT || 0) - dt);
     p.balT = Math.max(0, (p.balT || 0) - dt); p.catchT = Math.max(0, (p.catchT || 0) - dt);
     const count = nm => framesOf(id, nm).length;
-    const ball = id === "tails" ? "roll" : "ball";
     let name, fps = 10, loop = true, face = p.face, pick = null;
     if (p.dead) { name = "out"; fps = 8; loop = false; }
     else switch (p.state) {
@@ -1876,8 +1878,8 @@
       case "special": name = p.sp.body; pick = () => Math.floor(p.sp.t * p.sp.fps) % count(name); break;
       case "seek": name = "seek"; fps = 14; loop = false; break;
       case "homing": name = "ball"; fps = 30; break;
-      case "charge": name = id === "sonic" ? "rev" : ball; fps = 14 + p.rev * 22; break;
-      case "roll": name = ball; fps = 12 + sp * 1.4; break;
+      case "charge": name = "rev"; fps = 14 + p.rev * 22; break;              // Sonic's Spin Dash, in their colours
+      case "roll": name = "spin"; fps = 12 + sp * 1.4; break;
       case "dash": name = "dash"; fps = 16; loop = false; break;
       case "crouch": {                                     // the landing frames, down to the deepest, held
         const L = framesOf(id, "land"); let k = 0;
