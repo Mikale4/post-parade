@@ -27,14 +27,16 @@
  *   Only Sonic's sheet has a Spin Dash; the others spin his, in their own colours.
  * The moving is their platformers': everyone sinks in deep water and needs air, as in the
  * classic games (Tails alone swims, by flying).
- *   Sonic     the fastest feet; curls into a ball when he jumps; Spin Dash (Sonic 2). In the
+ *   Sonic     the fastest feet; Spin Dash (Sonic 2). In the
  *             air, Sonic Ballet: a second jump that homes on anything near, curled, as the
  *             Homing Attack does (Sonic Adventure).
  *   Tails     flies (Sonic 2 & 3): Space again in the air, tapped to climb, until he tires
  *             after about five seconds; under water the same stroke swims. Spin Dash.
  *   Knuckles  the slowest and lowest jumper, the hardest hitter. Space again in the air,
  *             held, glides; a glide into a wall grabs it, and Up and Down climb (Sonic &
- *             Knuckles). Spin Dash, and he curls when he jumps.
+ *             Knuckles), over the top when it ends. Spin Dash. Sonic Battle draws no climb, so
+ *             his grab, cling, climb and pull-up are Sonic Advance's (ripped by AsuharaMoon),
+ *             in his Sonic Battle colours.
  *   Amy       her Piko Piko Hammer is in her heavy, upper and air attacks, and Up + X
  *             swings her into a Hammer Jump (Sonic Advance). Double Jump. Spin Dash.
  *   Rouge     flies on her wings for a short while, then glides down slowly; Down lets go
@@ -69,20 +71,21 @@
   /* Speeds in metres a second, gravity 34 m/s^2: a 12.4 jump clears two metres; a spring
      throws anyone about six and a half. Run speeds follow Sonic Battle's ratings (Shadow 8,
      Sonic 7, Tails and Amy 6, Rouge 5, Knuckles 3, of 9); every jump still clears two
-     metres, the stages' rule. `spin`: curls into a ball to jump. */
+     metres, the stages' rule. A jump out of a Spin Dash or a roll stays a ball and hurts what
+     it touches; any other jump is the runner's own jumping frames. */
   const CAST = [
     { id: "sonic", name: "Sonic", w: 0.56, h: 1.02, run: 14.6, accel: 22, airAccel: 14, jump: 12.4,
-      spin: true, spinDash: true, air: "ballet", from: "Sonic the Hedgehog",
+      spinDash: true, air: "ballet", from: "Sonic the Hedgehog",
       moves: "Spin Dash · Sonic Ballet",
       grades: { Speed: "S", Jump: "B", Air: "B", Power: "B" },
-      text: "The fastest feet. Curls up when he jumps; Down + Space revs a Spin Dash. In the air, Sonic Ballet homes on anything near." },
+      text: "The fastest feet. Down + Space revs a Spin Dash; jump out of it as a ball. In the air, Sonic Ballet homes on anything near." },
     { id: "tails", name: "Tails", w: 0.56, h: 0.96, run: 13.6, accel: 19, airAccel: 14, jump: 12.1,
       spinDash: true, air: "fly", flyTime: 5, from: "Miles \"Tails\" Prower",
       moves: "Flight · Energy Ball",
       grades: { Speed: "A", Jump: "C", Air: "S", Power: "C" },
       text: "Space again in the air to fly, tapping to climb, until he tires; under water he swims. Energy Ball, and a Big Hand." },
     { id: "knuckles", name: "Knuckles", w: 0.62, h: 1.06, run: 11.6, accel: 16, airAccel: 11, jump: 12.0,
-      spin: true, spinDash: true, air: "glide", climb: true, from: "Knuckles the Echidna",
+      spinDash: true, air: "glide", climb: true, from: "Knuckles the Echidna",
       moves: "Glide · Climb",
       grades: { Speed: "C", Jump: "C", Air: "A", Power: "S" },
       text: "Hold Space in the air to glide; glide into a wall to grab it, then climb with Up and Down. Slow, and hits the hardest." },
@@ -97,7 +100,7 @@
       grades: { Speed: "B", Jump: "B", Air: "A", Power: "B" },
       text: "Space again in the air to fly a while, then she glides down; Down lets go. Up + C in the air: Spiral Dive, down through rock." },
     { id: "shadow", name: "Shadow", w: 0.56, h: 1.06, run: 15.4, accel: 24, airAccel: 15, jump: 12.8,
-      spin: true, spinDash: true, air: "teleport", from: "Shadow the Hedgehog",
+      spinDash: true, air: "teleport", from: "Shadow the Hedgehog",
       moves: "Chaos Control",
       grades: { Speed: "S", Jump: "A", Air: "A", Power: "A" },
       text: "Chaos Control: Space in the air teleports him ahead, twice a jump. Z in the air is a Homing Attack; C a Chaos Spear." },
@@ -962,7 +965,7 @@
      live frames of a blow, or with the rainbow's shine */
   const BODY_HITS = { roll: 1, charge: 1, homing: 1, glide: 1, dive: 1, tornado: 1 };
   const attacking = p => p.star > 0 || !!BODY_HITS[p.state] || (p.state === "atk" && p.mv.live) ||
-                         (p.c.spin && p.curl && !p.ground && p.state !== "hurt");
+                         (p.curl && !p.ground && p.state !== "hurt");
   /** The ground under (x, y), slopes and planks included, within a metre or so; or null. */
   function groundY(x, y) {
     const ci = Math.floor(x);
@@ -1140,6 +1143,7 @@
     if (ice) { acc *= 0.32; fr = 2.2; }
     p.st -= dt;
     p.hh = (p.state === "crouch" || p.state === "roll" || p.state === "charge") ? 0.72 : c.h;
+    if (p.state === "ledge") { stepLedge(p, dt); interact(p, dt); return; }
 
     // what they are in the middle of
     switch (p.state) {
@@ -1268,8 +1272,8 @@
     const c = p.c;
     p.vy = c.jump * (mud ? 0.82 : 1) * (p.inWater ? 0.82 : 1);
     p.ground = false; p.coyote = 0; p.jumping = true; p.on = null;
+    p.curl = p.state === "roll";                         // out of a Spin Dash or a roll: still a ball
     if (p.state !== "roll") p.state = "run";
-    p.curl = !!c.spin;
     SFX.jump();
   }
   /** Space again in the air: the runner's air action. */
@@ -1327,7 +1331,7 @@
     if (c.id === "shadow") p.inv = Math.max(p.inv, 0.3);                                      // he is gone while he dashes
     SFX.dash();
   }
-  function startClimb(p, wall) { p.state = "climb"; p.wall = wall; p.face = wall; p.vx = 0; p.vy = 0; p.curl = false; SFX.grab(); }
+  function startClimb(p, wall) { p.state = "climb"; p.wall = wall; p.face = wall; p.vx = 0; p.vy = 0; p.curl = false; p.grabT = 0.14; SFX.grab(); }
   /* Knuckles on a wall: Up and Down climb, over the top when it ends; Space leaps off. */
   function stepClimb(p, dir) {
     const c = p.c;
@@ -1336,17 +1340,26 @@
     const wallMid = solid(tile(Math.floor(wx), Math.floor(p.y + p.hh * 0.5)));
     const wallFeet = solid(tile(Math.floor(wx), Math.floor(p.y + 0.05)));
     if (!wallMid) {
-      if (wallFeet) {                                      // over the top, onto the ledge
-        p.y = Math.floor(p.y + 0.05) + 1; p.x += p.wall * (c.w / 2 + 0.35);
-        p.ground = true; p.state = "run"; p.landT = 0.14; p.airUses = 0; p.flyLeft = 0;
+      if (wallFeet) {                                      // over the top: he pulls himself up onto the ledge
+        p.state = "ledge"; p.vx = p.vy = 0;
+        p.ledge = { t: 0, x0: p.x, y0: p.y, x1: p.x + p.wall * (c.w / 2 + 0.35), y1: Math.floor(p.y + 0.05) + 1 };
       } else p.state = "run";
       return;
     }
     if (input.jp) {
-      p.state = "run"; p.face = -p.wall; p.vx = -p.wall * 7; p.vy = 10.5; p.jumping = true; p.curl = !!c.spin; p.airUses = 0;
+      p.state = "run"; p.face = -p.wall; p.vx = -p.wall * 7; p.vy = 10.5; p.jumping = true; p.curl = false; p.airUses = 0;
       input.jp = 0;                                        // the leap, not a glide as well
       SFX.jump();
     } else if (dir === -p.wall) p.state = "run";
+  }
+
+  /* Over the top of a wall: Sonic Advance's pull-up, up first and then onto the ledge. */
+  const LEDGE_T = 0.32;
+  function stepLedge(p, dt) {
+    const L = p.ledge; L.t += dt;
+    const k = Math.min(1, L.t / LEDGE_T), e = k * k * (3 - 2 * k);
+    p.x = lerp(L.x0, L.x1, e); p.y = lerp(L.y0, L.y1, Math.min(1, e * 1.5)); p.vx = p.vy = 0;
+    if (k >= 1) { p.state = "run"; p.ground = true; p.y = L.y1; p.on = null; p.onTile = null; p.airUses = 0; p.flyLeft = 0; p.landT = 0.1; p.ledge = null; }
   }
 
   // ---------------------------------------------------------------- the blows
@@ -1695,7 +1708,7 @@
         if (p.vy <= 0.5 && touches(e.x, e.y + 0.3, 0.42) && p.y >= e.y - 0.1) {
           p.vy = 21; p.ground = false; p.y = Math.max(p.y, e.y + 0.5); p.airMove = false; p.airSp = false; p.airUses = 0; p.jumping = false;
           p.flyLeft = p.c.flyTime || 0;
-          if (p.state !== "roll") p.state = "run"; p.curl = !!p.c.spin; e.sq = 1; SFX.spring();
+          p.curl = p.state === "roll"; if (p.state !== "roll") p.state = "run"; e.sq = 1; SFX.spring();
         }
       } else if (e.t === "dash") {
         if (p.ground && touches(e.x, e.y + 0.1, 0.6)) { if (p.vx < 18) { p.vx = 18; p.face = 1; SFX.dash(); burst(p.x, p.y + 0.2, [0xf2d040, 0xffffff], 5, 3); } }
@@ -1726,8 +1739,8 @@
       if (bx1 < ex0 || bx0 > ex1 || by1 < ey0 || by0 > ey1) continue;
       if (attacking(p)) {
         defeat(e);
-        if (p.state === "homing") { p.state = "run"; p.vy = 10; p.vx = p.face * 4; p.airMove = false; p.airUses = 0; p.curl = !!p.c.spin; }
-        else if (p.c.spin && p.curl && !p.ground && p.vy < 0) p.vy = input.J ? 12 : 9;
+        if (p.state === "homing") { p.state = "run"; p.vy = 10; p.vx = p.face * 4; p.airMove = false; p.airUses = 0; p.curl = true; }
+        else if (p.curl && !p.ground && p.vy < 0) p.vy = input.J ? 12 : 9;
       } else if (p.vy < -0.5 && by0 > ey0 + e.h * 0.4) {
         defeat(e); p.vy = input.J ? 13 : 9.5; p.ground = false; p.airMove = false; p.airUses = 0; SFX.stomp();
         if (p.state !== "fly" && p.state !== "glide") p.state = "run";
@@ -1868,7 +1881,7 @@
   function drawRunner(p, dt) {
     const c = p.c, a = p.anim, sp = Math.abs(p.vx), id = c.id;
     p.landT = Math.max(0, p.landT - dt); p.dblT = Math.max(0, (p.dblT || 0) - dt);
-    p.balT = Math.max(0, (p.balT || 0) - dt); p.catchT = Math.max(0, (p.catchT || 0) - dt);
+    p.balT = Math.max(0, (p.balT || 0) - dt); p.catchT = Math.max(0, (p.catchT || 0) - dt); p.grabT = Math.max(0, (p.grabT || 0) - dt);
     const count = nm => framesOf(id, nm).length;
     let name, fps = 10, loop = true, face = p.face, pick = null;
     if (p.dead) { name = "out"; fps = 8; loop = false; }
@@ -1877,7 +1890,7 @@
       case "atk": name = p.mv.name; pick = () => Math.floor(p.mv.t * p.mv.fps); break;
       case "special": name = p.sp.body; pick = () => Math.floor(p.sp.t * p.sp.fps) % count(name); break;
       case "seek": name = "seek"; fps = 14; loop = false; break;
-      case "homing": name = "ball"; fps = 30; break;
+      case "homing": name = "spin"; fps = 30; break;
       case "charge": name = "rev"; fps = 14 + p.rev * 22; break;              // Sonic's Spin Dash, in their colours
       case "roll": name = "spin"; fps = 12 + sp * 1.4; break;
       case "dash": name = "dash"; fps = 16; loop = false; break;
@@ -1887,7 +1900,12 @@
         name = "land"; pick = t => Math.min(Math.floor(t * 20), k);
         break;
       }
-      case "climb": name = "cling"; pick = () => 0; break;
+      case "climb":                                        // Sonic Advance's climb: he faces the wall
+        if (p.grabT > 0) { name = "grab"; pick = () => 0; }
+        else if (p.vy) { name = "climb"; pick = () => { const n = count("climb"), k = Math.floor(p.y / 0.16); return ((k % n) + n) % n; }; }
+        else { name = "cling"; fps = 2.5; }
+        break;
+      case "ledge": name = "ledge"; pick = () => Math.floor(p.ledge.t / LEDGE_T * count("ledge")); break;
       case "glide": name = "glide"; pick = t => t * 12 < 2 ? Math.floor(t * 12) : 2 + Math.floor(t * 10) % 3; break;
       case "fly":
         if (id === "tails") { name = "fly"; pick = t => 1 + Math.floor(t * (p.flyLeft > 0 ? 16 : 7)) % 4; }
@@ -1909,7 +1927,7 @@
           if (p.dblT > 0) { name = "double"; fps = 12; loop = false; }
           else if (p.balT > 0) { name = "spark"; fps = 16; loop = false; }
           else if (p.catchT > 0 && id === "rouge") { name = "catch"; fps = 8; loop = false; }
-          else if (c.spin && p.curl) { name = "ball"; fps = 12 + sp * 1.4; }
+          else if (p.curl) { name = "spin"; fps = 12 + sp * 1.4; }          // out of a roll: the Spin Dash ball
           else { name = p.vy > 0 ? "jump" : "fall"; loop = false; }
         }
         else if (p.landT > 0) { name = "land"; fps = 22; loop = false; }
@@ -2175,7 +2193,7 @@
           <div class="adv-keys">${TOUCH ? "On screen: the pad moves, crouches and picks a move (Up or Down with Heavy or Special); Jump, Light, Heavy and Special." :
             `<b>&larr; &rarr;</b> run, twice to dash &middot; <b>Space</b> jump, again in the air &middot; <b>Z</b> light &middot; <b>X</b> heavy &middot; <b>C</b> special<br>
              <b>&uarr;</b> or <b>&darr;</b> with <b>X</b> or <b>C</b> for another move &middot; <b>&darr;</b> crouch &middot; <b>&darr; + Space</b> Spin Dash, or drop through &middot; <b>Esc</b> pause`}</div>
-          <div class="adv-credit">Sonic, Tails, Knuckles, Amy, Rouge and Shadow belong to SEGA. Their sprites are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor (The Spriters Resource).</div>
+          <div class="adv-credit">Sonic, Tails, Knuckles, Amy, Rouge and Shadow belong to SEGA. Their sprites are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing is from Sonic Advance (2001), ripped by AsuharaMoon (both The Spriters Resource).</div>
         </div>
       </div>`;
     cards = Array.from(ov.querySelectorAll(".adv-spr")).map((cv, k) => ({ cv, who: cv.dataset.who, i: k * 2, t: 0 }));

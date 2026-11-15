@@ -1232,16 +1232,21 @@ the sheets have no crouch); Down + Space is a Spin Dash for everyone but Rouge (
 to rev, let go of Down; for Rouge it does nothing), or drops through a plank. Only Sonic's sheet has one (Sonic Wave's
 spin in place, Sonic Meteor's ball), so the others spin his in their own colours: Sonic
 Battle's palettes line up, his four blues where they keep their own main colour, and the
-packer swaps them colour for colour (Knuckles' shoes go to his green, Tails' muzzle white).
+packer swaps them colour for colour (Knuckles' shoes go to his green, Tails' muzzle white). A jump
+out of a Spin Dash or a roll stays that ball and hurts what it touches; any other jump is
+the runner's own jumping and falling frames. Knuckles' climb comes from *Sonic Advance*
+(Game Boy Advance, 2001; ripped by AsuharaMoon, the sprites SEGA's, Sonic Team's and Dimps'),
+`tools/art/sonic-battle/knuckles-advance.png`: its palette is Sonic Battle's rounded another
+way, so the packer maps it colour for colour.
 
 | | Moves in the platformers | Its Sonic Battle set |
 |---|---|---|
-| Sonic | the fastest; curls into a ball to jump; Spin Dash (Sonic 2); **Sonic Ballet**, Space again in the air: a second jump, or a Homing Attack (Sonic Adventure) at anything near | Sonic Punch, Sonic Kick, Top Kick; Sonic Flare, Sonic Updraft, Windmill, Sonic Rocket, Sonic Eagle; Sonic Wave (a shockwave along the ground) / Sonic Storm; Sonic Drive (throws a ring, spins after it) / Sonic Meteor; Sonic Cracker, a landmine |
+| Sonic | the fastest; Spin Dash (Sonic 2); **Sonic Ballet**, Space again in the air: a second jump, or a Homing Attack (Sonic Adventure) at anything near | Sonic Punch, Sonic Kick, Top Kick; Sonic Flare, Sonic Updraft, Windmill, Sonic Rocket, Sonic Eagle; Sonic Wave (a shockwave along the ground) / Sonic Storm; Sonic Drive (throws a ring, spins after it) / Sonic Meteor; Sonic Cracker, a landmine |
 | Tails | **flies** (Sonic 2 & 3): Space again in the air, tapped to climb, until he tires after about five seconds; under water the same stroke swims; Spin Dash | IQ200, IQ300, IQ400; Magic Hook (the longest reach), Magic Upper, Tails Cyclone, Typhoon, Tails Dunk; Energy Ball; Flick, a Big Hand; Chu² Bomb, which crawls after its mark |
-| Knuckles | the slowest and lowest jumper; **glides** with Space held in the air, breaking cracked rock it meets; a glide into a wall grabs it, and Up and Down **climb**, over the top when it ends (Sonic & Knuckles); curls to jump; Spin Dash | Knuckles Straight, Chop, Upper; Megaton Hook, Enrage, Double Punch, Air Hook, Meteor Punch; Rock Free Fall, a lobbed rock / Meteor Crush; Deep Impact, an explosion / Major Eruption (dives, burrows, bursts out); Mole Bomb, a landmine you can barely see |
+| Knuckles | the slowest and lowest jumper; **glides** with Space held in the air, breaking cracked rock it meets; a glide into a wall grabs it, and Up and Down **climb**, over the top when it ends (Sonic & Knuckles), pulling himself up; Sonic Battle draws no climb, so the grab, cling, climb and pull-up are Sonic Advance's, ripped by AsuharaMoon, in his Sonic Battle colours; Spin Dash | Knuckles Straight, Chop, Upper; Megaton Hook, Enrage, Double Punch, Air Hook, Meteor Punch; Rock Free Fall, a lobbed rock / Meteor Crush; Deep Impact, an explosion / Major Eruption (dives, burrows, bursts out); Mole Bomb, a landmine you can barely see |
 | Amy | **Double Jump**; her Piko Piko Hammer: **Up + X** swings her into a **Hammer Jump** (Sonic Advance); Spin Dash | Girl Jab, Straight, Upper; Girl Crush, Girl Swing, Girl Bomber, Air Girl Crush, Girl Dunk; Pink Typhoon, a tornado along the ground; Girl Tornado; Gift |
 | Rouge | **flies** a short while on her wings (Sonic Heroes), then glides down slowly as in Sonic Battle; Down lets go (Rouge Catch) | Rouge Kick, Side Kick, Sobat; Charlie Kick, Secret Kick, Secret Spear, Agent Eagle, Homing Cutter; Beauty Shock, short; Silent Size / **Spiral Dive**, which drills down through rock (Sonic Adventure 2's Drill Drive); Bat Cracker, a bat mine that hunts |
-| Shadow | the fastest in Sonic Battle, skating on his Air Shoes; **Chaos Control**: Space in the air teleports him a few metres on, twice a jump, drifting down; Homing Attack; curls to jump; Spin Dash | Shadow Chop, Kick, Back Kick; Chaos Nightmare, Chaos Upper, Shadow Slider, Shadow Rocket, Shadow Eagle; Chaos Magic, the Chaos Spear (held, it flies further); Chaos Burst / Air Chaos Burst (drops, then bursts); Roaming Chaos, which circles him |
+| Shadow | the fastest in Sonic Battle, skating on his Air Shoes; **Chaos Control**: Space in the air teleports him a few metres on, twice a jump, drifting down; Homing Attack; Spin Dash | Shadow Chop, Kick, Back Kick; Chaos Nightmare, Chaos Upper, Shadow Slider, Shadow Rocket, Shadow Eagle; Chaos Magic, the Chaos Spear (held, it flies further); Chaos Burst / Air Chaos Burst (drops, then bursts); Roaming Chaos, which circles him |
 
 Everyone sinks in deep water and has sixteen seconds of breath unless they find an air
 vent's bubbles, as in the classic games; only Tails swims. Every jump clears two metres
