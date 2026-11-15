@@ -1254,6 +1254,17 @@ air breaking the sound barrier -- tearing along the ground at 28 m/s for about f
 metres, trailing air. It throws him back a metre, braced in his braking pose. Sonic Storm is
 the same from the air, angled down.
 
+**Every special lands with weight.** While a move winds up, energy of its colour gathers to
+the runner's hand to a rising note; its release flashes that colour, jolts the picture and,
+for the shots, pushes the runner back; the heaviest (Deep Impact, Chaos Burst, Major
+Eruption, the Big Hand, Silent Size) freeze the world for a few hundredths of a second.
+Shots fly faster and bigger and leave a trail of their colour -- Tails' Energy Ball at
+20 m/s, Shadow's Chaos Spear at 30, Amy's Pink Typhoon and Rouge's Beauty Shock see-through
+(wind and sound) -- and each hit flashes and catches for an instant. Knuckles' rocks land
+in dust and a jolt; dives come down in dust both sides; Girl Tornado whirls wind round Amy;
+every trap goes off in Knuckles' Deep Impact explosion. Each move's colour, flash, jolt,
+recoil and freeze are in `SPECIALS` in `adventure.js`.
+
 | | Moves in the platformers | Its Sonic Battle set |
 |---|---|---|
 | Sonic | the fastest; Spin Dash (Sonic 2); **Sonic Ballet**, Space again in the air: a second jump, or a Homing Attack (Sonic Adventure) at anything near | Sonic Punch, Sonic Kick, Top Kick; Sonic Flare, Sonic Updraft, Windmill, Sonic Rocket, Sonic Eagle; Sonic Wave (a shockwave along the ground) / Sonic Storm; Sonic Drive (throws a ring, spins after it) / Sonic Meteor; Sonic Cracker, a landmine |

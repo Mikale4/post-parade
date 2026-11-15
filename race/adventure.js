@@ -122,7 +122,13 @@
   };
   const blow = (c, name) => { const b = (BLOWS[c.id] || {})[name] || BLOWS.base[name]; return { fps: b[0], reach: b[1], step: b[2] }; };
 
-  /* The specials, as Sonic Battle has each one (Sonic Center's character FAQ and the Green
+  /* How hard each lands: `charge` is the colour of the energy gathered while the move winds up;
+     `pow` what its release does (a flash of that colour and size, a jolt through the picture,
+     a recoil, a freeze-frame of `stop` seconds); `trail` the colour a shot leaves behind it, `k`
+     its size, `ghost` a see-through one (wind, sound); `land` what a lobbed rock does when it
+     comes down.
+
+     The specials, as Sonic Battle has each one (Sonic Center's character FAQ and the Green
      Hill Zone's guide): `body` the runner's frames, `at` the frame it happens on, then what
      happens. Shots fly (`wave` ones run along the ground, `lob` ones arc and burst); powers
      strike an `area` in front or around, or move the runner (`drive`, `dive`, `tornado`);
@@ -134,43 +140,60 @@
          and throws him back. Sonic Storm is the same from the air, angled down. */
       shot:     { body: "rev", windup: 0.5, wave: "fx.shot", speed: 28, life: 0.5, recoil: 7, ghost: 1.3 },
       airshot:  { body: "rev", windup: 0.4, fly: "fx.airshot", speed: 26, down: 0.55, life: 0.45, recoil: 6, ghost: 1.3 },
-      power:    { body: "power", fps: 18, at: 3, drive: true },                                                  // Sonic Drive: throws a ring, spins after it
-      airpower: { body: "ball", fps: 24, at: 0, dive: "meteor" },                                               // Sonic Meteor
+      power:    { body: "power", fps: 18, at: 3, drive: true, pow: { c: 0x9ad4ff, flash: 2.2, shake: 0.12 } },   // Sonic Drive: throws a ring, spins after it
+      airpower: { body: "ball", fps: 24, at: 0, dive: "meteor", pow: { c: 0x9ad4ff, flash: 2.8, shake: 0.26, stop: 0.05 } }, // Sonic Meteor
       trap:     { body: "trap", fps: 16, at: 4, trap: "mine" },                                                 // Sonic Cracker: a landmine
       airtrap:  { body: "airtrap", fps: 16, at: 4, trap: "mine", toss: true } },
     tails: {
-      shot:     { body: "shot", fps: 30, at: 9, fly: "fx.shot", speed: 12, life: 0.9, loop: true },              // Energy Ball, from his arm cannon
-      airshot:  { body: "shot", fps: 30, at: 9, fly: "fx.shot", speed: 12, down: 0.6, life: 0.8, loop: true },
-      power:    { body: "power", fps: 16, at: 3, area: "fx.power", ax: 1.3, ay: 0.55, w: 1.5, h: 1.6 },            // Flick: a Big Hand
-      airpower: { body: "airpower", fps: 16, at: 3, area: "fx.power", ax: 1.3, ay: 0.4, w: 1.5, h: 1.6 },
+      shot:     { body: "shot", fps: 30, at: 9, fly: "fx.shot", speed: 20, life: 0.7, loop: true, k: 1.5, trail: 0xfff070,   // Energy Ball, from his arm cannon
+                  charge: 0xfff070, pow: { c: 0xfff070, flash: 2.2, shake: 0.12, recoil: 3 } },
+      airshot:  { body: "shot", fps: 30, at: 9, fly: "fx.shot", speed: 20, down: 0.6, life: 0.6, loop: true, k: 1.5, trail: 0xfff070,
+                  charge: 0xfff070, pow: { c: 0xfff070, flash: 2.2, shake: 0.12, recoil: 3 } },
+      power:    { body: "power", fps: 16, at: 3, area: "fx.power", ax: 1.5, ay: 0.7, w: 2.1, h: 2.2, k: 1.5,           // Flick: a Big Hand
+                  charge: 0xffffff, pow: { c: 0xffffff, flash: 3, shake: 0.22, stop: 0.06 } },
+      airpower: { body: "airpower", fps: 16, at: 3, area: "fx.power", ax: 1.5, ay: 0.55, w: 2.1, h: 2.2, k: 1.5,
+                  charge: 0xffffff, pow: { c: 0xffffff, flash: 3, shake: 0.22, stop: 0.06 } },
       trap:     { body: "trap", fps: 16, at: 3, trap: "chase" },                                                // Chu² Bomb: crawls after its mark
       airtrap:  { body: "airtrap", fps: 16, at: 3, trap: "chase", toss: true } },
     knuckles: {
-      shot:     { body: "shot", fps: 20, at: 8, lob: "fx.shot", speed: 6.5, rise: 9 },                             // Rock Free Fall: a rock, lobbed
-      airshot:  { body: "airshot", fps: 18, at: 3, lob: "fx.shot", speed: 7, rise: -6 },                            // Meteor Crush: hurled down
-      power:    { body: "power", fps: 32, at: 29, area: "fx.power", ax: 1.1, ay: 0.55, w: 2.0, h: 1.9, step: 1.6 }, // Deep Impact: the punch goes off
-      airpower: { body: "airpower", fps: 20, at: 0, dive: "erupt" },                                            // Major Eruption: dives, burrows, bursts out
+      shot:     { body: "shot", fps: 20, at: 8, lob: "fx.shot", speed: 8, rise: 9, k: 1.35, trail: 0xb08a5a,       // Rock Free Fall: a rock, lobbed
+                  charge: 0xffc080, land: { c: 0xffc080, flash: 2.4, shake: 0.26, stop: 0.04 } },
+      airshot:  { body: "airshot", fps: 18, at: 3, lob: "fx.shot", speed: 9, rise: -7, k: 1.35, trail: 0xb08a5a,     // Meteor Crush: hurled down
+                  land: { c: 0xffc080, flash: 2.4, shake: 0.26, stop: 0.04 } },
+      power:    { body: "power", fps: 32, at: 29, area: "fx.power", ax: 1.2, ay: 0.7, w: 2.6, h: 2.4, step: 1.6, k: 1.7, // Deep Impact: the punch goes off
+                  charge: 0xff9030, pow: { c: 0xff9030, flash: 4.5, shake: 0.4, stop: 0.09, recoil: 2 } },
+      airpower: { body: "airpower", fps: 20, at: 0, dive: "erupt", pow: { c: 0xff9030, flash: 4, shake: 0.38, stop: 0.08 } }, // Major Eruption: dives, burrows, bursts out
       trap:     { body: "trap", fps: 18, at: 5, trap: "mine", faint: true },                                    // Mole Bomb: a landmine you can barely see
       airtrap:  { body: "airtrap", fps: 18, at: 3, trap: "mine", faint: true, toss: true } },
     amy: {
-      shot:     { body: "shot", fps: 24, at: 7, wave: "fx.shot", speed: 7, life: 1.1 },                            // Pink Typhoon: a tornado off her hammer
-      airshot:  { body: "airshot", fps: 22, at: 4, fly: "fx.airshot", speed: 8, down: 0.6, life: 0.8 },
-      power:    { body: "shot", fps: 22, at: 4, tornado: [4, 7] },                                              // Girl Tornado: frames 4-7, six times round
-      airpower: { body: "airshot", fps: 22, at: 4, tornado: [4, 6] },
+      /* Pink Typhoon: a tornado off her hammer -- wind, so you can see through it */
+      shot:     { body: "shot", fps: 24, at: 7, wave: "fx.shot", speed: 15, life: 0.8, ghost: 1.5, trail: 0xffa0d0,
+                  charge: 0xff80c0, pow: { c: 0xff80c0, flash: 2.2, shake: 0.14, recoil: 2.5 } },
+      airshot:  { body: "airshot", fps: 22, at: 4, fly: "fx.airshot", speed: 16, down: 0.6, life: 0.6, ghost: 1.5, trail: 0xffa0d0,
+                  pow: { c: 0xff80c0, flash: 2.2, shake: 0.14, recoil: 2.5 } },
+      power:    { body: "shot", fps: 22, at: 4, tornado: [4, 7], charge: 0xff80c0, pow: { c: 0xff80c0, flash: 2.2, shake: 0.1 } }, // Girl Tornado: frames 4-7, six times round
+      airpower: { body: "airshot", fps: 22, at: 4, tornado: [4, 6], pow: { c: 0xff80c0, flash: 2.2, shake: 0.1 } },
       trap:     { body: "trap", fps: 18, at: 8, trap: "gift" },                                                 // Gift
       airtrap:  { body: "airtrap", fps: 18, at: 4, trap: "gift", toss: true } },
     rouge: {
-      shot:     { body: "shot", fps: 22, at: 7, fly: "fx.shot", speed: 9, life: 0.4, loop: true },               // Beauty Shock: short reach
-      airshot:  { body: "airshot", fps: 22, at: 6, fly: "fx.shot", speed: 9, down: 0.7, life: 0.4, loop: true },
-      power:    { body: "power", fps: 22, at: 3, area: "fx.power", ax: 1.3, ay: 0.5, w: 1.9, h: 1.5 },             // Silent Size
-      airpower: { body: "airpower", fps: 22, at: 0, dive: "drill" },                                            // Spiral Dive: spins down, through rock
+      /* Beauty Shock: an ultrasonic shriek -- sound, so you can see through it; short reach */
+      shot:     { body: "shot", fps: 22, at: 7, fly: "fx.shot", speed: 18, life: 0.35, loop: true, ghost: 1.6, trail: 0xffb0f0,
+                  charge: 0xff70d0, pow: { c: 0xff70d0, flash: 2, shake: 0.1, recoil: 2 } },
+      airshot:  { body: "airshot", fps: 22, at: 6, fly: "fx.shot", speed: 18, down: 0.7, life: 0.35, loop: true, ghost: 1.6, trail: 0xffb0f0,
+                  charge: 0xff70d0, pow: { c: 0xff70d0, flash: 2, shake: 0.1, recoil: 2 } },
+      power:    { body: "power", fps: 22, at: 3, area: "fx.power", ax: 1.5, ay: 0.6, w: 2.4, h: 1.8, k: 1.5,           // Silent Size
+                  charge: 0xa0ff70, pow: { c: 0xa0ff70, flash: 3, shake: 0.22, stop: 0.06 } },
+      airpower: { body: "airpower", fps: 22, at: 0, dive: "drill", pow: { c: 0xff70d0, flash: 2.4, shake: 0.22, stop: 0.04 } }, // Spiral Dive: spins down, through rock
       trap:     { body: "trap", fps: 22, at: 7, trap: "chase", flies: true },                                   // Bat Cracker: a bat mine that hunts
       airtrap:  { body: "airtrap", fps: 22, at: 6, trap: "chase", flies: true } },
     shadow: {
-      shot:     { body: "shot", fps: 22, at: 6, fly: "fx.shot", speed: 16, life: 0.55, hold: 0.35 },              // Chaos Magic (Chaos Spear): held, it flies further
-      airshot:  { body: "airshot", fps: 22, at: 5, fly: "fx.shot", speed: 14, down: 0.6, life: 0.5, ahead: 1.8 }, // appears a few steps ahead
-      power:    { body: "power", fps: 30, at: 8, area: "fx.power", ax: 0, ay: 0.55, w: 3.4, h: 2.8, around: true }, // Chaos Burst
-      airpower: { body: "airpower", fps: 24, at: 0, dive: "burst" },                                            // Air Chaos Burst: drops, then bursts
+      shot:     { body: "shot", fps: 22, at: 6, fly: "fx.shot", speed: 30, life: 0.4, hold: 0.25, k: 1.25, trail: 0xffe060, // Chaos Magic (Chaos Spear): held, it flies further
+                  charge: 0xff4060, pow: { c: 0xffe060, flash: 2.4, shake: 0.14, recoil: 3.5 } },
+      airshot:  { body: "airshot", fps: 22, at: 5, fly: "fx.shot", speed: 26, down: 0.6, life: 0.4, ahead: 1.8, k: 1.25, trail: 0xffe060, // appears a few steps ahead
+                  charge: 0xff4060, pow: { c: 0xffe060, flash: 2.4, shake: 0.14, recoil: 3.5 } },
+      power:    { body: "power", fps: 30, at: 8, area: "fx.power", ax: 0, ay: 0.7, w: 4.0, h: 3.2, around: true, k: 1.45, // Chaos Burst
+                  charge: 0xff4060, pow: { c: 0xff70a0, flash: 5, shake: 0.4, stop: 0.1 } },
+      airpower: { body: "airpower", fps: 24, at: 0, dive: "burst", pow: { c: 0xff70a0, flash: 5, shake: 0.4, stop: 0.1 } }, // Air Chaos Burst: drops, then bursts
       trap:     { body: "trap", fps: 20, at: 5, trap: "orbit" },                                                // Roaming Chaos: circles him
       airtrap:  { body: "airtrap", fps: 20, at: 4, trap: "orbit" } },
   };
@@ -774,6 +797,8 @@
     swing: heavy => noise(heavy ? 0.16 : 0.08, heavy ? 0.09 : 0.05, heavy ? 900 : 1800),
     hit: () => { tone(260, 110, 0.09, "square", 0.08); noise(0.06, 0.07, 700); },
     cast: () => tone(500, 760, 0.1, "triangle", 0.06),
+    charge: d => tone(240, 820, d, "triangle", 0.045),
+    impact: () => { noise(0.22, 0.2, 180); tone(170, 48, 0.24, "square", 0.09); },
     windup: d => { tone(160, 1300, d, "sawtooth", 0.045); tone(80, 650, d, "square", 0.03); },
     blast: () => { noise(0.5, 0.26, 240); tone(1500, 110, 0.35, "sawtooth", 0.07); tone(95, 38, 0.45, "square", 0.1); },
     shot: () => tone(900, 300, 0.18, "sawtooth", 0.05),
@@ -1498,10 +1523,19 @@
     if (s.windup) return stepWindup(p, s, dt);
     const i = Math.floor(s.t * s.fps);
     if (!s.air) p.vx = s.step ? p.face * s.step : p.vx * Math.pow(0.001, dt);
+    if (!s.fired && s.charge && s.at > 1) {
+      if (!s.hum) { s.hum = true; SFX.charge(s.at / s.fps); }
+      s.glow = (s.glow || 0) - dt;
+      if (s.glow <= 0) { s.glow = 0.03; gather(p, s.charge); }
+    }
     if (!s.fired && i >= s.at) { s.fired = true; fire(p, s); if (p.state !== "special") { p.sp = null; return; } }
     if (i >= s.n) {
       p.sp = null; p.state = "run";
-      if (s.drive) { p.state = "roll"; p.curl = true; p.vx = p.face * 19; p.driveT = 0.42; SFX.roll(); }
+      if (s.drive) {
+        p.state = "roll"; p.curl = true; p.vx = p.face * 19; p.driveT = 0.42; SFX.roll();
+        if (p.ground) effect(p.c.id, "fx.dust", p.x - p.face * 0.6, p.y, -p.face, 22, false);
+        impact(p.x - p.face * 0.3, p.y + 0.4, { c: 0x9ad4ff, flash: 1.8, shake: 0.12 });
+      }
     }
   }
   /* A special that winds up (Sonic Wave, Sonic Storm): he spins in place, the spin speeding up
@@ -1538,34 +1572,57 @@
     if (!framesOf(p.c.id, "fx.spark")) return;
     effect(p.c.id, "fx.spark", p.x + (Math.random() - 0.3) * p.face * 0.9, p.y + 0.15 + Math.random() * 0.55, Math.random() < 0.5 ? 1 : -1, 32, true);
   }
-  /** A burst of white light that swells and fades. */
-  function flash(x, y, size) {
-    const sp = new THREE.Sprite(glowMat(0xffffff, 0.95)); sp.position.set(x, y, 0.4); sp.scale.setScalar(size * 0.3);
+  /** A burst of light that swells and fades. */
+  function flash(x, y, size, color) {
+    const sp = new THREE.Sprite(glowMat(color || 0xffffff, 0.95)); sp.position.set(x, y, 0.4); sp.scale.setScalar(size * 0.3);
     world.group.add(sp); world.flashes.push({ s: sp, size, t: 0, life: 0.24 });
+  }
+  /** A blow landing: a flash of its colour, a jolt through the picture, sparks, and for the
+      heaviest a freeze-frame -- everything stops for a few hundredths of a second. */
+  function impact(x, y, o) {
+    if (!o) return;
+    flash(x, y, o.flash || 1.5, o.c);
+    if (o.shake) shakeCam(o.shake);
+    if (o.stop) hitStop(o.stop);
+    burst(x, y, [o.c || 0xffffff, 0xffffff, mixC(o.c || 0xffffff, 0x000000, 0.25)], Math.round(8 + (o.flash || 1.5) * 4), 3 + (o.flash || 1.5));
+  }
+  /* energy gathering to the hand while a move winds up */
+  function gather(p, color) {
+    const hx = p.x + p.face * 0.55, hy = p.y + p.hh * 0.55;
+    for (let k = 0; k < 2; k++) {
+      const a = Math.random() * PI * 2, r = 0.7 + Math.random() * 0.4, x = hx + Math.cos(a) * r, y = hy + Math.sin(a) * r;
+      world.parts.list.push({ x, y, z: 0.2, vx: (hx - x) * 6, vy: (hy - y) * 6 + 2.2, vz: 0, life: 0.16, s: 0.07, c: Math.random() < 0.5 ? color : 0xffffff });
+    }
   }
   function fire(p, s) {
     const who = p.c.id, f = p.face;
+    // the release: a flash at the hand, a jolt, and a push back
+    if (s.pow && !s.dive) {
+      impact(p.x + f * 0.75, p.y + p.hh * 0.55, s.pow);
+      if (s.pow.recoil) { p.vx = -f * s.pow.recoil; if (s.air) p.vy = Math.max(p.vy, 2.5); }
+    }
+    const k = s.k || s.ghost || 1;
     if (s.wave) shoot(who, { fx: s.wave, x: p.x + f * 0.7, y: p.y, vx: f * s.speed, vy: 0, life: s.life, ground: true,
-                             w: 1.0 * (s.ghost || 1), h: 1.3 * (s.ghost || 1), face: f, ghost: s.ghost });
+                             w: 1.0 * k, h: 1.3 * k, k, face: f, ghost: s.ghost, trail: s.trail });
     else if (s.fly) {
       const held = s.hold && input.C ? s.hold : 0;
       shoot(who, { fx: s.fly, x: p.x + f * (0.6 + (s.ahead || 0)), y: p.y + p.hh * 0.55, vx: f * s.speed, vy: -(s.down || 0) * s.speed,
-                   life: s.life + held, loop: s.loop, mid: true, w: 0.8 * (s.ghost || 1), h: 0.8 * (s.ghost || 1), face: f, ghost: s.ghost });
+                   life: s.life + held, loop: s.loop, mid: true, w: 0.8 * k, h: 0.8 * k, k, face: f, ghost: s.ghost, trail: s.trail });
       if (!s.ghost) SFX.shot();
     } else if (s.lob) {
       shoot(who, { fx: s.lob, x: p.x + f * 0.5, y: p.y + p.hh + 0.5, vx: f * s.speed, vy: s.rise, g: 26, life: 3, loop: true, mid: true,
-                   w: 0.9, h: 0.9, face: f, bursts: 1.5 });
+                   w: 0.9 * k, h: 0.9 * k, k, face: f, bursts: 1.8, trail: s.trail, land: s.land });
       SFX.shot();
     } else if (s.area) {
       const ax = p.x + f * s.ax, ay = p.y + s.ay;
-      effect(who, s.area, ax, ay, f, 22, true);
-      strike(ax - s.w / 2, ax + s.w / 2, ay - s.h / 2, ay + s.h / 2);
-      if (who === "knuckles") burst(ax, ay, [0xfff3a0, 0xf08a24, 0xe8403a], 16, 6);
+      effect(who, s.area, ax, ay, f, 22, true, "fx", k);
+      if (strike(ax - s.w / 2, ax + s.w / 2, ay - s.h / 2, ay + s.h / 2)) hitStop(0.05);
+      if (who === "knuckles") burst(ax, ay, [0xfff3a0, 0xf08a24, 0xe8403a], 22, 8);
       SFX.boom();
     } else if (s.drive) {
-      shoot(who, { fx: "fx.ring", x: p.x + f * 0.8, y: p.y + 0.5, vx: f * 14, vy: 0, life: 0.42, loop: true, mid: true, w: 0.5, h: 0.5, face: f, ring: true });
+      shoot(who, { fx: "fx.ring", x: p.x + f * 0.8, y: p.y + 0.5, vx: f * 14, vy: 0, life: 0.42, loop: true, mid: true, w: 0.5, h: 0.5, face: f, ring: true, trail: 0xfff070 });
       SFX.ring();
-    } else if (s.dive) startDive(p, s.dive);
+    } else if (s.dive) { p.diveS = s; startDive(p, s.dive); }
     else if (s.tornado) { p.state = "tornado"; p.tor = { t: s.t, from: s.tornado[0], to: s.tornado[1], left: 1.4, body: s.body, fps: s.fps, air: s.air }; SFX.swing(true); }
     else if (s.trap) setTrap(p, s);
   }
@@ -1592,8 +1649,10 @@
     const kind = p.dive;
     if (kind === "meteor" || kind === "drill") {
       strike(p.x - 1.0, p.x + 1.0, p.y - 0.2, p.y + 1.2);
-      burst(p.x, p.y + 0.1, [0xd8d0c0, 0xffffff, kind === "drill" ? 0xb070c0 : 0x5a9ae0], 10, 4);
-      p.state = "run"; p.vy = 6; p.ground = false; SFX.stomp();
+      burst(p.x, p.y + 0.1, [0xd8d0c0, 0xffffff, kind === "drill" ? 0xb070c0 : 0x5a9ae0], 16, 5);
+      impact(p.x, p.y + 0.3, p.diveS && p.diveS.pow);
+      if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.5, p.y, -1, 22, false); effect(p.c.id, "fx.dust", p.x + 0.5, p.y, 1, 22, false); }
+      p.state = "run"; p.vy = 6; p.ground = false; SFX.stomp(); SFX.impact();
     } else {
       p.state = "erupt"; p.vx = 0;
       p.er = kind === "erupt" ? { t: 0, body: "airpower", from: 4, to: 16, at: 10, fps: 18, r: 1.9, fired: false }
@@ -1605,10 +1664,12 @@
     const i = e.from + Math.floor(e.t * e.fps);
     if (!e.fired && i >= e.from + e.at) {
       e.fired = true;
-      if (e.fx) effect(p.c.id, e.fx, p.x, p.y + 0.6, p.face, 22, true);
-      else burst(p.x, p.y + 0.3, [0x8a6a4a, 0xb08a5a, 0xe8403a, 0xfff3a0], 22, 7);
+      if (e.fx) effect(p.c.id, e.fx, p.x, p.y + 0.7, p.face, 22, true, "fx", 1.45);
+      else { burst(p.x, p.y + 0.3, [0x8a6a4a, 0xb08a5a, 0xe8403a, 0xfff3a0], 30, 9); effect(p.c.id, "fx.boom", p.x, p.y + 0.6, p.face, 22, true, "fx", 1.5); }
+      if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.7, p.y, -1, 20, false); effect(p.c.id, "fx.dust", p.x + 0.7, p.y, 1, 20, false); }
+      impact(p.x, p.y + 0.7, p.diveS && p.diveS.pow);
       strike(p.x - e.r, p.x + e.r, p.y - 0.3, p.y + 2.2);
-      SFX.boom();
+      SFX.boom(); SFX.impact();
     }
     if (i > e.to) { p.state = "run"; p.er = null; }
   }
@@ -1619,7 +1680,13 @@
     if (i >= T.from) {
       T.left -= dt;
       p.vx = p.face * (T.air ? 3.5 : 4.5);
-      strike(p.x - 0.9, p.x + 0.9, p.y + 0.05, p.y + p.hh + 0.2);
+      if (strike(p.x - 0.9, p.x + 0.9, p.y + 0.05, p.y + p.hh + 0.2)) { impact(p.x + p.face * 0.6, p.y + 0.6, { c: 0xff80c0, flash: 1.4, shake: 0.08 }); hitStop(0.03); SFX.hit(); }
+      T.whirl = (T.whirl || 0) - dt;
+      if (T.whirl <= 0) {                                  // the wind of the swing, round and round
+        T.whirl = 0.035; const a = T.t * 18;
+        world.parts.list.push({ x: p.x + Math.cos(a) * 0.9, y: p.y + 0.5 + Math.sin(a) * 0.25, z: Math.sin(a) * 0.6, vx: -Math.sin(a) * 4, vy: 2, vz: 0, life: 0.22, s: 0.07, c: Math.random() < 0.5 ? 0xffa0d0 : 0xffffff });
+      }
+      if ((T.swish = (T.swish || 0) - dt) <= 0) { T.swish = 0.18; SFX.swing(true); }
       if (T.left <= 0) { p.state = "run"; p.tor = null; }
     }
   }
@@ -1646,9 +1713,12 @@
   function boomTrap(t) {
     if (t.gone) return;
     t.gone = true; world.group.remove(t.card); t.card.geometry.dispose();
-    burst(t.x, t.y + 0.4, [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 18, 6);
+    const by = t.y + (t.flies || t.kind === "orbit" ? 0 : 0.5);
+    effect(t.who, "fx.boom", t.x, by, 1, 22, true, "fx", 1.6);
+    burst(t.x, by, [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 24, 7);
+    impact(t.x, by, { c: 0xffb040, flash: 3.6, shake: 0.28, stop: 0.05 });
     strike(t.x - 1.5, t.x + 1.5, t.y - 0.6, t.y + 1.8);
-    SFX.boom();
+    SFX.boom(); SFX.impact();
   }
   function nearestEnemy(x, y, range) {
     let best = null, bd = range;
@@ -1665,14 +1735,16 @@
       if (s.ground) { const gy = groundY(s.x, s.y); if (gy === null) s.life = 0; else s.y = gy; }
       const ty = s.mid ? s.y : s.y + 0.4, t = tile(Math.floor(s.x), Math.floor(ty));
       if (t === "X" || t === "B") breakTile(Math.floor(s.x), Math.floor(ty));
-      else if (solid(t) || (s.mid && (t === "/" || t === "\\"))) { if (s.bursts) boomAt(s.x, s.y, s.bursts); s.life = 0; }
+      else if (solid(t) || (s.mid && (t === "/" || t === "\\"))) { if (s.bursts) boomAt(s.x, s.y, s.bursts, s); s.life = 0; }
       if (s.life > 0) {
         const n = strike(s.x - s.w / 2, s.x + s.w / 2, s.mid ? s.y - s.h / 2 : s.y, s.mid ? s.y + s.h / 2 : s.y + s.h);
-        if (n) SFX.hit();
-        if (n && s.bursts) { boomAt(s.x, s.y, s.bursts); s.life = 0; }
+        if (n) { SFX.hit(); if (!s.bursts) { impact(s.x, s.mid ? s.y : s.y + 0.5, { c: s.trail || 0xffffff, flash: 1.3, shake: 0.06 }); hitStop(0.03); } }
+        if (n && s.bursts) { boomAt(s.x, s.y, s.bursts, s); s.life = 0; }
       }
       if (s.ring && Math.abs(player.x - s.x) < 0.7 && player.state === "roll") s.life = 0;
-      if (s.ghost && Math.random() < 0.6) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.5, y: s.y + (s.mid ? 0 : 0.2 + Math.random() * 0.9), z: (Math.random() - 0.5) * 0.4,
+      if (s.trail && Math.random() < 0.7) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.35 * (s.k || 1), y: (s.mid ? s.y : s.y + 0.3 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.3,
+        z: (Math.random() - 0.5) * 0.3, vx: -s.vx * 0.06, vy: 0.5 + Math.random(), vz: 0, life: 0.22, s: 0.07, c: Math.random() < 0.6 ? s.trail : 0xffffff });
+      if (s.ghost && !s.trail && Math.random() < 0.6) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.5, y: s.y + (s.mid ? 0 : 0.2 + Math.random() * 0.9), z: (Math.random() - 0.5) * 0.4,
         vx: -s.vx * 0.08, vy: 1 + Math.random() * 1.5, vz: 0, life: 0.25, s: 0.06, c: Math.random() < 0.5 ? 0xffffff : 0xcfe8ff });
       if (s.y < -3) s.life = 0;
       if (s.life <= 0) { s.gone = true; w.group.remove(s.card); s.card.geometry.dispose(); }
@@ -1715,10 +1787,12 @@
     }
     if (w.traps.length > 12) w.traps = w.traps.filter(t => !t.gone);
   }
-  function boomAt(x, y, r) {
-    burst(x, y, [0x9a7a62, 0x7a5a44, 0xd8c8a8], 14, 5);
+  function boomAt(x, y, r, s) {
+    burst(x, y, [0x9a7a62, 0x7a5a44, 0xd8c8a8, 0xb08a5a], 22, 7);
+    if (s && s.land) impact(x, y, s.land);
+    if (s && framesOf(s.who, "fx.dust")) { effect(s.who, "fx.dust", x - 0.5, y - 0.3, -1, 22, false); effect(s.who, "fx.dust", x + 0.5, y - 0.3, 1, 22, false); }
     strike(x - r, x + r, y - r * 0.6, y + r);
-    SFX.breakIt();
+    SFX.breakIt(); if (s && s.land) SFX.impact();
   }
 
   function integrate(p, dt) {
@@ -1938,7 +2012,8 @@
   }
 
   // ---------------------------------------------------------------- the picture
-  let camX = 0, camY = 0, shake = 0;
+  let camX = 0, camY = 0, shake = 0, stopT = 0;
+  const hitStop = s => { stopT = Math.max(stopT, s); };
   const shakeCam = s => { shake = Math.max(shake, s); };
   const CAM_D = 17;
   function snapCamera() { if (!player) return; camX = player.x + 2; camY = Math.max(6.1, player.y + 2.1); }
@@ -2031,7 +2106,7 @@
     for (const s of w.shots) if (!s.gone) {
       const n = framesOf(s.who, s.fx).length;
       const i = s.loop ? Math.floor(s.t * 16) % n : Math.min(n - 1, Math.floor((1 - s.life / s.life0) * n));
-      setFrame(s.card, s.fx, i, s.face, s.x, s.y, s.mid, 0.2, s.ghost);
+      setFrame(s.card, s.fx, i, s.face, s.x, s.y, s.mid, 0.2, s.k || s.ghost);
     }
     for (const e of w.fx) if (!e.gone) setFrame(e.card, e.name, Math.floor(e.t * e.fps), e.face, e.x, e.y, e.mid, e.mid ? 0.25 : 0.04, e.k);
     for (const t of w.traps) if (!t.gone) {
@@ -2193,7 +2268,8 @@
     resize();
     if (mode === "play" || mode === "goal") {
       if (!paused) {
-        acc += dt;
+        if (stopT > 0) { stopT = Math.max(0, stopT - dt); acc = 0; }     // a freeze-frame: the world holds still
+        else acc += dt;
         const h = 1 / 120;
         let n = 0;
         while (acc >= h && n < 14) { readInput(); step(h); worldStep(h); input.jp = input.zp = input.xp = input.cp = 0; input.dash = 0; acc -= h; n++; }
