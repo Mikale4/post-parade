@@ -64,6 +64,10 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `deckplans.js` | The deck plans "Let her decide" follows, per race context. **Generated** by `tools/gendeckplans.js`. |
 | `quests.js` | Daily and weekly quests, trainer tasks (first steps and the tiered chains), awards. One `Quests.record(event)` feeds them all. |
 | `validate-economy.js` | The stable, the scout, the unlock tree and the quest board: what it pays against the economy, a normal day and week played through, tiers, old saves. `node race/validate-economy.js` |
+| `guests.js` | The guest racers, who visit from outside Umamusume: Sonic and Hatsune Miku. Hand-written from their own canon, given to every trainer, never scouted. See "Guest racers". |
+| `adventure.js`, `adventure-stages.js` | Post Parade Adventure 2, the arcade cabinet in the hall: a side-on platformer in the race's voxels, its six stages drawn as text. See "Post Parade Adventure 2". |
+| `validate-adventure.js` | Checks the six stages: their shape, one start and one winning post, three horseshoes each, and a rough walk showing every part can be reached. `node race/validate-adventure.js` |
+| `assets/guests/` | The guests' portraits, rendered from their voxel models (the screens that show a picture rather than a live bust). |
 
 Card art is rendered by `cards/build.py`; `assets/cards/` holds the thumbnails.
 
@@ -117,8 +121,8 @@ lobby: cream marble squares, columns under a mezzanine with a balustrade, navy w
 over red carpet, burgundy drapes with gold fringe, and the library's doors between two bookcases.
 Every mode is a place in it: the notice board is Quests, the library's deck archive is Decks, the
 academy terminal by the jukebox is Settings, the classroom door opens on the school wing (Tutorials), the glass doors to the track are
-Exhibition, the side doors on the right lead out to the training track (Scouting) and to the Dormitory, and the reception
-desk is How to play. A tag over each says which; walk up to one and press **E** (or click
+Exhibition, the side doors on the right lead out to the training track (Scouting) and to the Dormitory, the arcade
+cabinet beside the dorm doors is Post Parade Adventure 2, and the reception desk is How to play. A tag over each says which; walk up to one and press **E** (or click
 the tag, or the door) to go in. The dock along the bottom has every mode too, so nobody has
 to walk. Nine places in all: the hall, the trainer's office, the library, the cafeteria, the dorm
 corridor, a dorm room, the school corridor, a classroom, and outside, the training track.
@@ -1154,6 +1158,77 @@ is always Normal. `validate-balance.js` section 8 builds the exhibition field th
 page does and checks both modes deal every racer by their rule and that no full deck is
 ever drawn from or lost. With her calling in the run-in she averaged 4.00 of 11 in a Dream
 Exhibition against 5.70 in a Normal one (20 races each, her on the control deck).
+
+## Guest racers
+
+Two racers are not horse girls: **Sonic** (SEGA) and **Hatsune Miku** (Crypton Future
+Media), visiting the academy. Nothing about them can come from GameTora, so they live in
+`guests.js`, hand-written. Each is grounded in their own canon, researched for it:
+
+| | Sonic | Hatsune Miku |
+|---|---|---|
+| Canon | 100cm, 35kg; "the world's fastest hedgehog"; a free spirit, easygoing, impatient with anything slow, a daredevil, loves chili dogs; the Spin Dash (Sonic 2) and Homing Attack (Sonic Adventure); **cannot swim** ("sinks like a rock") | 16, 158cm, 42kg (piapro.net); "the first sound of the future"; KEI's design in Yamaha-synthesizer blue-green (#39C5BB); a virtual singer on stage; Racing Miku (Good Smile Racing, SUPER GT); SNOW MIKU (Sapporo Snow Festival); a guest racer in *Sonic Racing: CrossWorlds* |
+| Racer | Front runner, A from sprint to mile, Reckless; *Spin Dash Getaway*: a burst out of the gate, and again on the final straight from the first three | Pace chaser, A at mile and middle distance, Calculating; *First Sound of the Future*: the crowd calls for an encore on the final straight |
+| In the lobby | On the track at every hour, at the cafeteria for meals, away at night (no room in the dorm) | By the hall's jukebox, at lunch, in the library, watching the track; away at night |
+| Model | Built by `sonicParts()` in `voxel.js`: a big round head, three quills, the joined whites of his eyes, peach muzzle and arms, white gloves, red shoes with a white strap and a gold buckle; `scale` 0.62 | `LOOKS["Hatsune Miku"]`: knee-length twin tails in black-and-red square clips, a headset, teal tie and trim, detached sleeves, thigh-high boots, the red "01" on her left shoulder; `human` (no horse ears or tail), `scale` 0.93 |
+
+Sonic is A in the sprint, not S. With S he won seven sprints in ten against the exhibition field,
+where Sakura Bakushin O (the real game's sprinter) wins about half; at A he wins about half.
+
+How a guest differs from a racer: `guest: true`; `Stable.load` gives every guest to any
+trainer who has a racer of her own; the scout never offers them (they are never unlocked)
+and the unlock count leaves them out; the stable tile shows a **Guest** tag and where they
+are from instead of stars and passives; the title screen's live race uses launch racers
+only. Credits: Sonic the Hedgehog is SEGA's (SEGA has said it is fine with non-monetised
+Sonic fan games); Hatsune Miku is © Crypton Future Media, Inc. 2007, used under the Piapro
+Character License, which allows non-commercial fan works.
+
+## Post Parade Adventure 2
+
+The arcade cabinet against the hall's right-hand wall, by the dorm doors (Adventure on the
+dock): a side-on platformer in the race's own voxels -- the same mesher, racers and light,
+seen from the side -- for Gold Ship and the two guests. Six stages run left to right to a
+winning post:
+
+| # | Stage | Where | What it adds |
+|---|---|---|---|
+| 1 | Academy Hills | grass behind Tracen, morning; the academy in the distance | carrots, brush hurdles, slopes, a spring to a high ledge, a pond, a cracked-rock cave, crumbling bridge |
+| 2 | Riverside Run | a river valley, waterfalls behind | a river crossed on sliding logs, deep water and air vents, a tunnel behind cracked rock, crumbling bridges |
+| 3 | Red Rock Quarry | a dirt course at sundown, buttes behind | slopes into a mud pit, a lift up a cliff, thorns, a crumbling chasm, a hidden room in a mesa |
+| 4 | Seaside Camp | the summer training camp | sand dunes, a sea to swim with a beach out, boardwalk dash strips, a sea-breeze updraft, crabs and gulls |
+| 5 | Sapporo Snowfield | Hokkaido, snowing; SNOW MIKU as a snow sculpture | ice, snowballs, penguins, wind up a cliff, crumbling ice, a frozen lake |
+| 6 | Nakayama Grand Jump | the jump course at night, the stand lit up | banks and brush hurdles (the real J-G1 is a steeplechase), a water jump, lifts, crumbling ledges, the final straight |
+
+**Each runner plays to her canon.** Gold Ship's dropkick smashes cracked rock, crates,
+hurdles and anything in the way, once on the ground and once in the air; hers is the
+highest jump. Sonic is the fastest; jumping, he is a spinning ball; hold the move to rev a
+Spin Dash, let go to blast off; in the air it is a Homing Attack at the nearest target. He
+cannot swim: under water he sinks, walks the bottom, and has sixteen seconds of breath
+unless he finds an air vent's bubbles. Miku has a second jump, glides on her twin tails
+while jump is held (an updraft carries her up fast), and sings a note that flies ahead and
+breaks what it hits.
+
+**The rules.** Three hearts; a hit costs one, every fifty carrots gives one back, and Carrot
+Juice heals. Pits and running out of hearts or breath send you back to the last furlong
+pole. A rainbow carrot makes you untouchable for eight seconds. Each stage hides three
+Golden Horseshoes. The grade (S to C) weighs the time against the stage's par, the share of
+carrots, and whether you fell. Clearing a stage opens the next. First clears pay 60
+carrots into the stable, each first horseshoe 20, a first S 40. Best times, grades and
+horseshoes are kept per trainer (`postparade.adventure.<account>`).
+
+**Controls.** Arrows or A/D to run, Space/W/Up to jump (hold for height, and for Miku's
+glide), Shift or J for the move, Down + jump to drop through a plank, Esc to pause. A
+gamepad works (stick, A to jump, B/X/RB to move, Start to pause). On a phone there are
+buttons on screen, and the camera backs off on a tall screen so twelve metres fit across.
+
+**Stages are text** (`adventure-stages.js`): chunks of 16 rows, one character a one-metre
+tile, with the legend at the top of the file. `node race/validate-adventure.js` checks them.
+The stage is built in sixteen-tile voxel chunks at the lobby's quarter-metre grain, with a
+deep grass strip along the surface, caves backed where the roof is real ground, things that
+break or crumble as their own meshes, carrots as one instanced mesh, and each theme's
+scenery set back so the perspective camera gives it parallax: hills and Tracen Academy,
+forest and waterfalls, buttes, the sea and a lighthouse, snowy peaks and SNOW MIKU, and
+Nakayama's stand under the stars. Sounds are synthesised; the music is the game's own.
 
 ## The race in voxels
 

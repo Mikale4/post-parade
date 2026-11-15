@@ -26,5 +26,11 @@ the art and music next to it.
 | `backgrounds/` | Scene backgrounds, only the files the game loads. |
 | `audio/` | The game's music (from the gamerip) and two CC0 crowd recordings in `audio/sfx/`. |
 
+In the hall stands an arcade cabinet, **Post Parade Adventure 2**: a voxel platformer with
+six stages, played as Gold Ship or one of the academy's two guest racers, Sonic and
+Hatsune Miku.
+
 Umamusume: Pretty Derby, its characters, art and music belong to Cygames, Inc. This is a
 non-commercial fan project, not affiliated with Cygames, and will come down on request.
+Sonic the Hedgehog belongs to SEGA. Hatsune Miku is © Crypton Future Media, Inc. 2007,
+used under the Piapro Character License (non-commercial fan works).

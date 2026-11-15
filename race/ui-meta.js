@@ -654,13 +654,14 @@
                     : `<img src="${art(Stable.spriteFor(d.id))}" alt="">`}</div>
                   <div class="rc-name">${esc(d.name)}</div>
                   <div class="rc-meta">
-                    <span class="stars">${RARITY_STAR(d.rarity || 1)}</span>
+                    ${d.guest ? `<span class="rc-guest">Guest</span>` : `<span class="stars">${RARITY_STAR(d.rarity || 1)}</span>`}
                     <span class="lv">Lv ${sv.level}</span>
                   </div>
+                  ${d.guest ? `<div class="rc-pass rc-from"><small>From ${esc(d.from || "elsewhere")}</small></div>` : `
                   <div class="rc-pass">
                     ${[0, 1, 2].map(i => `<i class="${i < sv.passives ? "on" : ""}"></i>`).join("")}
                     <small>${np ? `${np.need} more` : "maxed"}</small>
-                  </div>
+                  </div>`}
                 </button>`;
               }).join("")}
             </div>` : `

@@ -30,8 +30,9 @@
 
   /** A real G1 and eight racers who could win it. */
   function draw() {
-    const roster = (root.RosterData && root.RosterData.ROSTER) || [];
-    const cal = ((root.CareerData && root.CareerData.CALENDAR) || [])
+    // the launch racers only: the title is the real game's field, not its visitors
+    const roster = ((root.RosterData && root.RosterData.ROSTER) || []).filter(d => !d.guest);
+    const cal =((root.CareerData && root.CareerData.CALENDAR) || [])
       .filter(r => r.grade === "G1" && r.metres >= 1200 && r.metres <= 2500);
     for (let tries = 0; tries < 12; tries++) {
       const r = cal.length ? cal[rand(cal.length)] : { id: "mile", name: "Yasuda Kinen", metres: 1600, surface: "turf" };

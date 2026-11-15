@@ -158,6 +158,11 @@
       d.cards = d.cards.filter(id => (seen[id] = (seen[id] || 0) + 1) <= COPY_MAX);
     }
     for (const id of STARTERS) if (cache.unlocked[id] == null) cache.unlocked[id] = 0;
+    /* Guests (guests.js) are visiting, not recruited: once a trainer has a racer of her own
+       they are in the stable too, and the scout never offers them. */
+    const G = root.Guests;
+    if (G && Object.keys(cache.racers).some(id => !G.isGuest(id)))
+      for (const id of G.ids) if (!cache.racers[id] && defOf(id)) cache.racers[id] = { got: now(), dupes: 0, guest: true };
     cacheKey = k;
     return cache;
   }
@@ -406,7 +411,8 @@
 
   /** How far through the roster this account has opened up. */
   function unlockProgress() {
-    const total = Roster.ROSTER.length;
+    // guests are never unlocked (they are given), so they are not part of the count
+    const total = Roster.ROSTER.filter(r => !r.guest).length;
     const open = unlockedIds().length;
     return { open, total, owned: ownedIds().length, pct: total ? open / total : 0 };
   }

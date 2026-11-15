@@ -288,6 +288,7 @@
   const LINKS = [
     { id: "howto",    label: "How to play", ico: "book" },
     { id: "settings", label: "Settings",    ico: "gear" },
+    { id: "adventure", label: "Adventure", ico: "arcade" },
   ];
   const num = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
@@ -344,8 +345,9 @@
     tutorial: { label: "Tutorials", sub: "School wing", icon: "cap" },
     howto:    { label: "How to play", sub: "Information", icon: "book" },
     settings: { label: "Settings", sub: "Terminal", icon: "gear" },
+    adventure: { label: "Adventure", sub: "Arcade cabinet", icon: "arcade" },
   });
-  const DOCK = ["career", "race", "scout", "stable", "deck", "quests", "tutorial", "howto", "settings"];
+  const DOCK = ["career", "race", "scout", "stable", "deck", "quests", "tutorial", "adventure", "howto", "settings"];
   const WALKER_KEY = () => "postparade.lobbyRacer." + ((Auth.current() || {}).id || "guest");
 
   /** Who the player walks the academy as: the trainer, or one of their own racers --
@@ -544,6 +546,10 @@
     if (id === "tutorial") return go("scr-tutorials", Tutorials.listBuild);
     if (id === "howto")    return go("scr-howto", howtoBuild);
     if (id === "settings") return go("scr-settings", settingsBuild);
+    /* Post Parade Adventure 2, the arcade cabinet in the hall (adventure.js): its own
+       renderer and loop, stopped whenever the screen changes. */
+    if (id === "adventure" && root.Adventure && Adventure.ok)
+      return go("scr-adventure", el => { if (Adventure.open(el, { onExit: () => go("scr-menu", menuBuild) })) stopAmbient = () => Adventure.close(); });
     // the meta screens own themselves
     if (id === "career") return go("scr-careerpick", UICareer.pickerBuild);
     if (id === "scout")  return go("scr-scout",  UIMeta.scoutBuild);

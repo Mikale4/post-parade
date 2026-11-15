@@ -297,6 +297,40 @@
                night: ["Bath finished in record time! Lights out!"],
                look: ["Halt! No running in the halls! ...Except me, briefly!"],
                study: ["A class rep solves the problem first! Bakushin!"] } },
+
+    /* The guests (guests.js) are visitors: no room in the dorm, so at night they are away.
+       Sonic lives the way he wants and cannot sit through anything slow: never in class, out
+       on the track at all hours, back at the cafeteria for chili dogs, gone again at night. */
+    "Sonic": {
+      at: { late: "away", dawn: "track:jog", breakfast: "cafe:eat", morning: "track:train 60, away 40",
+            lunch: "cafe:eat 70, hall:look 30", afternoon: "track:train 50, away 50", after: "track:train",
+            dinner: "cafe:eat", evening: "hall:chat 50, away 50", curfew: "away" },
+      away: { late: "on a midnight run round the prefecture", default: "off running somewhere -- fast" },
+      lines: { dawn: ["Early start? Good. I was getting bored waiting."],
+               night: ["Nights are for running. Sleep is for later."],
+               eat: ["Chili dogs? No? ...Fine. Carrots are okay too."],
+               jog: ["Keep up if you can. I won't slow down."],
+               train: ["Laps are boring. Unless it's a race. Race me!"],
+               look: ["Lot of standing around in here. Let's go outside."] },
+      meet: { "Silence Suzuka": "You like the front too, huh? Let's see whose view's better.",
+              "Sakura Bakushin O": "You call that fast? ...Okay, that was pretty fast.",
+              "Hatsune Miku": "Miku! Race you to the track. Loser buys lunch." } },
+    /* Miku sings in every genre and performs for a crowd; where the academy has music is the
+       hall's jukebox, so she is there a lot, and out by the track (Racing Miku) to watch them run. */
+    "Hatsune Miku": {
+      at: { late: "away", dawn: "away", breakfast: "cafe:eat", morning: "class:study 40, hall:look 60",
+            lunch: "cafe:eat", afternoon: "library:read 50, hall:chat 50", after: "track:look 60, hall:look 40",
+            dinner: "cafe:eat", evening: "hall:chat", curfew: "away" },
+      away: { late: "offline until morning", dawn: "warming up her voice somewhere quiet", default: "at a rehearsal" },
+      lines: { dawn: ["Morning! My voice is warmed up. Is yours?"],
+               night: ["Last song of the night. Then goodnight!"],
+               look: ["This jukebox has good taste. Can I add a song?"],
+               chat: ["Every winner gets a live show here? I love this place!"],
+               read: ["Sheet music, sheet music... oh, a book on racing lines!"],
+               study: ["Tempo, pitch, breathing. Racing is like singing!"],
+               eat: ["Leek soup? Huh, it's good! Don't tell anyone."] },
+      meet: { "Sonic": "Sonic! Race you? ...Okay, first one to the cafeteria!",
+              "Gold Ship": "Gold Ship, your concerts are... unpredictable. I love them!" } },
   };
 
   // ---------------------------------------------------------------- the working

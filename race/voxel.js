@@ -288,6 +288,24 @@
     "King Halo":      { hair: 0x6a3a26, style: "wavy", len: 6, eyes: 0x8a5ab0, ear: 0x2a9a6a,
       top: 0x2a8a5a, trim: 0xf4f4f4, tie: 0xf4f4f4, skirt: 0x2a8a5a, hem: 0xf4f4f4, cut: "flare",
       legs: 0x2a2a30, legWear: "tights", shoes: 0x2a2a30, sleeve: "long" },
+
+    /* Guests (guests.js): not horse girls, so no horse ears or tail (`human`), and built to
+       their own heights (`scale`, against the racers' 1.8m).
+       Hatsune Miku is KEI's 2007 design for Crypton, as the official art has it:
+       blue-green (#39C5BB) twin tails to her knees in black-and-red square clips, a
+       headset, a sleeveless blouse with a teal tie and trim, a grey skirt, dark detached
+       sleeves flared and trimmed in teal, thigh-high boots, and a red "01" on her left
+       shoulder. 158cm (piapro.net). */
+    "Hatsune Miku":   { human: true, scale: 0.93, hair: 0x39c5bb, style: "twintail", len: 22, eyes: 0x2aa89e,
+      hairTies: [0x26262c, 0xd83a52], headset: 0x3a3c46, top: 0xdde2e4, trim: 0x39c5bb, tie: 0x39c5bb,
+      skirt: 0x484c54, hem: 0x39c5bb, cut: "skirt", legs: 0x26262e, legWear: "boots", bootTrim: 0x39c5bb,
+      shoes: 0x26262e, sleeve: "detached", sleeveCol: 0x34363f, tattoo: 0xd8303a },
+    /* Sonic is built by sonicParts() below; these are his colours for anything that only
+       reads a look (a signature's sparkle, a fallback): Sega's cobalt blue, peach, the
+       green eyes he has had since Sonic Adventure, red shoes. 100cm. */
+    "Sonic":          { custom: "sonic", human: true, scale: 0.62, hair: 0x1f56c8, eyes: 0x2f9a3a,
+      top: 0x1f56c8, trim: 0xf2c88a, skirt: 0x1f56c8, hem: 0x1f56c8, cut: "shorts", legs: 0x1f56c8,
+      legWear: "tights", shoes: 0xd8262a, sleeve: "short", gloves: 0xf6f6f6 },
   };
   const SKIN = 0xf8dcc8, LASH = 0x2a1a22;
 
@@ -374,7 +392,20 @@
     } else {
       h.box(-3, -2, -4, 2, -1, -3, hs);                                       // nape
     }
-    // ears -- through the hat if she wears one
+    // a headset: a cup over each ear, the band over the crown, the mic down to her mouth
+    if (L.headset) {
+      const hs2 = L.headset, glow = mixC(L.hair, 0xffffff, 0.3);
+      for (const x of [-5, 4]) { h.box(x, 2, -2, x, 5, 1, hs2); h.set(x, 3, -1, glow); h.set(x, 4, -1, glow); }
+      for (let x = -4; x <= 3; x++) h.set(x, 8, -1, hs2);
+      h.set(-5, 6, -1, hs2); h.set(-5, 7, -1, hs2); h.set(4, 6, -1, hs2); h.set(4, 7, -1, hs2);
+      h.set(4, 2, 2, hs2); h.set(4, 1, 3, hs2); h.set(3, 1, 4, mixC(hs2, 0xffffff, 0.2));
+    }
+    // twin-tail clips: a square either side, black with a red stripe
+    if (L.hairTies && L.style === "twintail") {
+      const [tc, ts] = L.hairTies;
+      for (const x0 of [-7, 4]) { h.box(x0, 5, -2, x0 + 2, 7, 0, tc); h.box(x0, 6, -2, x0 + 2, 6, 0, ts); }
+    }
+    // ears -- through the hat if she wears one (a guest has none of a horse's)
     const e0 = L.hat ? 9 : 8;
     if (L.hat) {
       for (let x = -5; x <= 4; x++) for (let z = -5; z <= 4; z++) {
@@ -386,7 +417,7 @@
       h.box(3, 9, 0, 3, 10, 2, L.rose || L.hat); h.set(4, 9, 1, L.rose || L.hat);
     }
     const earIn = mixC(L.hair, 0xffe4ec, 0.5);
-    for (const [xo, xi] of [[-3, -2], [2, 1]]) {
+    for (const [xo, xi] of L.human ? [] : [[-3, -2], [2, 1]]) {
       for (let y = e0; y <= e0 + 1; y++) for (const x of [xo, xi]) for (const z of [-1, 0]) {
         let c = hs(x, y, z);
         if (L.ear) c = L.ear;
@@ -473,9 +504,19 @@
     return meshVox(b);
   }
 
-  function buildArm(L) {
+  function buildArm(L, marked) {
     const a = new Vox(), sleeve = L.coat || L.top, cuff = L.trim || sleeve;
     const hand = L.gloves || SKIN;
+    if (L.sleeve === "detached") {
+      /* bare shoulder, then a dark sleeve from above the elbow that flares at the wrist,
+         trimmed in her colour at both ends */
+      const sc = L.sleeveCol || sleeve, tr = L.trim || sc;
+      for (let y = -6; y <= -1; y++) a.box(-1, y, -1, 0, y, 0, y >= -2 ? SKIN : y === -3 ? tr : y === -6 ? SKIN : sc);
+      for (let x = -2; x <= 1; x++) for (let z = -2; z <= 1; z++)
+        if (x === -2 || x === 1 || z === -2 || z === 1) { a.set(x, -5, z, sc); a.set(x, -6, z, tr); }
+      if (marked && L.tattoo) { a.set(0, -2, 0, L.tattoo); a.set(0, -2, -1, L.tattoo); a.set(0, -1, -1, L.tattoo); }
+      return meshVox(a);
+    }
     for (let y = -6; y <= -1; y++) {
       let c;
       if (L.sleeve === "coat") c = sleeve;
@@ -497,6 +538,7 @@
         case "boots":  c = y <= -4 ? sh : (st === SKIN ? SKIN : (y >= -2 ? SKIN : st)); break;
         default:       c = y >= -2 ? SKIN : st;                    // thigh-highs
       }
+      if (L.bootTrim && y === -3) c = L.bootTrim;
       if (y === -8) c = sh;
       g.box(-1, y, -1, 0, y, 0, c);
     }
@@ -538,13 +580,100 @@
     return u;
   }
 
+  /* Sonic, built to his own plan on the same rig: a big round head (his head is two-fifths
+     of his height), three quills sweeping back and down, the muzzle and the joined white
+     of his eyes in front, ears on top; peach arms in white gloves with a cuff; thin legs in
+     red shoes with a white strap and a gold buckle. At `scale` 0.62 that is about 1.1m to
+     the tips of his ears -- the 100cm Sonic Team gives him, with his ears. */
+  function sonicParts(L) {
+    const BLUE = L.hair, BLUE2 = mulC(BLUE, 0.84), BLUE3 = mixC(BLUE, 0xffffff, 0.12), PEACH = L.trim,
+          RED = L.shoes, RED2 = mulC(L.shoes, 0.8), WHITE = 0xf6f6f6, GOLD = 0xe8b830, SOLE = 0xc4c4ca,
+          INK = 0x16161c;
+    const fur = (x, y, z) => (((x * 5 + y * 3 + z * 7) % 7 + 7) % 7 === 0) ? BLUE2
+                           : (((x + y * 2 + z * 3) % 9 + 9) % 9 === 0 ? BLUE3 : BLUE);
+    const h = new Vox();
+    for (let x = -6; x <= 5; x++) for (let y = 0; y <= 11; y++) for (let z = -6; z <= 5; z++) {
+      const dx = x + 0.5, dy = y - 5.5, dz = z + 0.5;
+      if ((dx * dx + dy * dy + dz * dz) / 40 > 1) continue;
+      h.set(x, y, z, fur(x, y, z));
+    }
+    const front = (x, y, c, out) => {                     // paint the face, or stand proud of it
+      for (let z = 8; z >= -6; z--) if (h.has(x, y, z)) { h.set(x, y, z + (out || 0), c); return; }
+    };
+    // the joined whites of his eyes, notched at the top between them; green irises, dark pupils
+    for (let y = 5; y <= 9; y++) for (let x = -4; x <= 3; x++) {
+      if (y === 9 && (x === -1 || x === 0)) continue;
+      if ((y === 5 || y === 9) && (x === -4 || x === 3)) continue;
+      front(x, y, WHITE);
+    }
+    for (const [x0, pupil] of [[-3, -2], [1, 1]]) for (let y = 6; y <= 8; y++) for (const x of [x0, x0 + 1])
+      front(x, y, (x === pupil && y <= 7) ? INK : L.eyes);
+    // the muzzle, a nose on its end, and the smirk off to one side
+    for (let x = -3; x <= 2; x++) for (let y = 1; y <= 4; y++) {
+      if ((y === 1 || y === 4) && (x === -3 || x === 2)) continue;
+      front(x, y, PEACH, 1); front(x, y, PEACH);
+    }
+    for (let x = -2; x <= 1; x++) for (let y = 2; y <= 3; y++) front(x, y, PEACH, 1);
+    front(-1, 4, INK, 1); front(0, 4, INK, 1);
+    front(1, 2, 0x8a2a30); front(2, 2, 0x8a2a30); front(2, 3, 0x8a2a30);
+    // ears, peach inside
+    for (const x0 of [-5, 2]) for (let y = 10; y <= 14; y++) {
+      const w = y <= 11 ? 3 : y <= 13 ? 2 : 1, xs = x0 < 0 ? x0 + (3 - w) : x0;
+      for (let x = xs; x < xs + w; x++) for (const z of [-1, 0]) h.set(x, y, z, (z === 0 && y <= 12 && w === 3 && x === xs + 1) ? PEACH : BLUE);
+    }
+    // three quills, back and down, each narrowing to a point
+    for (const [y0, len, w0] of [[10, 10, 2.6], [6.5, 11, 2.9], [3, 9, 2.4]]) for (let k = 0; k <= len; k++) {
+      const w = Math.max(0, w0 * (1 - k / len)), hh = Math.max(0, 1.6 * (1 - k / len)), cy = y0 - k * 0.5 + (y0 > 8 ? k * 0.18 : 0), z = -5 - k;
+      for (let x = Math.round(-w - 0.5); x <= Math.round(w - 0.5); x++)
+        for (let y = Math.round(cy - hh); y <= Math.round(cy + hh); y++) h.set(x, y, z, fur(x, y, z));
+    }
+    // body: round, blue, a peach front; two small quills on his back
+    const b = new Vox();
+    for (let x = -3; x <= 2; x++) for (let y = 0; y <= 8; y++) for (let z = -2; z <= 2; z++) {
+      if ((x === -3 || x === 2) && (z === -2 || z === 2)) continue;
+      if ((y === 0 || y === 8) && (x === -3 || x === 2 || z === -2 || z === 2)) continue;
+      b.set(x, y, z, fur(x, y, z));
+    }
+    for (let x = -2; x <= 1; x++) for (let y = 1; y <= 6; y++) if (!((y === 1 || y === 6) && (x === -2 || x === 1))) b.set(x, y, 3, PEACH);
+    for (const [y0, len] of [[7, 4], [4, 3]]) for (let k = 0; k <= len; k++)
+      for (let x = -1; x <= 0; x++) for (let y = y0 - k; y <= y0 + 1 - k; y++) b.set(x, y - (k > 1 ? 1 : 0), -3 - k, BLUE);
+    b.box(-1, 9, -1, 0, 9, 0, BLUE);
+    // arms: peach, white gloves with a rolled cuff
+    const a = new Vox();
+    for (let y = -4; y <= -1; y++) a.box(-1, y, -1, 0, y, 0, PEACH);
+    for (let x = -2; x <= 1; x++) for (let z = -2; z <= 1; z++) {
+      if (x === -2 || x === 1 || z === -2 || z === 1) a.set(x, -5, z, WHITE);
+      a.set(x, -6, z, WHITE); if (!((x === -2 || x === 1) && (z === -2 || z === 1))) a.set(x, -7, z, WHITE);
+    }
+    // legs: blue, into big red shoes -- grey sole, white strap, the gold buckle outside
+    const g = new Vox();
+    for (let y = -5; y <= -1; y++) g.box(-1, y, -1, 0, y, 0, BLUE);
+    for (let x = -2; x <= 1; x++) for (let z = -2; z <= 3; z++) {
+      if (z === 3 && (x === -2 || x === 1)) continue;
+      g.set(x, -8, z, SOLE);
+      g.set(x, -7, z, z === 0 ? WHITE : RED);
+      if (z <= 2) g.set(x, -6, z, z === 0 ? WHITE : (z === 2 ? RED2 : RED));
+    }
+    g.set(1, -7, 0, GOLD); g.set(-2, -7, 0, GOLD);
+    // a short tail
+    const t = new Vox();
+    t.box(-1, -1, -1, 0, 0, 0, BLUE); t.set(-1, -1, -2, BLUE); t.set(0, -2, -2, BLUE2);
+    return { head: meshVox(h), body: meshVox(b), arm: meshVox(a), leg: meshVox(g), tail: meshVox(t),
+             cape: null, locks: [], look: L, headHalf: 6 };
+  }
+
   function partsFor(name, color, uniform) {
+    const L0 = lookFor(name, color);
+    if (L0.custom) uniform = false;                        // a guest is never in the Tracen uniform
     const key = (uniform ? "uniform:" : "") + (name || "?");
     let p = partCache.get(key);
     if (p) return p;
-    const L = uniform ? uniformLook(lookFor(name, color)) : lookFor(name, color);
-    p = { head: buildHead(L), body: buildBody(L), arm: buildArm(L), leg: buildLeg(L),
-          tail: buildTail(L), cape: L.cape ? buildCape(L) : null, locks: buildLocks(L), look: L };
+    const L = uniform ? uniformLook(L0) : L0;
+    p = L.custom === "sonic" ? sonicParts(L)
+      : { head: buildHead(L), body: buildBody(L), arm: buildArm(L), leg: buildLeg(L),
+          // her left arm (+x, the rig's armR) carries any shoulder mark
+          armR: L.tattoo ? buildArm(L, true) : null,
+          tail: L.human ? null : buildTail(L), cape: L.cape ? buildCape(L) : null, locks: buildLocks(L), look: L };
     partCache.set(key, p);
     return p;
   }
@@ -563,7 +692,12 @@
   /** A posable racer: legs, arms, head, tail and any hair or cape that swings.
       `opts.uniform` dresses her in the school uniform instead of her racing outfit. */
   function makeRacer(name, color, opts) {
-    return rigFrom(partsFor(name, color, opts && opts.uniform), VS);
+    const P = partsFor(name, color, opts && opts.uniform);
+    const m = rigFrom(P, VS * (P.look.scale || 1));
+    /* how far her head sits below a racer's (the bust camera frames a racer's head; a
+       smaller guest is lifted into it) */
+    m.headDrop = (18 + 4) * VS - (18 + (P.headHalf || 4)) * VS * (P.look.scale || 1);
+    return m;
   }
   /* The rig every figure shares, racer or trainer: hips at 8 voxels, the body, arms at the
      shoulders, the head on the neck, a tail (if she has one) and any locks of hair that
@@ -579,7 +713,7 @@
     const body = new THREE.Group(); body.position.set(0, 8, 0); body.add(mesh(P.body));
     const armL = new THREE.Group(), armR = new THREE.Group();
     armL.position.set(-4, 9, 0); armR.position.set(4, 9, 0);
-    armL.add(mesh(P.arm)); armR.add(mesh(P.arm));
+    armL.add(mesh(P.arm)); armR.add(mesh(P.armR || P.arm));
     const head = new THREE.Group(); head.position.set(0, 10, 0); head.add(mesh(P.head));
     // anything on the head finer than its grain (the trainer's glasses), at its own scale
     for (const e of P.headExtra || []) { const m = mesh(e.geo); m.scale.setScalar(e.scale); head.add(m); }
@@ -3138,7 +3272,8 @@
     } else {
       const L = lookFor(d.name, d.color);
       m = makeRacer(d.name, d.color);
-      lids = addLids(m, SKIN, L.eyeCover ? [-3] : [-3, 1]);
+      lids = L.custom ? [] : addLids(m, SKIN, L.eyeCover ? [-3] : [-3, 1]);
+      if (m.headDrop) m.root.position.y = m.headDrop;
     }
     const now = performance.now();
     live.set(cv, { m, lids, seed: Math.random() * 100, blink: now + 800 + Math.random() * 3000, shut: 0, again: 0 });

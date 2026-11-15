@@ -470,6 +470,7 @@
 <div class="screen" id="scr-decks"></div>
 <div class="screen" id="scr-deckedit"></div>
 <div class="screen" id="scr-tutorials"></div>
+<div class="screen" id="scr-adventure"></div>
 
 <div class="screen" id="scr-game"><div class="wrap shakeable">
   <div class="top">
@@ -525,10 +526,10 @@
 (function () {
   /* rosterdata must load before stable (it is the catalogue stable reads), and stable
      before quests (quests pays out through it). shell stays last: it drives everything. */
-  var mods = ["icons", "sim", "roster", "rosterdata", "carddata", "cards", "ai", "progression",
+  var mods = ["icons", "sim", "roster", "rosterdata", "guests", "carddata", "cards", "ai", "progression",
               "uniques", "rivals", "skills", "careerdata", "career", "weather", "legacy", "deckplans", "stable", "quests", "bgdata", "bg",
               "audiodata", "sound", "caller", "ambience",
-              "fx", "reactions", "voxel", "attract", "trainer", "lines", "routines", "lobby", "settings", "auth",
+              "fx", "reactions", "voxel", "attract", "trainer", "lines", "routines", "lobby", "adventure-stages", "adventure", "settings", "auth",
               "glossary", "intros", "carddetail", "scoutfx", "ui-meta", "ui-decks", "ui-career", "tutorials", "shell"];
   var v = Date.now();
   for (var i = 0; i < mods.length; i++) {
