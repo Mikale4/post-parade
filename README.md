@@ -32,5 +32,7 @@ Hatsune Miku.
 
 Umamusume: Pretty Derby, its characters, art and music belong to Cygames, Inc. This is a
 non-commercial fan project, not affiliated with Cygames, and will come down on request.
-Sonic the Hedgehog belongs to SEGA. Hatsune Miku is © Crypton Future Media, Inc. 2007,
-used under the Piapro Character License (non-commercial fan works).
+Sonic the Hedgehog belongs to SEGA; his sprites in Post Parade Adventure 2 are from SEGA's
+*Sonic Battle* (Game Boy Advance), ripped by QuadFactor (The Spriters Resource). Hatsune
+Miku is © Crypton Future Media, Inc. 2007, used under the Piapro Character License
+(non-commercial fan works).

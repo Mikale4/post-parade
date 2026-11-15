@@ -2,7 +2,8 @@
  * Post Parade Adventure 2 -- the arcade cabinet in the hall.
  *
  * A side-on platformer in the race's own voxels: the same mesher, the same racers, the
- * same light, seen from the side. Three can play: Gold Ship, and the academy's two guests
+ * same light, seen from the side -- Sonic excepted, who is his own 2D sprites from Sonic
+ * Battle (below, SONIC_SPRITES). Three can play: Gold Ship, and the academy's two guests
  * (guests.js), Sonic and Hatsune Miku. Six stages run left to right to a winning post, each
  * a place with its own ground and weather -- grass hills behind the academy, a river, a
  * quarry of red rock, the summer camp by the sea, a snowfield in Hokkaido, and Nakayama's
@@ -53,7 +54,7 @@
       move: "kick", moveName: "Dropkick",
       grades: { Speed: "B", Jump: "A", Air: "C", Water: "B" },
       text: "Her dropkick smashes cracked rock, crates and hurdles, and anything in her way, once on the ground and once in the air. The highest jump of the three." },
-    { id: "sonic", look: "Sonic", name: "Sonic", roster: "sonic",
+    { id: "sonic", look: "Sonic", name: "Sonic", roster: "sonic", sprite: true,
       w: 0.56, h: 1.02, run: 14.6, accel: 22, airAccel: 14, jump: 12.4, swim: false, sinks: true,
       move: "spin", moveName: "Spin Dash",
       grades: { Speed: "S", Jump: "B", Air: "B", Water: "G" },
@@ -65,6 +66,78 @@
       text: "A second jump in mid-air, and hold jump to glide on her twin tails. Her song flies ahead and breaks whatever it hits." },
   ];
   const castOf = id => CAST.find(c => c.id === id) || CAST[0];
+
+  // ---------------------------------------------------------------- Sonic, in 2D
+  /* Here Sonic is not a voxel model: he is his own sprites from Sonic Battle (Game Boy
+     Advance), ripped by QuadFactor (The Spriters Resource); the sprites are SEGA's and Sonic
+     Team's. tools/pack-sonic-battle.py cuts the frames he uses out of the sheet into
+     assets/guests/sonic-battle.png and prints this table: each frame [x, y, w, h, the
+     column of his head's centre], anchored at his feet. He stands in the voxel world as a
+     flat card with crisp pixels, facing the way he runs, casting a shadow of his shape. */
+  const SONIC_SPRITES = { w: 256, h: 512, f: {"idle":[[1,1,22,32,10.9],[24,1,22,34,10.8],[47,1,24,35,11.5],[72,1,24,35,11.3],[97,1,26,32,11.3],[124,1,24,31,11.6]],"run":[[149,1,31,32,16.0],[181,1,30,32,16.3],[212,1,23,34,11.6],[1,37,28,35,15.3],[30,37,30,33,15.0],[61,37,28,33,15.4],[90,37,23,34,11.6],[114,37,28,35,16.3]],"start":[[143,37,24,33,12.2]],"skid":[[168,37,26,34,10.9],[195,37,35,34,17.9],[1,73,35,35,19.0],[37,73,25,34,10.7]],"jump":[[63,73,22,40,11.3],[86,73,22,40,10.8],[109,73,24,36,12.5],[134,73,23,34,12.2],[158,73,22,31,11.3]],"fall":[[181,73,25,34,10.2],[207,73,30,36,14.3],[1,114,35,39,21.0],[37,114,35,40,20.5]],"land":[[73,114,27,30,14.7],[101,114,26,30,15.5],[128,114,22,30,12.6]],"dash":[[151,114,25,33,13.1],[177,114,30,32,17.1],[208,114,30,32,16.5],[1,155,24,34,10.6],[26,155,31,34,13.4],[58,155,35,29,17.3],[94,155,34,29,17.4]],"ball":[[129,155,26,26,12.9],[156,155,24,24,12.0],[181,155,24,24,12.1],[206,155,24,24,12.0]],"rev":[[231,155,22,22,13.2],[1,190,21,23,12.4],[23,190,22,23,12.6],[46,190,20,22,11.8]],"hit":[[67,190,34,34,15.8],[102,190,31,32,13.0],[134,190,25,32,10.8]],"out":[[160,190,27,35,15.8],[188,190,29,36,18.3],[218,190,23,39,11.2],[1,230,26,39,11.7]]} };
+  const SPRITE_URL = "assets/guests/sonic-battle.png";
+  const SPRITE_PX = 1.1 / 33;                       // metres to a sprite pixel: his idle is 33 tall, about 1.1m
+  let SPRITE_TEX = null, ATLAS_IMG = null;
+  function spriteTexture() {
+    if (SPRITE_TEX) return SPRITE_TEX;
+    SPRITE_TEX = new THREE.TextureLoader().load(SPRITE_URL);
+    SPRITE_TEX.magFilter = SPRITE_TEX.minFilter = THREE.NearestFilter;
+    SPRITE_TEX.generateMipmaps = false;
+    return SPRITE_TEX;
+  }
+  function makeSprite(T) {
+    const tex = spriteTexture(), geo = new THREE.PlaneGeometry(1, 1);
+    geo.translate(0, 0.5, 0);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, color: T.tint || 0xffffff }));
+    mesh.castShadow = true;
+    mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+    mesh.userData.anim = { name: null, t: 0 };
+    return mesh;
+  }
+  /** Show frame `t` seconds into animation `name`, his feet at (x, y), facing `face`. */
+  function spriteFrame(mesh, name, t, fps, loop, face, x, y) {
+    const list = SONIC_SPRITES.f[name];
+    let i = Math.floor(t * fps);
+    i = loop ? i % list.length : Math.min(i, list.length - 1);
+    const [fx, fy, fw, fh, cx] = list[i], A = SONIC_SPRITES, tex = mesh.material.map;
+    tex.repeat.set(fw / A.w, fh / A.h);
+    tex.offset.set(fx / A.w, 1 - (fy + fh) / A.h);
+    mesh.scale.set(fw * SPRITE_PX * face, fh * SPRITE_PX, 1);
+    mesh.position.set(x + (fw / 2 - cx) * SPRITE_PX * face, y, 0.06);
+  }
+  /** His frames, from what he is doing. */
+  function drawSprite(p, dt) {
+    const s = p.spr, a = s.userData.anim, sp = Math.abs(p.vx);
+    p.landT = Math.max(0, (p.landT || 0) - dt); p.dashT = Math.max(0, (p.dashT || 0) - dt);
+    let name, fps = 10, loop = true, face = p.face;
+    if (p.dead) { name = "out"; fps = 8; loop = false; }
+    else if (p.state === "hurt" || p.state === "stumble") { name = "hit"; fps = 12; loop = false; }
+    else if (p.state === "charge") { name = "rev"; fps = 14 + p.rev * 22; }
+    else if (p.state === "roll" || p.state === "homing" || (p.curl && !p.ground)) { name = "ball"; fps = p.state === "homing" ? 30 : 12 + sp * 1.4; }
+    else if (!p.ground) {
+      if (p.dashT > 0) { name = "dash"; fps = 18; loop = false; }
+      else { name = p.vy > 0 ? "jump" : "fall"; loop = false; }
+    }
+    else if (p.landT > 0) { name = "land"; fps = 22; loop = false; }
+    else if (sp < 0.6) { name = "idle"; fps = 7; }
+    else if (sp > 4 && (input.R - input.L) && sgn(input.R - input.L) !== sgn(p.vx)) { name = "skid"; fps = 12; loop = false; face = sgn(p.vx); }
+    else if (sp < 2.2) name = "start";
+    else { name = "run"; fps = 5 + sp * 1.15; }
+    if (a.name !== name) { a.name = name; a.t = 0; } else a.t += dt;
+    spriteFrame(s, name, a.t, fps, loop, face, p.x, p.y);
+    s.visible = !(p.inv > 0 && !p.dead && Math.sin(world.t * 40) > 0.4);
+  }
+  /* His card in the cabinet's menu: the idle, drawn twice size with crisp pixels. */
+  function paintCard(cv, i) {
+    if (!ATLAS_IMG) { ATLAS_IMG = new Image(); ATLAS_IMG.src = SPRITE_URL; }
+    const go = () => {
+      const g = cv.getContext("2d"), f = SONIC_SPRITES.f.idle[i % 6], k = 2;
+      g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = false;
+      g.drawImage(ATLAS_IMG, f[0], f[1], f[2], f[3], Math.round(cv.width / 2 - f[4] * k), cv.height - f[3] * k - 6, f[2] * k, f[3] * k);
+    };
+    if (ATLAS_IMG.complete && ATLAS_IMG.naturalWidth) go(); else ATLAS_IMG.addEventListener("load", go, { once: true });
+  }
+  let card = null;
 
   // ---------------------------------------------------------------- the six places
   /* Each stage names a theme: its sky, its light, what its ground is made of, and who lives
@@ -87,7 +160,7 @@
       top: [0xb07a4a, 0xbc8654, 0xa46e40], drip: 0x9a6038, soil: [0xa8502e, 0xc06a3a, 0x8a3e24], deep: 0x6a2e1a,
       block: [0xd8a86a, 0xc8945a], plank: 0x9a6a3a, water: 0x5a8a7a, crack: 0x8a6a50, back: 0x4a2418,
       tufts: [0xc89a5a], flowers: [], rail: false,
-      roller: "boulder", bird: "crow", walker: "beetle", far: "mesas", music: "idea" },
+      roller: "boulder", bird: "crow", walker: "beetle", far: "mesas", music: "idea", tint: 0xffe4c8 },
     beach: {
       sky: [0x3a9cf0, 0xe8f6fa], fog: [0xdff0f6, 50, 170], sun: [0xfff6e0, 0.95, [8, 34, 22]], hemi: [0xffffff, 0xd8c890, 0.62],
       top: [0xf0dca0, 0xe8d290, 0xf4e4b0], drip: 0xe0cc8a, soil: [0xdcc488, 0xd0b878, 0xe4cc90], deep: 0xb89a62,
@@ -99,13 +172,13 @@
       top: [0xf4f8fc, 0xe6eef6, 0xfafcff], drip: 0xe0eaf4, soil: [0x6a5a5a, 0x5e5050, 0x746262], deep: 0x463a3a,
       block: [0xd8e0e8, 0xc6d0dc], plank: 0x8a6a4a, water: 0x4a7aa8, crack: 0x9aa4b0, back: 0x3a3236,
       tufts: [0xffffff], flowers: [], rail: false, snowfall: true,
-      roller: "snowball", bird: "crow", walker: "penguin", far: "snow", music: "night" },
+      roller: "snowball", bird: "crow", walker: "penguin", far: "snow", music: "night", tint: 0xeef2fa },
     night: {
       sky: [0x070c22, 0x24305a], fog: [0x1a2240, 40, 160], sun: [0xc8d4ff, 0.45, [6, 30, 24]], hemi: [0xb8c8ff, 0x2a2a3a, 0.5],
       top: [0x3a8a3a, 0x449a42, 0x347e34], drip: 0x2f7430, soil: [0x5a4030, 0x4e382a, 0x664834], deep: 0x2e2018,
       block: [0x8a8a96, 0x7a7a86], plank: 0xc8c8d0, water: 0x2a5a8a, crack: 0x6a6a74, back: 0x22181a,
       tufts: [0x5ab84a], flowers: [], rail: true, stars: true,
-      roller: "hay", bird: "owl", walker: "beetle", far: "stands", music: "finale" },
+      roller: "hay", bird: "owl", walker: "beetle", far: "stands", music: "finale", tint: 0xb8c0d8 },
   };
 
   // ---------------------------------------------------------------- reading a stage
@@ -805,12 +878,17 @@
 
   // ---------------------------------------------------------------- the runner
   function makePlayer(c) {
-    const rig = makeRacer(c.look);
-    rig.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.userData.keep = true; } });
-    world.group.add(rig.root);
-    let ball = null;
-    if (c.move === "spin") { ball = new THREE.Mesh(propGeo("ball"), materials().vox); ball.visible = false; ball.castShadow = true; world.group.add(ball); }
-    return { c, rig, ball, x: world.start.x, y: world.start.y, vx: 0, vy: 0, face: 1, ground: true, curl: false, coyote: 0, on: null,
+    // a voxel racer, or (Sonic) a sprite; `obj` is whichever stands in the world
+    let rig = null, spr = null, obj, ball = null;
+    if (c.sprite) obj = spr = makeSprite(world.T);
+    else {
+      rig = makeRacer(c.look);
+      rig.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.userData.keep = true; } });
+      obj = rig.root;
+      if (c.move === "spin") { ball = new THREE.Mesh(propGeo("ball"), materials().vox); ball.visible = false; ball.castShadow = true; world.group.add(ball); }
+    }
+    world.group.add(obj);
+    return { c, rig, spr, obj, ball, x: world.start.x, y: world.start.y, vx: 0, vy: 0, face: 1, ground: true, curl: false, coyote: 0, on: null,
              state: "run", st: 0, hearts: 3, inv: 0, carrots: 0, nextHeal: 50, shoes: [false, false, false], falls: 0,
              check: { x: world.start.x, y: world.start.y }, usedDouble: false, airMove: false, cd: 0, rev: 0, star: 0,
              air: AIR, inWater: false, wasWater: false, jumping: false, dead: 0, gliding: false, target: null, onTile: null,
@@ -913,6 +991,7 @@
 
   function land(p, hit) {
     if (!p.ground && p.vy < -14) burst(p.x, p.y, [0xd8d0c0, 0xc8c0b0], 5, 2);
+    if (!p.ground && p.vy < -4) p.landT = 0.14;
     p.ground = true; p.vy = 0; p.usedDouble = false; p.airMove = false; p.jumping = false; p.gliding = false;
     p.on = hit.on; p.onTile = hit.tl;
     if (p.state !== "roll") p.curl = false;
@@ -1081,7 +1160,7 @@
         const t = homingTarget(p);
         p.curl = true;
         if (t) { p.state = "homing"; p.target = t; p.st = 0.6; }
-        else { p.vx = p.face * 15; p.vy = Math.max(p.vy, 1.5); }
+        else { p.vx = p.face * 15; p.vy = Math.max(p.vy, 1.5); p.curl = false; p.dashT = 0.4; }
         SFX.homing(); burst(p.x, p.y + 0.5, [0x9ad4ff, 0xffffff], 6, 3);
       }
     } else if (c.move === "sing") {
@@ -1337,6 +1416,8 @@
   function draw(dt) {
     const p = player, w = world, c = p.c, m = p.rig;
     // the runner
+    if (p.spr) drawSprite(p, dt);
+    else {
     const ball = p.ball && (p.state === "roll" || p.state === "charge" || p.state === "homing" || (p.curl && !p.ground && p.state !== "hurt"));
     m.root.visible = !ball && !(p.dead > 0.6) && !(p.inv > 0 && Math.sin(w.t * 40) > 0.4);
     if (p.ball) {
@@ -1374,6 +1455,7 @@
       }
     }
     if (p.singT > 0) { p.singT -= dt; m.armR.rotation.x = -1.5; m.armR.rotation.z = 0.2; m.head.rotation.x = -0.25; }
+    }
     if (p.star > 0 && Math.random() < 0.5) burst(p.x, p.y + Math.random() * p.hh, [0xe8403a, 0xf2d040, 0x5ab84a, 0x3a8ae0, 0x8a5ad0], 1, 1);
     if (Math.abs(p.vx) > 13 && p.ground && Math.random() < 0.4) burst(p.x - p.face * 0.3, p.y + 0.05, [0xd8d0c0, 0xffffff], 1, 1.5);
     // carrots spin and bob
@@ -1517,6 +1599,7 @@
     } else {
       // the menu: she waits at the start, the world goes on around her
       world.t += dt; worldStep(dt * 0.6);
+      if (card && card.cv.isConnected && (card.t += dt) > 0.14) { card.t = 0; paintCard(card.cv, ++card.i); }
       player.state = "run"; player.vx = 0;
     }
     if (!paused) draw(dt);
@@ -1564,7 +1647,7 @@
           <div class="adv-cast">
             ${CAST.map(c => `
               <button class="adv-who ${c.id === castId ? "on" : ""}" data-cast="${c.id}">
-                <div class="adv-bust">${V.bustHTML({ name: c.look, color: "" }, "")}</div>
+                <div class="adv-bust">${c.sprite ? `<canvas class="adv-spr" width="74" height="92"></canvas>` : V.bustHTML({ name: c.look, color: "" }, "")}</div>
                 <div class="adv-who-tx">
                   <b>${esc(c.name)}</b>
                   <span class="adv-mv">${ico("star")}${esc(c.moveName)}</span>
@@ -1595,13 +1678,16 @@
           </div>
           <div class="adv-keys">${TOUCH ? "Buttons on screen: move, jump, and her move." :
             `<b>&larr; &rarr;</b> or <b>A D</b> run &middot; <b>Space</b> jump &middot; <b>Shift</b> or <b>J</b> her move &middot; <b>Down + jump</b> drop through &middot; <b>Esc</b> pause`}</div>
-          <div class="adv-credit">${esc(G.sonic || "")} ${esc(G.miku || "")} Gold Ship is from Cygames' Umamusume: Pretty Derby.</div>
+          <div class="adv-credit">${esc(G.sonic || "")} His sprites are from SEGA's Sonic Battle (Game Boy Advance), ripped by QuadFactor. ${esc(G.miku || "")} Gold Ship is from Cygames' Umamusume: Pretty Derby.</div>
         </div>
       </div>`;
+    const cv = ov.querySelector(".adv-spr");
+    card = cv ? { cv, i: 0, t: 0 } : null;
+    if (card) paintCard(cv, 0);
     ov.querySelectorAll("[data-cast]").forEach(b => b.onclick = () => {
       castId = b.dataset.cast; saveData.cast = castId; save(saveData);
       ov.querySelectorAll("[data-cast]").forEach(x => x.classList.toggle("on", x === b));
-      world.group.remove(player.rig.root); if (player.ball) world.group.remove(player.ball);
+      world.group.remove(player.obj); if (player.ball) world.group.remove(player.ball);
       player = makePlayer(castOf(castId)); snapCamera();
     });
     ov.querySelectorAll("[data-st]").forEach(b => b.onclick = () => {
@@ -1620,7 +1706,7 @@
   function play() {
     // the stage the menu has standing is fresh: run it; anything already played is built again
     if (world && world.def === stages()[stageIdx] && !world.played) {
-      world.group.remove(player.rig.root); if (player.ball) world.group.remove(player.ball);
+      world.group.remove(player.obj); if (player.ball) world.group.remove(player.ball);
       world.t = 0; player = makePlayer(castOf(castId)); snapCamera(); acc = 0; last = 0;
     } else load3d(stageIdx);
     world.played = true;

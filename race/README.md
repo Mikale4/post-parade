@@ -67,7 +67,7 @@ module scripts. It is also published at <https://mikale4.github.io/post-parade/>
 | `guests.js` | The guest racers, who visit from outside Umamusume: Sonic and Hatsune Miku. Hand-written from their own canon, given to every trainer, never scouted. See "Guest racers". |
 | `adventure.js`, `adventure-stages.js` | Post Parade Adventure 2, the arcade cabinet in the hall: a side-on platformer in the race's voxels, its six stages drawn as text. See "Post Parade Adventure 2". |
 | `validate-adventure.js` | Checks the six stages: their shape, one start and one winning post, three horseshoes each, and a rough walk showing every part can be reached. `node race/validate-adventure.js` |
-| `assets/guests/` | The guests' portraits, rendered from their voxel models (the screens that show a picture rather than a live bust). |
+| `assets/guests/` | The guests' portraits, rendered from their voxel models (the screens that show a picture rather than a live bust), and `sonic-battle.png`, Sonic's sprites for Post Parade Adventure 2. |
 
 Card art is rendered by `cards/build.py`; `assets/cards/` holds the thumbnails.
 
@@ -1198,6 +1198,19 @@ winning post:
 | 4 | Seaside Camp | the summer training camp | sand dunes, a sea to swim with a beach out, boardwalk dash strips, a sea-breeze updraft, crabs and gulls |
 | 5 | Sapporo Snowfield | Hokkaido, snowing; SNOW MIKU as a snow sculpture | ice, snowballs, penguins, wind up a cliff, crumbling ice, a frozen lake |
 | 6 | Nakayama Grand Jump | the jump course at night, the stand lit up | banks and brush hurdles (the real J-G1 is a steeplechase), a water jump, lifts, crumbling ledges, the final straight |
+
+**Sonic is drawn in 2D.** In the cabinet he is not a voxel model but his own sprites from
+*Sonic Battle* (Game Boy Advance), ripped by QuadFactor for The Spriters Resource (asset
+10039); the sprites are SEGA's and Sonic Team's. `tools/pack-sonic-battle.py` (local, with
+the full sheet in `tools/art/`) cuts out the frames he uses -- idle, start, run, skid, jump,
+fall, land, the spin ball, the Spin Dash rev, the Leap dash, hit and knocked out -- onto a
+transparent 256x512 atlas, `assets/guests/sonic-battle.png`, and prints the frame table
+that `adventure.js` keeps as `SONIC_SPRITES`. Each frame is anchored at his feet and centred
+on his head, so he does not wobble from pose to pose. He stands in the voxel world as a flat
+card at a thirtieth of a metre to the pixel (about 1.1m tall), crisp (nearest-neighbour),
+mirrored to face the way he runs, casting a shadow of his own shape, and tinted to the
+stage's light (warm at sundown, cool in the snow, dim at night). His card in the cabinet's
+menu is his idle sprite too. Everywhere else in the game he is still the voxel Sonic.
 
 **Each runner plays to her canon.** Gold Ship's dropkick smashes cracked rock, crates,
 hurdles and anything in the way, once on the ground and once in the air; hers is the

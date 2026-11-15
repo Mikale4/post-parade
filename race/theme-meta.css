@@ -2007,6 +2007,7 @@
 .adv-who.on{border-color:var(--turf);background:var(--turf-pale)}
 .adv-bust{flex:0 0 74px;height:92px;border-radius:var(--r-sm);background:var(--paper-3);overflow:hidden}
 .adv-bust canvas{width:100%;height:100%;display:block}
+.adv-bust canvas.adv-spr{image-rendering:pixelated}
 .adv-who-tx{display:flex;flex-direction:column;gap:4px;min-width:0}
 .adv-who-tx>b{font:400 15px/1.1 var(--font-display)}
 .adv-mv{display:flex;align-items:center;gap:4px;font:800 12px/1 var(--font-ui);color:var(--turf-lo)}
