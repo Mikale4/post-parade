@@ -4,11 +4,14 @@
  * A side-on platformer in the race's own voxels: the same mesher, the same light, seen from
  * the side. Its runners are Sonic and five friends, each in their own 2D sprites from SEGA's
  * Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor (The Spriters Resource):
- * adventure-sprites.js holds the frames, tools/pack-sonic-battle.py cuts them. Seven stages
- * run left to right to a winning post, each a place with its own ground and weather -- chalk
- * clifftops over the sea, grass hills behind the academy, a river, a quarry of red rock, the summer camp by the sea, a
- * snowfield in Hokkaido, and Nakayama's jump course at night -- with platforms, water,
- * springs, hurdles, things to collect and things in the way.
+ * adventure-sprites.js holds the frames, tools/pack-sonic-battle.py cuts them. Six stages
+ * run left to right to a winning post, each one runner's own ground, as Sonic Battle gives each
+ * fighter a home arena -- Sonic's clifftops over the sea, Tails' workshop and airstrip, Amy's
+ * home seen from the floor up, Knuckles' shrines up a snowy mountain, Rouge's club and the
+ * casino street, Shadow's road out of the city at sundown -- each long and tall the way the
+ * Genesis and Game Boy Advance acts are, with a low road, a high one and the sky over both.
+ * In them are Eggman's badniks, in their own sprites from Sonic Advance 1, 2 and 3
+ * (adventure-badniks.js; tools/pack-badniks.py cuts them), each doing what it does there.
  *
  * The fighting is Sonic Battle's, every move off the runner's own sheet. That game puts its
  * attacks on B and its specials on R; here they are three buttons:
@@ -45,8 +48,8 @@
  *             the air teleports him ahead, twice a jump, drifting down. Z in the air is his
  *             Homing Attack. Spin Dash; Chaos Spear (his shot) and Chaos Burst.
  *
- * Stages are drawn as text in adventure-stages.js: a 16-row grid of one-metre tiles, read
- * left to right. The legend is there. Clearing a stage opens the next; each hides three
+ * Stages are drawn as text in adventure-stages.js (tools/genstages.py draws them): a grid of
+ * one-metre tiles 32 rows tall, read left to right. The legend is there. Clearing a stage opens the next; each hides three
  * Golden Horseshoes. Best times, grades and horseshoes are kept per trainer; first clears
  * and first finds pay carrots into the stable.
  *
@@ -265,76 +268,401 @@
   /* A card in the cabinet's menu: the runner's Sonic Battle portrait, the one their sheet draws
      with a white outline, at twice size with crisp pixels, standing on the card's floor. */
   const IMGS = {};
-  function paintCard(cv, who) {
+  function paintCard(cv, who, frame, k) {
     const A = SHEETS[who]; if (!A) return;
     const img = IMGS[who] || (IMGS[who] = Object.assign(new Image(), { src: A.url }));
+    k = k || 2;
     const go = () => {
-      const g = cv.getContext("2d"), f = (A.f.portrait || A.f.idle)[0], k = 2;
+      const g = cv.getContext("2d"), f = (A.f[frame || "portrait"] || A.f.idle)[0];
       g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = false;
       g.drawImage(img, f[0], f[1], f[2], f[3], Math.round((cv.width - f[2] * k) / 2), cv.height - f[3] * k, f[2] * k, f[3] * k);
     };
     if (img.complete && img.naturalWidth) go(); else img.addEventListener("load", go, { once: true });
   }
 
-  // ---------------------------------------------------------------- the seven places
-  /* Each stage names a theme: its sky, its light, what its ground is made of, and who lives
-     there. Colours are the lobby's and the race's own family. */
+  // ---------------------------------------------------------------- the badniks
+  /* Eggman's robots, in their own sprites from SEGA's Sonic Advance, Sonic Advance 2 and Sonic
+     Advance 3 (adventure-badniks.js, cut by tools/pack-badniks.py), each doing what it does in
+     its own game, as Sonic Retro describes them:
+       gamigami   a crab: walks sideways, stops, fires an energy ball up out of each claw
+       rhinotank  trundles; sees you ahead and charges till it meets a wall or an edge
+       stinger    a bee on a propeller: flies to and fro, stops to fire at you
+       kiki       a monkey: stops to lob a bomb at you, that goes off where it lands
+       hanabii    a lizard on wheels: stops to launch a firework that bursts overhead
+       slot       a bat: flies to and fro, stops to drop a coin on you
+       pierrot    a clown on a ball: blows bounce off the ball; jump on him, or come in curled
+       yukimaru   a snowman: stops to throw a snowball up and over
+       pen        a penguin: stops to lob a snowball at you
+       leon       a chameleon: crawls, and shoots its tongue out at you close up
+       wamu       a caterpillar, floating to and fro
+       mirror     a mirrored octahedron, spinning (nothing hurts it), that opens to fire
+       oct        an octopus: flies to and fro, stops to fire straight down
+       senbon     a pufferfish: floats to and fro, puffs out its spikes now and then
+       mogu       a mole: hides in its hole, pops out when you come close, and goes back
+       pikopiko   a clown with a giant mallet: comes at you and brings it down
+       star       spins in its points (nothing hurts it), then stops and opens up
+       gaogao     a wind-up lion: its face takes any blow; hit it from behind or above
+       bubu       a piggy bank on wheels, scooting to and fro
+       guards     toy soldiers, marching in threes, firing bombs out of their trumpets
+       akatento   a ladybird car, driving to and fro
+       aotento    its blue twin: lifts off into the air when you come close
+       condor     a jet: cruises high, and dives at you when you pass under it
+     `act` is the way it moves; `air` it flies; `every` seconds between shots; `see` how near
+     you have to be (metres) for it to act. */
+  const BADS = root.AdventureBadniks || null;
+  const BADNIKS = {
+    gamigami:  { act: "walkshoot", speed: 1.3, every: 2.6, see: 9, fire: 0.35, dur: 0.75, shot: "claws" },
+    rhinotank: { act: "charge", speed: 1.2, dash: 7.5, see: 8 },
+    stinger:   { act: "fly", air: true, speed: 1.7, range: 3.5, every: 2.4, see: 7, fire: 0.3, dur: 0.7, shot: "aim" },
+    kiki:      { act: "walkshoot", speed: 1.0, every: 2.4, see: 9, fire: 0.25, dur: 0.6, shot: "bomb" },
+    hanabii:   { act: "walkshoot", speed: 1.1, every: 3.0, see: 9, fire: 0.2, dur: 0.7, shot: "firework" },
+    slot:      { act: "fly", air: true, speed: 1.9, range: 4, every: 2.2, see: 6, fire: 0.25, dur: 0.6, shot: "coin" },
+    pierrot:   { act: "walk", speed: 1.3, armor: "ball" },
+    yukimaru:  { act: "walkshoot", speed: 0.8, every: 2.4, see: 9, fire: 0.3, dur: 0.8, shot: "snowup" },
+    pen:       { act: "walkshoot", speed: 1.3, every: 2.2, see: 7, fire: 0.2, dur: 0.5, shot: "snowball" },
+    leon:      { act: "tongue", speed: 0.9, see: 2.6, reach: 2.2 },
+    wamu:      { act: "fly", air: true, speed: 1.3, range: 3, wave: 0.8 },
+    mirror:    { act: "guardshoot", air: true, speed: 1.0, range: 2.5, every: 2.2, see: 9, dur: 1.1, fire: 0.45, shot: "beam" },
+    oct:       { act: "fly", air: true, speed: 1.4, range: 3.5, every: 2.2, see: 5, fire: 0.3, dur: 0.7, shot: "down" },
+    senbon:    { act: "guardfly", air: true, speed: 1.1, range: 3 },
+    mogu:      { act: "pop", see: 3.6 },
+    pikopiko:  { act: "mallet", speed: 1.3, see: 5, reach: 1.8 },
+    star:      { act: "guardhover", air: true },
+    gaogao:    { act: "walk", speed: 1.0, armor: "front" },
+    bubu:      { act: "walk", speed: 1.9 },
+    guards:    { act: "walkshoot", speed: 1.0, every: 2.8, see: 10, fire: 0.45, dur: 0.85, shot: "trumpet" },
+    akatento:  { act: "walk", speed: 2.6 },
+    aotento:   { act: "liftoff", speed: 2.2, see: 3.4 },
+    condor:    { act: "dive", air: true, speed: 2.4, range: 5, see: 5 },
+  };
+  /* What a shot is: the frames it shows (its own badnik's "shot", or a borrowed one), how it
+     falls, whether it goes off where it lands, how big it hurts. */
+  const SHOTS = {
+    claws:    { g: 24, r: 0.25 },
+    aim:      { g: 0, r: 0.22 },
+    bomb:     { g: 22, r: 0.3, boom: true },
+    firework: { g: 9, r: 0.25, burst: true },
+    coin:     { g: 18, r: 0.25 },
+    snowup:   { g: 22, r: 0.25 },
+    snowball: { g: 20, r: 0.25 },
+    beam:     { g: 0, r: 0.25 },
+    down:     { g: 0, r: 0.22 },
+    trumpet:  { g: 7, r: 0.22, boom: true },
+  };
+  let BAD_M = null;
+  function badMats() {
+    if (BAD_M) return BAD_M;
+    const tex = new THREE.TextureLoader().load(BADS.url);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    /* struck, a badnik shows pure white: its silhouette, the atlas with every pixel white */
+    const white = new THREE.MeshBasicMaterial({ color: 0xffffff, alphaTest: 0.5, side: THREE.DoubleSide });
+    white.visible = false;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+      const g = c.getContext("2d"); g.drawImage(img, 0, 0); g.globalCompositeOperation = "source-in"; g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+      const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+      white.map = t; white.visible = true; white.needsUpdate = true;
+    };
+    img.src = BADS.url;
+    BAD_M = { mat: new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }), white,
+              depth: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5, side: THREE.DoubleSide }) };
+    return BAD_M;
+  }
+  function badCard() {
+    const M = badMats(), m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), M.mat);
+    m.castShadow = true; m.customDepthMaterial = M.depth; m.userData.bad = true;
+    return m;
+  }
+  const badFrames = (key, anim) => { const F = BADS.f[key]; return F[anim] || F.walk || F.fly || F.guard || F.pop || F.boom; };
+  /** Show frame `i` of a badnik's `anim`, facing `face` (the sheets face left), standing on x, y. */
+  function setBad(m, key, anim, i, face, x, y, k) {
+    const L = badFrames(key, anim), [fx, fy, fw, fh, ax, ay] = L[((i % L.length) + L.length) % L.length];
+    k = k || 1;
+    let u0 = fx / BADS.w, u1 = (fx + fw) / BADS.w;
+    if (face > 0) { const t = u0; u0 = u1; u1 = t; }
+    const v1 = 1 - fy / BADS.h, v0 = 1 - (fy + fh) / BADS.h, uv = m.geometry.attributes.uv;
+    uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0); uv.needsUpdate = true;
+    m.scale.set(fw * PX * k, fh * PX * k, 1);
+    m.position.set(x - face * (fw / 2 - ax) * PX * k, y + (ay - fh / 2) * PX * k, 0.04);
+  }
+
+  /* A badnik's turn: walking (it turns at walls and edges and keeps to the ground, slopes
+     too), and whatever its kind does. `p` is the runner. */
+  function walkOn(e, speed, dt) {
+    const ahead = e.x + e.dir * (e.w / 2 + 0.05);
+    const wall = solid(tile(Math.floor(ahead), Math.floor(e.y + 0.3))) || world.solids.some(b => b.alive && ahead > b.x0 && ahead < b.x1 && e.y < b.y1);
+    const fl = tile(Math.floor(ahead), Math.floor(e.y - 0.1)), fl2 = tile(Math.floor(ahead), Math.floor(e.y + 0.1));
+    const floor = solid(fl) || fl === "-" || "/\\".indexOf(fl) >= 0 || "/\\".indexOf(fl2) >= 0;
+    if (wall || !floor) { e.dir = -e.dir; return false; }
+    e.vx = e.dir * speed; e.x += e.vx * dt;
+    const ci = Math.floor(e.x);
+    let gy = null;
+    for (let j = Math.floor(e.y + 0.6); j >= Math.floor(e.y - 1.2); j--) {
+      const c = tile(ci, j);
+      if (c === "/" || c === "\\") { gy = slopeY(c, ci, j, e.x); break; }
+      if (solid(c) || c === "-") { gy = j + 1; break; }
+    }
+    if (gy !== null) e.y = gy; else e.y -= 6 * dt;
+    return true;
+  }
+  function setMode(e, mode) { e.mode = mode; e.t = 0; e.at = 0; e.fired = false; }
+  function stepBadnik(e, dt, p) {
+    const B = e.B, dx = p.x - e.x, dy = p.y + 0.5 - (e.y + e.h / 2), near = Math.abs(dx) < (B.see || 0) && Math.abs(dy) < 4;
+    e.t += dt; e.at += dt;
+    const fly = () => {                                   // to and fro about where it was put, bobbing
+      e.ph += dt * B.speed / Math.max(1, B.range);
+      const nx = e.x0 + Math.sin(e.ph) * B.range;
+      e.dir = nx >= e.x ? 1 : -1; e.x = nx;
+      e.y = e.y0 + Math.sin(e.ph * 2.6) * (B.wave || 0.3);
+    };
+    switch (B.act) {
+      case "walk": walkOn(e, B.speed, dt); e.face = e.dir; break;
+      case "walkshoot":
+        if (e.mode === "shoot") {
+          if (!e.fired && e.t > B.fire) { e.fired = true; badShot(e, p); }
+          if (e.t > B.dur) setMode(e, "walk");
+        } else {
+          walkOn(e, B.speed, dt); e.face = e.dir;
+          if (near && e.t > B.every) { setMode(e, "shoot"); e.face = sgn(dx) || e.face; }
+        }
+        break;
+      case "charge":                                       // Rhinotank
+        if (e.mode === "charge") {
+          if (!walkOn(e, B.dash, dt)) setMode(e, "turn");
+          e.face = e.dir === -1 ? -1 : 1;
+          if (e.t > 3) setMode(e, "walk");
+        } else if (e.mode === "turn") { if (e.t > 0.35) setMode(e, "walk"); }
+        else {
+          walkOn(e, B.speed, dt); e.face = e.dir;
+          if (near && sgn(dx) === e.dir && Math.abs(dy) < 1.5 && e.t > 0.6) setMode(e, "charge");
+        }
+        break;
+      case "fly":
+        if (e.mode === "shoot") {
+          if (!e.fired && e.t > B.fire) { e.fired = true; badShot(e, p); }
+          if (e.t > B.dur) setMode(e, "walk");
+        } else {
+          fly(); e.face = e.dir;
+          if (B.shot && near && e.t > B.every && (B.shot !== "down" && B.shot !== "coin" || Math.abs(dx) < 1.6) && dy < 0.5) { setMode(e, "shoot"); e.face = sgn(dx) || e.face; }
+        }
+        break;
+      case "guardshoot":                                   // Mirror: spins shut, opens to fire
+        if (e.mode === "shoot") {
+          e.guard = false;
+          if (!e.fired && e.t > B.fire) { e.fired = true; badShot(e, p); }
+          if (e.t > B.dur) setMode(e, "walk");
+        } else {
+          e.guard = true; fly();
+          if (near && e.t > B.every) { setMode(e, "shoot"); e.face = sgn(dx) || e.face; }
+        }
+        break;
+      case "guardfly":                                     // Senbon: spikes out every few seconds
+        fly(); e.face = e.dir;
+        if (e.mode === "guard") { e.guard = true; if (e.t > 1.4) { setMode(e, "walk"); e.guard = false; } }
+        else if (e.t > 2.2) setMode(e, "guard");
+        break;
+      case "guardhover":                                   // Star: spins, then opens
+        e.y = e.y0 + Math.sin(e.ph += dt * 1.6) * 0.25;
+        if (e.mode === "open") { e.guard = false; if (e.t > 1.4) setMode(e, "walk"); }
+        else { e.guard = true; if (e.t > 2.4) setMode(e, "open"); }
+        break;
+      case "pop":                                          // Mogu: up out of its hole and back
+        if (e.mode === "up") { e.hidden = e.t < 0.2 || e.t > 1.75; if (e.t > 2) setMode(e, "down"); }
+        else { e.hidden = true; if (e.t > 1.2 && near) setMode(e, "up"); }
+        break;
+      case "tongue":                                       // Leon
+        if (e.mode === "shoot") {
+          const k = Math.floor(e.t * 9);
+          e.reach = k >= 1 && k <= 3 ? B.reach : 0;
+          if (e.t > 0.6) { setMode(e, "walk"); e.reach = 0; }
+        } else {
+          walkOn(e, B.speed, dt); e.face = e.dir;
+          if (near && sgn(dx) === e.face && Math.abs(dy) < 1.2 && e.t > 1) setMode(e, "shoot");
+        }
+        break;
+      case "mallet":                                       // Piko-piko: up goes the mallet, down it comes
+        if (e.mode === "raise") { if (e.t > 0.35) setMode(e, "smash"); }
+        else if (e.mode === "smash") {
+          e.reach = e.t < 0.2 ? B.reach : 0;
+          if (e.t < 0.05) { shakeCam(0.08); SFX.stomp(); }
+          if (e.t > 0.6) { setMode(e, "walk"); e.reach = 0; }
+        } else {
+          if (near) e.dir = sgn(dx) || e.dir;
+          walkOn(e, B.speed, dt); e.face = e.dir;
+          if (Math.abs(dx) < B.reach && Math.abs(dy) < 1.2 && e.t > 0.8) { e.face = sgn(dx) || e.face; setMode(e, "raise"); }
+        }
+        break;
+      case "liftoff":                                      // Aotento: drives, then lifts off when you come close
+        if (e.mode === "fly") {
+          e.y = e.y0 + Math.min(2.4, e.t * 5) - Math.max(0, e.t - 1.4) * 5;
+          if (e.y <= e.y0 && e.t > 1.4) { e.y = e.y0; setMode(e, "walk"); }
+        } else {
+          walkOn(e, B.speed, dt); e.face = e.dir; e.y0 = e.y;
+          if (near && e.t > 1) setMode(e, "fly");
+        }
+        break;
+      case "dive":                                         // Condor
+        if (e.mode === "dive") {
+          const tx = e.tx - e.x, ty = e.ty - e.y, d = Math.hypot(tx, ty) || 1;
+          if (e.t < 0.9 && d > 0.3) { e.x += tx / d * 9 * dt; e.y += ty / d * 9 * dt; e.face = sgn(tx) || e.face; }
+          else setMode(e, "climb");
+        } else if (e.mode === "climb") {
+          e.y = Math.min(e.y0, e.y + 4 * dt); e.x += (e.x0 - e.x) * dt;
+          if (e.y >= e.y0 - 0.01) { e.ph = Math.asin(clamp((e.x - e.x0) / B.range, -1, 1)); setMode(e, "walk"); }
+        } else {
+          fly(); e.face = e.dir;
+          if (Math.abs(dx) < B.see && dy < -1.5 && e.t > 1.5) { setMode(e, "dive"); e.tx = p.x; e.ty = p.y + 0.4; }
+        }
+        break;
+    }
+  }
+  /* What it fires, from where, and which way. */
+  function badShot(e, p) {
+    const B = e.B, s = SHOTS[B.shot], f = e.face, at = (vx, vy, ox, oy) =>
+      world.eshots.push({ key: BADS.f[e.key].shot ? e.key : "kiki", x: e.x + (ox || 0) * f, y: e.y + (oy == null ? e.h * 0.6 : oy), vx, vy, g: s.g, r: s.r, boom: s.boom, burst: s.burst, t: 0, m: null });
+    const dx = p.x - e.x, dy = p.y + 0.5 - (e.y + e.h * 0.6);
+    switch (B.shot) {
+      case "claws": at(-3.2, 9.5, -0.6 * f, 0.7); at(3.2, 9.5, 0.6 * f, 0.7); break;
+      case "aim": { const d = Math.hypot(dx, dy) || 1; at(dx / d * 6.5, dy / d * 6.5, 0.2, 0.2); break; }
+      case "bomb": at(clamp(dx * 0.9, -6.5, 6.5), 8, 0.3, 1.1); break;
+      case "firework": at(0, 13, 0.2, 0.9); break;
+      case "coin": at(0, 0, 0, -0.1); break;
+      case "snowup": at(sgn(dx) * 2.6, 11, 0.2, 0.9); break;
+      case "snowball": at(sgn(dx) * 5.5, 5, 0.3, 0.7); break;
+      case "beam": at(f * 7, 0, 0.5, e.h * 0.5); break;
+      case "down": at(0, -6.5, 0, 0); break;
+      case "trumpet": at(f * 6, 1.6, 0.45, 0.85); break;
+    }
+    SFX.shot();
+  }
+  function stepEnemyShots(dt, p) {
+    const w = world;
+    for (const s of w.eshots) {
+      if (s.gone) continue;
+      s.t += dt; s.vy -= s.g * dt; s.x += s.vx * dt; s.y += s.vy * dt;
+      if (!s.m) { s.m = badCard(); s.m.castShadow = false; w.group.add(s.m); }
+      if (s.burst && s.vy < 0) { badBoom(s.x, s.y, "hanabii", 1.1); s.gone = true; }
+      else if (solid(tile(Math.floor(s.x), Math.floor(s.y))) || s.y < -3 || s.t > 6) { if (s.boom) badBoom(s.x, s.y + 0.2, "kiki", 0.75); s.gone = true; }
+      else if (!p.dead && Math.abs(p.x - s.x) < p.c.w / 2 + s.r && s.y > p.y - s.r && s.y < p.y + p.hh + s.r) {
+        if (s.boom) badBoom(s.x, s.y, "kiki", 0.75); else hurt(p, s.x);
+        s.gone = true;
+      }
+      if (s.gone) { w.group.remove(s.m); s.m.geometry.dispose(); }
+    }
+    if (w.eshots.length > 24) w.eshots = w.eshots.filter(s => !s.gone);
+    // explosions: Kiki's bomb, Guards' bomb, Hanabii's burst -- they hurt while they flare
+    for (const b of w.booms) {
+      if (b.gone) continue;
+      b.t += dt;
+      const n = badFrames(b.key, "boom").length;
+      if (b.t * 14 >= n) { b.gone = true; w.group.remove(b.m); b.m.geometry.dispose(); continue; }
+      if (b.t < 0.25 && !p.dead && Math.hypot(p.x - b.x, p.y + p.hh / 2 - b.y) < b.r + 0.3) hurt(p, b.x);
+    }
+    if (w.booms.length > 16) w.booms = w.booms.filter(b => !b.gone);
+  }
+  function badBoom(x, y, key, r) {
+    const m = badCard(); m.castShadow = false; world.group.add(m);
+    world.booms.push({ key, x, y, r, t: 0, m });
+    SFX.boom();
+  }
+  /* Which frame a badnik shows, from what it is doing. */
+  function drawBadnik(e) {
+    const B = e.B, k = e.key, T = world.t;
+    let anim = "walk", i = Math.floor(e.at * 8);
+    switch (B.act) {
+      case "fly": case "guardfly": anim = e.mode === "shoot" ? "shoot" : e.mode === "guard" ? "guard" : "fly"; i = Math.floor(e.at * (e.mode === "shoot" ? 6 : 10)); break;
+      case "guardshoot": anim = e.mode === "shoot" ? "shoot" : "walk"; i = e.mode === "shoot" ? Math.min(2, Math.floor(e.t * 8)) : Math.floor(T * 12); break;
+      case "guardhover": anim = e.mode === "open" ? "open" : "guard"; i = e.mode === "open" ? Math.min(2, Math.floor(e.t * 8)) : Math.floor(T * 14); break;
+      case "walkshoot": anim = e.mode === "shoot" ? "shoot" : "walk"; i = e.mode === "shoot" ? Math.min(badFrames(k, "shoot").length - 1, Math.floor(e.t / B.dur * badFrames(k, "shoot").length)) : Math.floor(e.at * 8); break;
+      case "charge": anim = e.mode === "charge" ? "charge" : e.mode === "turn" ? "turn" : "walk"; i = Math.floor(e.at * (e.mode === "charge" ? 14 : 8)); break;
+      case "pop": anim = "pop"; i = e.mode === "up" ? Math.min(3, Math.floor(e.t * 10)) + (e.t > 1.75 ? 1 + Math.floor((e.t - 1.75) * 10) : 0) : 0; i = Math.min(i, 6); break;
+      case "tongue": anim = e.mode === "shoot" ? "shoot" : "walk"; i = e.mode === "shoot" ? Math.min(4, Math.floor(e.t * 9)) : Math.floor(e.at * 6); break;
+      case "mallet": anim = e.mode === "raise" ? "raise" : e.mode === "smash" ? "smash" : "walk"; i = 0; break;
+      case "liftoff": anim = e.mode === "fly" ? "fly" : "walk"; i = Math.floor(e.at * 10); break;
+      case "dive": anim = e.mode === "dive" ? "dive" : "fly"; i = Math.floor(e.at * 10); break;
+    }
+    setBad(e.m, k, anim, i, e.face, e.x, e.y);
+  }
+  function drawEnemyShots() {
+    const w = world;
+    for (const s of w.eshots) if (!s.gone && s.m) setBad(s.m, s.key, "shot", Math.floor(s.t * 10), sgn(s.vx) || 1, s.x, s.y - 0.2);
+    for (const b of w.booms) if (!b.gone) setBad(b.m, b.key, "boom", Math.floor(b.t * 14), 1, b.x, b.y - (b.key === "hanabii" ? 1.05 : 0.5));
+  }
+
+  // ---------------------------------------------------------------- the six places
+  /* Each stage is one runner's own ground, as Sonic Battle gives each fighter a home arena:
+     Sonic's seaside, Tails' workshop, Amy's home, Knuckles' ruins in the snow, Rouge's club,
+     Shadow's highway -- each built here as a place of its own. A theme is its sky, its light,
+     what its ground, blocks and ledges are made of, what stands in it and who lives there.
+       blocks   = tiles: stone, steel (riveted plate), books (spines on a shelf), carved
+                  (old carved stone), glass (dark tile, neon edged), concrete
+       planks   - tiles: wood, grate, shelf, rail (gold), girder
+       hurdle   h: brush, barrier, books, cairn, rope
+       tree     T: palm, windsock, plant, pillar, lamp, streetlamp
+       foes     who lives there: the badnik each of k, r, b, n, p in a stage stands for (BADNIKS)
+       far      the backdrop (buildFar) */
   const THEMES = {
-    /* green turf on white chalk, banded with flint, the sea all the way to the sky */
+    /* Sonic: green turf on white chalk, banded with flint, the sea all the way to the sky */
     cape: {
       sky: [0x2a86ec, 0xd6f0fa], fog: [0xd8eef8, 60, 320], sun: [0xfff4dc, 0.9, [10, 32, 22]], hemi: [0xffffff, 0x94b88a, 0.6],
       top: [0x52b43a, 0x60c044, 0x48a632], drip: 0x44a02e, soil: [0xe4dac2, 0xc8ba9a, 0xd6c8aa], deep: 0xb2a282,
-      block: [0xb4bec8, 0xa0aab6], plank: 0xc8965a, water: 0x1ca8e0, crack: 0xa8a49a, back: 0x8a7e68,
-      tufts: [0x6cc84a, 0x7ad254], flowers: [0xffffff, 0xf2d040, 0x8aa8f0, 0xf08ac0], rail: false,
-      roller: "coconut", bird: "gull", walker: "crab", far: "cape", music: "career" },
-    hills: {
-      sky: [0x5aa6e6, 0xdcefF4], fog: [0xd8eaf0, 45, 160], sun: [0xfff2da, 0.85, [14, 30, 20]], hemi: [0xfff8ea, 0x9ab07a, 0.62],
-      top: [0x5fae3e, 0x6cbf47, 0x52a038], drip: 0x4f9a36, soil: [0x8a5a36, 0x7a4e2e, 0x9a6a42], deep: 0x5e3c24,
-      block: [0xe8e0cc, 0xd8cdb2], plank: 0xb07a44, water: 0x3a9ad8, crack: 0x8e8c94, back: 0x4a3424,
-      tufts: [0x7ccf52, 0x8ad35a], flowers: [0xffffff, 0xf2d040, 0xf08ac0], rail: true,
-      roller: "hay", bird: "crow", walker: "beetle", far: "hills", music: "track" },
-    river: {
-      sky: [0x4a9ae0, 0xe6f2f2], fog: [0xd6e8e6, 40, 150], sun: [0xfff6e2, 0.8, [10, 30, 22]], hemi: [0xf6fff0, 0x7a9a6a, 0.66],
-      top: [0x4f9e3a, 0x5aaa42, 0x468e34], drip: 0x3f8a30, soil: [0x6e5038, 0x7a5a40, 0x625040], deep: 0x46362a,
-      block: [0x9a9a96, 0x86888a], plank: 0x8a5a30, water: 0x2f8ac8, crack: 0x7a7a80, back: 0x3a3028,
-      tufts: [0x6cbf47, 0x5aaa42], flowers: [0xffffff, 0x9ad0f0], rail: false,
-      roller: "log", bird: "crow", walker: "beetle", far: "forest", music: "friends" },
-    quarry: {
-      sky: [0x3a5aa0, 0xf2a868], fog: [0xe8b080, 40, 150], sun: [0xffc890, 0.95, [-18, 18, 20]], hemi: [0xffe0c0, 0x8a5a40, 0.6],
-      top: [0xb07a4a, 0xbc8654, 0xa46e40], drip: 0x9a6038, soil: [0xa8502e, 0xc06a3a, 0x8a3e24], deep: 0x6a2e1a,
-      block: [0xd8a86a, 0xc8945a], plank: 0x9a6a3a, water: 0x5a8a7a, crack: 0x8a6a50, back: 0x4a2418,
-      tufts: [0xc89a5a], flowers: [], rail: false,
-      roller: "boulder", bird: "crow", walker: "beetle", far: "mesas", music: "idea", tint: 0xffe4c8 },
-    beach: {
-      sky: [0x3a9cf0, 0xe8f6fa], fog: [0xdff0f6, 50, 170], sun: [0xfff6e0, 0.95, [8, 34, 22]], hemi: [0xffffff, 0xd8c890, 0.62],
-      top: [0xf0dca0, 0xe8d290, 0xf4e4b0], drip: 0xe0cc8a, soil: [0xdcc488, 0xd0b878, 0xe4cc90], deep: 0xb89a62,
-      block: [0xc89a5a, 0xb88a4a], plank: 0xe8dcc0, water: 0x22aed8, crack: 0xb8a888, back: 0x9a8058,
-      tufts: [0x8ac860], flowers: [0xf6f2e8], rail: false,
-      roller: "ball", bird: "gull", walker: "crab", far: "sea", music: "friends" },
-    snow: {
-      sky: [0x8aa8cc, 0xe8eef4], fog: [0xe2eaf2, 30, 120], sun: [0xeef2ff, 0.55, [12, 26, 24]], hemi: [0xf4f8ff, 0xb8c4d0, 0.78],
-      top: [0xf4f8fc, 0xe6eef6, 0xfafcff], drip: 0xe0eaf4, soil: [0x6a5a5a, 0x5e5050, 0x746262], deep: 0x463a3a,
-      block: [0xd8e0e8, 0xc6d0dc], plank: 0x8a6a4a, water: 0x4a7aa8, crack: 0x9aa4b0, back: 0x3a3236,
-      tufts: [0xffffff], flowers: [], rail: false, snowfall: true,
-      roller: "snowball", bird: "crow", walker: "penguin", far: "snow", music: "night", tint: 0xeef2fa },
-    night: {
-      sky: [0x070c22, 0x24305a], fog: [0x1a2240, 40, 160], sun: [0xc8d4ff, 0.45, [6, 30, 24]], hemi: [0xb8c8ff, 0x2a2a3a, 0.5],
-      top: [0x3a8a3a, 0x449a42, 0x347e34], drip: 0x2f7430, soil: [0x5a4030, 0x4e382a, 0x664834], deep: 0x2e2018,
-      block: [0x8a8a96, 0x7a7a86], plank: 0xc8c8d0, water: 0x2a5a8a, crack: 0x6a6a74, back: 0x22181a,
-      tufts: [0x5ab84a], flowers: [], rail: true, stars: true,
-      roller: "hay", bird: "owl", walker: "beetle", far: "stands", music: "finale", tint: 0xb8c0d8 },
+      block: [0xb4bec8, 0xa0aab6], blocks: "stone", plank: 0xc8965a, planks: "wood", water: 0x1ca8e0, crack: 0xa8a49a, back: 0x8a7e68,
+      tufts: [0x6cc84a, 0x7ad254], flowers: [0xffffff, 0xf2d040, 0x8aa8f0, 0xf08ac0], hurdle: "brush", tree: "palm",
+      foes: { k: "gamigami", r: "rhinotank", b: "stinger", n: "kiki" }, far: "cape", music: "career" },
+    /* Tails: the airfield grass, the workshop's riveted steel and grating, belts and fans */
+    works: {
+      sky: [0x3f8ee6, 0xdcecf6], fog: [0xd8e6f0, 55, 300], sun: [0xfff2dc, 0.9, [12, 30, 22]], hemi: [0xffffff, 0x9ab08a, 0.62],
+      top: [0x5aac3c, 0x66b846, 0x50a034], drip: 0x4c9a34, soil: [0x8a6a4a, 0x7a5c3e, 0x947456], deep: 0x5a4632,
+      block: [0xa8b4c0, 0x909cab], blocks: "steel", plank: 0x7a8694, planks: "grate", water: 0x2f8ac8, crack: 0x9a9a9e, back: 0x7a8494, indoors: 14,
+      tufts: [0x72c44c, 0x80cc56], flowers: [0xffffff, 0xf2d040], hurdle: "barrier", tree: "windsock",
+      foes: { k: "star", r: "senbon", b: "oct", n: "mogu" }, far: "works", music: "track" },
+    /* Amy: her home, from the floor up -- a pink rug on the floorboards, shelves, books, cushions */
+    parlour: {
+      sky: [0xf4bcd2, 0xfde6ef], fog: [0xfbe2ec, 50, 230], sun: [0xfff0e2, 0.8, [8, 30, 26]], hemi: [0xfff6fa, 0xd8a8bc, 0.72],
+      top: [0xf07aa8, 0xf48ab4, 0xe86c9c], drip: 0xfff4f8, soil: [0xd6a46e, 0xc8925c, 0xe0b07a], deep: 0x9a6a40,
+      block: [0xf6efe6, 0xe8ddd0], blocks: "books", plank: 0xf6efe6, planks: "shelf", water: 0x7ccaf0, crack: 0xf0c890, back: 0xc88aa0,
+      tufts: [0xf8a8c8, 0xffffff], flowers: [0xff4a7a, 0xffd23a, 0x8ad0f8], hurdle: "books", tree: "plant", indoor: true,
+      foes: { k: "bubu", r: "gaogao", n: "guards", p: "pikopiko" }, far: "parlour", music: "friends", balloon: [0xff5a8a, 0xff8ab0] },
+    /* Knuckles: snow on black volcanic rock, the old carved stone of the shrines */
+    peak: {
+      sky: [0x5a80c0, 0xe2ecf6], fog: [0xdce6f2, 45, 230], sun: [0xfff6ea, 0.72, [14, 28, 22]], hemi: [0xf4f8ff, 0xa8b4c4, 0.74],
+      top: [0xf4f8fc, 0xe6eef6, 0xfafcff], drip: 0xe0eaf4, soil: [0x5a5254, 0x4e4648, 0x665c5c], deep: 0x3a3234,
+      block: [0xbcb29c, 0xa89e88], blocks: "carved", plank: 0x8a6a4a, planks: "wood", water: 0x3a7ab0, crack: 0x9a948a, back: 0x2e2628,
+      tufts: [0xffffff], flowers: [], snowfall: true, hurdle: "cairn", tree: "pillar",
+      foes: { k: "pen", r: "leon", b: "wamu", n: "yukimaru" }, far: "peak", music: "night", tint: 0xeef2fa },
+    /* Rouge: red carpet on black marble, dark glass edged in neon, gold rails, after midnight */
+    club: {
+      sky: [0x0a0618, 0x2c1444], fog: [0x1c0e30, 40, 210], sun: [0xe4d0ff, 0.6, [6, 30, 24]], hemi: [0xe0c8ff, 0x3a2448, 0.7],
+      top: [0xb02e52, 0xbc3a5e, 0xa02448], drip: 0xe8c050, soil: [0x2c2632, 0x362e3c, 0x26202c], deep: 0x1a161e,
+      block: [0x4a2a6a, 0x5a3480], blocks: "glass", plank: 0xe8c050, planks: "rail", water: 0x2a8ad8, crack: 0x8a8a9a, back: 0x3a2850, indoors: 6,
+      tufts: [], flowers: [], stars: true, hurdle: "rope", tree: "lamp",
+      foes: { k: "pierrot", r: "mirror", b: "slot", n: "hanabii" }, far: "club", music: "idea", tint: 0xe2daf4 },
+    /* Shadow: asphalt and concrete, red girders, the sun going down behind the city */
+    expressway: {
+      sky: [0x34265a, 0xf4925a], fog: [0xe8946a, 55, 280], sun: [0xffb478, 1.0, [-20, 16, 20]], hemi: [0xffdcc0, 0x5a4048, 0.58],
+      top: [0x3c3c44, 0x44444c, 0x36363e], drip: 0x8a8a92, soil: [0x9a948e, 0x8a847e, 0xa49e98], deep: 0x6a6460,
+      block: [0xb0aaa2, 0x9c968e], blocks: "concrete", plank: 0xc03a2e, planks: "girder", water: 0x3a6a8a, crack: 0x8a847e, back: 0x2a2428,
+      tufts: [], flowers: [], lanes: true, hurdle: "barrier", tree: "streetlamp",
+      foes: { k: "akatento", r: "aotento", b: "condor" }, far: "city", music: "finale", tint: 0xffe6d4 },
   };
 
   // ---------------------------------------------------------------- reading a stage
-  const H = 16;
-  const SOLIDS = "#=XBImC";
-  const ENTS = "PGKc*JHS>rbkhMVUOT^";
+  /* A stage is as tall as its chunks (all of a stage's the same): the stages are 32 rows, room
+     for a low road, a high one and the sky over both. H is the stage being run. */
+  let H = 32;
+  const SOLIDS = "#=XBImC{}";
+  const ENTS = "PGKc*JHS>rbknphMVUOT^Qo";
   function parse(def) {
-    const rows = Array.from({ length: H }, () => []);
-    for (const raw of def.chunks) {
+    const chunks = def.chunks.map(raw => {
       const lines = raw.split("\n");
       while (lines.length && !lines[0].trim()) lines.shift();
       while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+      return lines;
+    });
+    const H = chunks[0].length;
+    const rows = Array.from({ length: H }, () => []);
+    for (const lines of chunks) {
       if (lines.length !== H) throw new Error(def.id + ": a chunk has " + lines.length + " rows, not " + H);
       const w = Math.max(...lines.map(l => l.length));
       lines.forEach((l, r) => { for (let i = 0; i < w; i++) rows[r].push(!l[i] || l[i] === " " ? "." : l[i]); });
@@ -359,7 +687,7 @@
       if (e.t !== "^" && (row[e.i - 1] === "~" || row[e.i + 1] === "~" || (grid[e.j + 1] && grid[e.j + 1][e.i] === "~"))) row[e.i] = "~";
     }
     for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (grid[j][i].length > 1) grid[j][i] = ".";
-    return { W, grid, ents };
+    return { W, H, grid, ents };
   }
 
   // ---------------------------------------------------------------- drawing in voxels
@@ -379,6 +707,77 @@
   }
   const jit = (rnd, c, a) => mulC(c, 1 - a + rnd() * a * 2);
   const pick = (rnd, a) => a[Math.floor(rnd() * a.length) % a.length];
+
+  /* A block (=) in the theme's own make. `open`: nothing stands on it. */
+  const hash2 = (i, j) => { let h = (i * 374761393 + j * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
+  const BOOKS = [0xe8506a, 0x5a8ee0, 0xf2c040, 0x6ac06a, 0xa86ae0, 0xf08a40, 0x40b8c0, 0xf6f2e8];
+  /* old glyphs cut in the shrine stone, 4x4, one bit a grain */
+  const GLYPHS = [0x6996, 0xf99f, 0x4e4a, 0x9669, 0x2772, 0xa5a5, 0x7557, 0x0f60];
+  function blockCol(T, i, j, sx, sy, z, rnd, open) {
+    const B = T.block, front = z === ZF;
+    switch (T.blocks) {
+      case "steel": {                                    // riveted plate; a hazard stripe along a top that is stood on
+        if (open && sy === 3 && front) return ((i * 4 + sx) & 3) < 2 ? 0xf2c030 : 0x2a2a30;
+        if (front && (sx === 0 || sx === 3) && (sy === 0 || sy === 3)) return 0x5a6470;
+        return sx === 0 || sy === 0 ? mulC(B[1], 0.9) : jit(rnd, B[0], 0.03);
+      }
+      case "books": {                                    // rows of books on end, two metres tall, a spine every two grains
+        const k = hash2(i * 2 + (sx >> 1), j >> 1), spine = BOOKS[k % BOOKS.length], topRow = (j & 1) && sy === 3;
+        if (topRow && !front) return (k & 4) ? 0xf6efe0 : 0xefe4cc;   // the pages, along the top of each row
+        if (topRow) return mulC(spine, 0.78);
+        if (front && !(j & 1) && sy === 1 && (k & 8)) return 0xe8c050;  // gold lettering
+        return jit(rnd, spine, 0.03);
+      }
+      case "carved": {                                   // shrine stone, a glyph cut in the face, snow on top
+        if (open && sy === 3) return jit(rnd, 0xf4f8fc, 0.02);
+        if (front && (GLYPHS[hash2(i, j) % GLYPHS.length] >> (sy * 4 + sx)) & 1) return (hash2(j, i) & 3) === 0 ? 0x4ab87a : mulC(B[1], 0.62);
+        return sx === 0 || sy === 0 ? mulC(B[1], 0.86) : jit(rnd, pick(rnd, B), 0.04);
+      }
+      case "glass": {                                    // dark tile, neon round the face
+        if (front && (sx === 0 || sy === 0 || sx === 3 || sy === 3)) return (i + j) & 1 ? 0xff5ac8 : 0x7ad8ff;
+        return jit(rnd, pick(rnd, B), 0.04);
+      }
+      case "concrete": {
+        if (sy === 0 || (front && sx === 0)) return mulC(B[1], 0.82);
+        if (rnd() < 0.03) return 0x8a7462;
+        return jit(rnd, pick(rnd, B), 0.04);
+      }
+      default: {
+        const edge = sx === 0 || sy === 0 || (front && (sx === 3 || sy === 3));
+        return edge ? mulC(B[1], 0.9) : jit(rnd, pick(rnd, B), 0.05);
+      }
+    }
+  }
+  /* A plank (-), one way up, in the theme's make. */
+  function plankVox(v, T, i, lx, ly, rnd) {
+    const P = T.plank;
+    switch (T.planks) {
+      case "grate":                                      // steel grating: see through it
+        for (let sx = 0; sx < 4; sx++) for (let z = ZB; z <= ZF; z++)
+          if (sx === 0 || z === ZB || z === ZF || ((sx + z) & 1) === 0) v.set(lx + sx, ly + 3, z, jit(rnd, P, 0.04));
+        if (i % 3 === 0) for (const z of [ZB, ZF]) v.box(lx + 1, ly + 1, z, lx + 1, ly + 2, z, mulC(P, 0.7));
+        return;
+      case "shelf":                                      // a white shelf on brass brackets
+        for (let sx = 0; sx < 4; sx++) for (let z = ZB; z <= ZF; z++) v.set(lx + sx, ly + 3, z, jit(rnd, z === ZF ? mulC(P, 0.92) : P, 0.02));
+        if (i % 3 === 0) for (const z of [ZB + 1, ZF - 1]) { v.set(lx + 1, ly + 2, z, 0xd8a840); v.set(lx + 1, ly + 1, z, 0xd8a840); }
+        return;
+      case "rail":                                       // a gold ledge, its edge lit
+        for (let sx = 0; sx < 4; sx++) for (let z = ZB; z <= ZF; z++) v.set(lx + sx, ly + 3, z, z === ZF ? 0xfff0a0 : jit(rnd, P, 0.04));
+        for (let sx = 0; sx < 4; sx++) v.set(lx + sx, ly + 2, ZF, mulC(P, 0.7));
+        return;
+      case "girder":                                     // a red I-beam: two flanges and the web
+        for (let sx = 0; sx < 4; sx++) {
+          for (let z = ZB; z <= ZF; z++) v.set(lx + sx, ly + 3, z, jit(rnd, P, 0.04));
+          for (let z = ZB; z <= ZF; z += 1) if (z === ZB || z === ZF || z === -1) v.set(lx + sx, ly + 1, z, mulC(P, 0.8));
+          v.set(lx + sx, ly + 2, -1, mulC(P, 0.7));
+        }
+        v.set(lx + 1, ly + 3, ZF, 0x5a1a14); v.set(lx + 3, ly + 3, ZF, 0x5a1a14);
+        return;
+      default:
+        for (let sx = 0; sx < 4; sx++) for (let z = ZB; z <= ZF; z++) v.set(lx + sx, ly + 3, z, jit(rnd, ((z & 3) === 0) ? mulC(P, 0.8) : P, 0.05));
+        if (i % 3 === 0) for (const z of [ZB + 1, ZF - 1]) v.set(lx + 1, ly + 2, z, mulC(P, 0.75));
+    }
+  }
 
   /** The ground, a chunk of sixteen tiles at a time. */
   function buildChunk(S, T, i0, i1) {
@@ -400,18 +799,20 @@
         const surface = c !== "=" && c !== "I" && open;
         /* buried ground shows only its front, unless a side of it faces open air */
         const buried = !open && solidish(g(i - 1, j)) && solidish(g(i + 1, j)) && c === "#";
-        const z0 = surface ? ZDEEP : buried ? ZF - 2 : ZB;
+        const z0 = surface ? ZDEEP : buried ? ZF - 1 : ZB;
+        /* the top of a stretch of ground (or a block) with more under it and on both sides: only
+           its top layer runs back; the rest is never seen but from the front */
+        const thin = (c === "#" || c === "=") && solidish(g(i, j - 1)) && solidish(g(i - 1, j)) && solidish(g(i + 1, j));
         // how deep this tile is under the surface, for the soil's bands
         let depth = 0; while (depth < 5 && solidish(g(i, j + depth + 1))) depth++;
         for (let sx = 0; sx < 4; sx++) for (let sy = 0; sy < 4; sy++) {
           if (c === "/" && sy > sx) continue;
           if (c === "\\" && sy > 3 - sx) continue;
           const topHere = (c === "/" ? sy === sx : c === "\\" ? sy === 3 - sx : sy === 3);
-          for (let z = (c === "/" || c === "\\") ? ZDEEP : z0; z <= ZF; z++) {
+          for (let z = (c === "/" || c === "\\") ? ZDEEP : thin && sy < 3 ? ZF - 2 : z0; z <= ZF; z++) {
             let col;
             if (c === "=") {
-              const edge = sx === 0 || sy === 0 || (z === ZF && (sx === 3 || sy === 3));
-              col = edge ? mulC(T.block[1], 0.9) : jit(rnd, pick(rnd, T.block), 0.05);
+              col = blockCol(T, i, j, sx, sy, z, rnd, open);
             } else if (c === "I") {
               col = ((sx + sy + z) % 5 === 0) ? 0xf4fcff : jit(rnd, 0xbfe2f2, 0.04);
             } else if (c === "m" && topHere && open) {
@@ -420,6 +821,8 @@
               col = jit(rnd, 0x6a4a30, 0.06);
             } else if ((topHere && (open || c !== "#")) && !wet) {
               col = jit(rnd, pick(rnd, T.top), 0.06);
+              /* a road: white dashes down the middle, a solid line along the far side */
+              if (T.lanes && (z === -5 && ((i * 4 + sx) & 7) < 4 || z === ZDEEP + 2)) col = z === -5 ? 0xf2f0e8 : 0xe8c040;
             } else if (z === ZF && sy >= 2 && open && depth === 0 && !wet && rnd() < 0.55) {
               col = T.drip;                                          // the grass hangs over the front
             } else {
@@ -438,16 +841,19 @@
           v.set(lx + sx, ly + 4, z, fl ? pick(rnd, T.flowers) : pick(rnd, T.tufts));
           if (!fl && rnd() < 0.4) v.set(lx + sx, ly + 5, z, pick(rnd, T.tufts));
         }
-        // the white inside rail of a racecourse, along the back of the ground
-        if (T.rail && open && c === "#") {
-          for (let sx = 0; sx < 4; sx++) v.set(lx + sx, ly + 8, ZDEEP + 1, 0xf6f6f2);
-          if (i % 2 === 0) for (let y = 4; y < 8; y++) v.set(lx, ly + y, ZDEEP + 1, 0xf0f0ec);
-        }
         continue;
       }
-      if (c === "-") {
-        for (let sx = 0; sx < 4; sx++) for (let z = ZB; z <= ZF; z++) v.set(lx + sx, ly + 3, z, jit(rnd, ((z & 3) === 0) ? mulC(T.plank, 0.8) : T.plank, 0.05));
-        if (i % 3 === 0) for (const z of [ZB + 1, ZF - 1]) v.set(lx + 1, ly + 2, z, mulC(T.plank, 0.75));
+      if (c === "-") { plankVox(v, T, i, lx, ly, rnd); continue; }
+      if (c === "{" || c === "}") {                                  // a conveyor belt: chevrons the way it runs
+        const d = c === "}" ? 1 : -1;
+        for (let sx = 0; sx < 4; sx++) for (let sy = 0; sy < 4; sy++) for (let z = ZB; z <= ZF; z++) {
+          let col;
+          if (sy === 3) col = (((i * 4 + sx) * -d + Math.abs(z + 1)) % 6 + 6) % 6 === 0 ? 0xf2c030 : jit(rnd, 0x2c2c34, 0.05);
+          else if (sy === 0) col = 0x5a6470;
+          else if (z === ZF || z === ZB) col = (sx === 1 || sx === 2) && (sy === 1 || sy === 2) ? 0x3a3e46 : 0x8a96a4;
+          else col = 0x6a7480;
+          v.set(lx + sx, ly + sy, z, col);
+        }
         continue;
       }
       /* a cave: an empty tile with ground just above it (or a roof two thick) gets a back
@@ -458,11 +864,16 @@
           const r = g(i, j + k);
           if (SOLIDS.indexOf(r) >= 0) { roofed = r === "#" || r === "X" || SOLIDS.indexOf(g(i, j + k + 1)) >= 0; break; }
         }
+        /* indoors (the hangar, a vault): anything under a roof of blocks has a wall behind it */
+        if (!roofed && T.indoors) for (let k = 1; k <= T.indoors; k++) if ("=X".indexOf(g(i, j + k)) >= 0 && "=X".indexOf(g(i, j + k + 1)) >= 0) { roofed = true; break; }
         if (roofed) for (let sx = 0; sx < 4; sx++) for (let sy = 0; sy < 4; sy++) v.set(lx + sx, ly + sy, ZB, jit(rnd, T.back, 0.08));
       }
     }
     const out = [];
-    if (v.m.size) { const m = new THREE.Mesh(meshVox(v, GR), materials().vox); m.position.x = i0; m.receiveShadow = true; m.castShadow = true; out.push(m); }
+    /* faces nobody sees go: every back face (the camera is always in front), and an underside
+       with ground under it (the hollow inside a stretch of ground) */
+    const keep = (x, y, z, nx, ny, nz) => nz >= 0 && !(ny < 0 && "#=Im{}".indexOf(g(i0 + (x >> 2), (y - 1) >> 2)) >= 0);   // never over something that can break
+    if (v.m.size) { const m = new THREE.Mesh(meshVox(v, GR, keep), materials().vox); m.position.x = i0; m.receiveShadow = true; m.castShadow = true; out.push(m); }
     if (w.m.size) { const m = new THREE.Mesh(meshVox(w, GR), materials().water); m.position.x = i0; m.renderOrder = 2; out.push(m); }
     return out;
   }
@@ -569,15 +980,7 @@
         v.box(-1, 61, 0, 1, 61, 2, 0xf6f6f2);
         for (let z = -24; z <= 18; z += 2) v.box(-1, 0, z, 1, 0, z, 0xffffff);   // the line across the ground
       }); break;
-      case "hurdle": g = vox(v => {                    // a brush hurdle: green brush in a white frame
-        v.box(-3, 0, -18, 3, 1, 18, 0xf6f6f2);
-        for (let z = -16; z <= 16; z++) for (let y = 2; y < 15; y++) for (let x = -2; x <= 2; x++) {
-          if (y > 12 && ((z + x * 3) & 3) === 0) continue;
-          v.set(x, y, z, ((x + y + z) % 4 === 0) ? 0x2a6a2a : ((y * 3 + z) % 5 === 0 ? 0x4a9a3a : 0x3a7e32));
-        }
-        for (const z of [-18, 18]) v.box(-3, 0, z, 3, 15, z, 0xf6f6f2);
-        v.box(-3, 15, -18, 3, 15, 18, 0xf6f6f2);
-      }); break;
+      case "hurdle": g = vox(v => hurdleVox(v, T ? T.hurdle : "brush")); break;
       case "vent": g = vox(v => { v.box(-5, 0, -5, 4, 2, 4, 0x6a7078); v.box(-3, 2, -3, 2, 3, 2, 0x2a2e34); }); break;
       case "bubble": g = vox(v => {
         for (let x = -4; x <= 4; x++) for (let y = -4; y <= 4; y++) for (let z = -4; z <= 4; z++) {
@@ -585,94 +988,145 @@
           if (d < 4.4 && d > 3.2) v.set(x, y, z, (x < -1 && y > 1) ? 0xffffff : 0xbfeaff);
         }
       }); break;
-      case "tree": g = vox(v => {
-        v.box(-2, 0, -2, 1, 26, 1, 0x7a4e2e);
-        const L = T.id === "snow" ? [0x2a5a3a, 0xf4f8fc] : T.id === "quarry" ? [0x6a7a3a, 0x7a8a42] : [0x3f8a34, 0x5aaa42];
-        if (T.id === "snow") {
-          for (let y = 10; y < 44; y++) { const r = Math.round((44 - y) / 3); v.box(-r, y, -r, r, y, r, y % 6 < 2 ? L[1] : L[0]); }
-        } else if (T.id === "beach") {
-          for (let k = 0; k < 5; k++) { const a = k / 5 * PI * 2; for (let s = 0; s < 12; s++) v.set(Math.round(Math.cos(a) * s), 34 - Math.round(s * s / 18), Math.round(Math.sin(a) * s), s % 3 ? 0x4aa83a : 0x3a8a2a); }
-          v.box(-2, 26, -2, 1, 34, 1, 0x9a6a3a);
-        } else if (T.id === "cape") {
-          /* a palm bent by the sea wind: the trunk ringed and leaning, seven fronds and coconuts */
-          v.m.clear();
-          let lx = 0;
-          for (let y = 0; y < 38; y++) { lx = Math.round(y * y / 150); v.box(lx - 1, y, -1, lx + 1, y, 1, y % 4 === 0 ? 0x7a5a3a : 0x9a7448); }
-          for (let k = 0; k < 7; k++) {
-            const a = k / 7 * PI * 2 + 0.3;
-            for (let s = 1; s < 14; s++) {
-              const fx = lx + Math.round(Math.cos(a) * s), fz = Math.round(Math.sin(a) * s), fy = 39 - Math.round(s * s / 14);
-              v.set(fx, fy, fz, s % 4 === 0 ? 0x2f8a2a : 0x4cae3a);
-              if (s > 2 && s < 11) v.set(fx, fy - 1, fz, 0x3a9a30);
-            }
+      case "balloon": g = vox(v => {                   // a balloon on a string: a heart in Amy's home, round elsewhere
+        const C = (T && T.balloon) || [0xff5a5a, 0xffb0a8], heart = T && T.id === "parlour";
+        for (let x = -8; x <= 8; x++) for (let y = -8; y <= 9; y++) for (let z = -4; z <= 4; z++) {
+          let inside;
+          if (heart) { const X = x / 7.5, Y = (y + 1) / 7.5, k = X * X + Y * Y - 1; inside = k * k * k - X * X * Y * Y * Y <= 0 && Math.abs(z) <= 4 - Math.abs(x) / 4; }
+          else inside = Math.hypot(x, y * 0.9, z * 1.6) <= 7;
+          if (inside) v.set(x, y, z, (x < -2 && y > 2 && z > 1) ? C[1] : C[0]);
+        }
+        v.box(0, -10, 0, 0, -9, 0, mulC(C[0], 0.7));
+        for (let y = -20; y < -10; y++) v.set(Math.round(Math.sin(y * 0.6)), y, 0, 0xf6f6f2);
+      }); break;
+      case "bumper": g = vox(v => {                    // a round bumper on the wall behind: ringed, a star in the middle
+        const ring = T && T.id === "club" ? 0xff5ac8 : 0xd8303a;
+        for (let x = -10; x <= 10; x++) for (let y = -10; y <= 10; y++) {
+          const d = Math.hypot(x, y); if (d > 10.4) continue;
+          const a = Math.atan2(y, x), star = d < 6.5 * (0.55 + 0.45 * Math.abs(Math.cos(a * 2.5)));
+          for (let z = -3; z <= (d < 8 ? 2 : 1); z++) v.set(x, y, z, d > 8 ? ring : d > 7 ? 0xf6f6f2 : star ? 0xf2c030 : 0x3a2a5a);
+        }
+      }); break;
+      case "tree": g = vox(v => treeVox(v, T), 1 / 12); break;
+    }
+    return (PROPS[key] = g);
+  }
+  /* h: something across the course to jump, or smash. */
+  const HURDLE_C = { brush: [0x3a7e32, 0x2a6a2a, 0xf6f6f2], barrier: [0xd8303a, 0xf6f6f2, 0x8a8a92], books: BOOKS.slice(0, 4),
+                     cairn: [0x8a8478, 0x6a645a, 0xf4f8fc], rope: [0xb01e3a, 0xe8c050, 0x7a1428] };
+  function hurdleVox(v, kind) {
+    switch (kind) {
+      case "barrier":                                  // a road barrier: striped boards on white trestles, a lamp at each end
+        for (const z of [-17, 16]) { v.box(-2, 0, z, 2, 1, z + 1, 0x8a8a92); v.box(-1, 2, z, 0, 15, z + 1, 0xf0f0ea); v.box(-1, 16, z, 0, 17, z + 1, 0xf2b020); }
+        for (const [y0, y1] of [[4, 7], [10, 13]]) for (let z = -18; z <= 18; z++) v.box(-1, y0, z, 0, y1, z, ((z + 18) >> 2) & 1 ? 0xf6f6f2 : 0xd8303a);
+        return;
+      case "books": {                                  // books standing in a row, as on a shelf
+        let z = -18, k = 0;
+        while (z < 18) {
+          const t = 2 + (k % 3 === 0 ? 1 : 0), h = 11 + ((k * 7) % 5), c = BOOKS[(k * 5) % BOOKS.length];
+          v.box(-3, 0, z, 3, h, z + t - 1, c); v.box(-2, h, z, 2, h, z + t - 1, 0xf6efe0); v.box(3, 2, z, 3, 2, z + t - 1, 0xe8c050);
+          z += t; k++;
+        }
+        return;
+      }
+      case "cairn":                                    // stones piled up, snow on the top
+        for (let y = 0; y < 15; y++) {
+          const layer = Math.floor(y / 3), rz = 18 - layer * 2, rx = 3 - (layer > 2 ? 1 : 0);
+          for (let z = -rz; z <= rz; z++) for (let x = -rx; x <= rx; x++) {
+            const edge = y % 3 === 2 && (Math.abs(z) + layer * 3) % 7 === 0;
+            v.set(x, y, z, y >= 13 ? 0xf4f8fc : edge ? 0x5a544a : ((x + z + y) % 5 === 0 ? 0x9a9488 : 0x7e786c));
           }
-          v.box(lx - 1, 36, -1, lx + 1, 37, 1, 0x6a4a2a); v.box(lx - 2, 34, 1, lx - 1, 35, 2, 0x8a5a2a); v.box(lx + 1, 34, -2, lx + 2, 35, -1, 0x8a5a2a);
+        }
+        return;
+      case "rope":                                     // a velvet rope between brass posts
+        for (const z of [-17, 16]) { v.box(-2, 0, z - 1, 2, 1, z + 2, 0xc8a040); v.box(-1, 2, z, 0, 15, z + 1, 0xe8c050); v.box(-1, 16, z, 0, 17, z + 1, 0xfff0a0); }
+        for (let z = -16; z <= 15; z++) { const y = Math.round(13 - 4 * (1 - (z / 16) * (z / 16))); v.box(-1, y - 1, z, 0, y, z, 0xb01e3a); }
+        return;
+      default:                                         // a brush hurdle: green brush in a white frame
+        v.box(-3, 0, -18, 3, 1, 18, 0xf6f6f2);
+        for (let z = -16; z <= 16; z++) for (let y = 2; y < 15; y++) for (let x = -2; x <= 2; x++) {
+          if (y > 12 && ((z + x * 3) & 3) === 0) continue;
+          v.set(x, y, z, ((x + y + z) % 4 === 0) ? 0x2a6a2a : ((y * 3 + z) % 5 === 0 ? 0x4a9a3a : 0x3a7e32));
+        }
+        for (const z of [-18, 18]) v.box(-3, 0, z, 3, 15, z, 0xf6f6f2);
+        v.box(-3, 15, -18, 3, 15, 18, 0xf6f6f2);
+    }
+  }
+  /* T: what stands along the back of the course, at a twelfth of a metre. */
+  function treeVox(v, T) {
+    switch (T.tree) {
+      case "windsock": {                               // a windsock on its mast, blown out by the sea breeze
+        v.box(-3, 0, -3, 2, 1, 2, 0x8a8a92);
+        v.box(-1, 2, -1, 0, 44, 0, 0xe8e8e2);
+        v.box(-2, 42, -2, 1, 43, 1, 0x6a6a72);
+        for (let s = 0; s < 18; s++) {
+          const r = 3.6 - s * 0.13, cy = 41 - s * 0.12, col = Math.floor(s / 4) % 2 ? 0xf6f6f2 : 0xf08a24;
+          for (let a = 0; a < 24; a++) { const t = a / 24 * PI * 2; v.set(1 + s, Math.round(cy + Math.sin(t) * r), Math.round(Math.cos(t) * r), col); }
+        }
+        return;
+      }
+      case "plant": {                                  // a pot of tulips on the floor
+        for (let y = 0; y < 13; y++) { const r = 6 + Math.floor(y / 5); for (let x = -r; x <= r; x++) for (let z = -r; z <= r; z++) if (Math.hypot(x, z) <= r) v.set(x, y, z, y === 9 || y === 10 ? 0xf4a8c4 : 0xd8784a); }
+        for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) if (Math.hypot(x, z) <= 6) v.set(x, 13, z, 0x6a4a32);
+        const F = [[-3, 30, 0, 0xff5a8a], [2, 34, -2, 0xf2c030], [4, 27, 3, 0xffffff], [-1, 37, 2, 0xe8304a], [-5, 25, -3, 0xff8ab0]];
+        for (const [fx, fy, fz, c] of F) {
+          for (let y = 14; y < fy; y++) v.set(Math.round(fx * (y - 14) / (fy - 14)), y, Math.round(fz * (y - 14) / (fy - 14)), 0x4a9a3a);
+          v.box(fx - 2, fy, fz - 2, fx + 2, fy + 4, fz + 2, c); v.box(fx - 1, fy + 5, fz - 1, fx + 1, fy + 5, fz + 1, c);
+          v.box(fx - 1, fy + 1, fz - 1, fx + 1, fy + 4, fz + 1, mulC(c, 0.85));
+        }
+        for (const s of [-1, 1]) for (let k = 0; k < 9; k++) v.box(s * (2 + k), 14 + k * 1.2 | 0, 0, s * (2 + k), 15 + k * 1.2 | 0, 1, 0x5ab84a);
+        return;
+      }
+      case "pillar": {                                 // a carved pillar of the old shrines, snow on its head
+        v.box(-6, 0, -6, 5, 3, 5, 0xa89e88);
+        for (let y = 4; y < 38; y++) for (let x = -4; x <= 3; x++) for (let z = -4; z <= 3; z++) {
+          if (x > -4 && x < 3 && z > -4 && z < 3) continue;
+          const band = y % 9 < 2, glyph = !band && z === 3 && ((x * 7 + y * 3) % 5 === 0);
+          v.set(x, y, z, band ? 0x948a74 : glyph ? 0x4ab87a : ((x + y) % 4 === 0 ? 0xb4aa94 : 0xc4baa4));
+        }
+        v.box(-6, 38, -6, 5, 41, 5, 0xa89e88); v.box(-6, 42, -6, 5, 43, 5, 0xf4f8fc); v.box(-4, 44, -4, 3, 44, 3, 0xfafcff);
+        return;
+      }
+      case "lamp": case "streetlamp": {                // a lamp: ornate on the strip, tall and plain on the road
+        if (T.tree === "lamp") {
+          v.box(-3, 0, -3, 2, 2, 2, 0x2a2430); v.box(-1, 3, -1, 0, 34, 0, 0x2a2430);
+          for (const y of [10, 22, 33]) v.box(-2, y, -2, 1, y, 1, 0xe8c050);
+          v.box(-3, 35, -3, 2, 41, 2, 0xfff2b0); v.box(-4, 42, -4, 3, 43, 3, 0x2a2430); v.box(-1, 44, -1, 0, 46, 0, 0xe8c050);
         } else {
-          for (let x = -10; x <= 10; x++) for (let y = 18; y <= 40; y++) for (let z = -10; z <= 10; z++) {
-            if (Math.hypot(x, (y - 29) * 0.95, z) > 10.5) continue;
-            v.set(x, y, z, ((x * 3 + y + z * 5) % 7 === 0) ? L[1] : L[0]);
+          v.box(-2, 0, -2, 1, 2, 1, 0x6a6a72); v.box(-1, 3, -1, 0, 56, 0, 0x8a8a92);
+          for (let x = 0; x < 12; x++) v.set(x, 56 + Math.floor(x / 4), 0, 0x8a8a92);
+          v.box(9, 57, -2, 15, 59, 1, 0x6a6a72); v.box(10, 56, -1, 14, 56, 0, 0xfff2c8);
+        }
+        return;
+      }
+      default: {                                       // a palm bent by the sea wind: the trunk ringed and leaning, seven fronds and coconuts
+        let lx = 0;
+        for (let y = 0; y < 38; y++) { lx = Math.round(y * y / 150); v.box(lx - 1, y, -1, lx + 1, y, 1, y % 4 === 0 ? 0x7a5a3a : 0x9a7448); }
+        for (let k = 0; k < 7; k++) {
+          const a = k / 7 * PI * 2 + 0.3;
+          for (let s = 1; s < 14; s++) {
+            const fx = lx + Math.round(Math.cos(a) * s), fz = Math.round(Math.sin(a) * s), fy = 39 - Math.round(s * s / 14);
+            v.set(fx, fy, fz, s % 4 === 0 ? 0x2f8a2a : 0x4cae3a);
+            if (s > 2 && s < 11) v.set(fx, fy - 1, fz, 0x3a9a30);
           }
         }
-      }, 1 / 12); break;
+        v.box(lx - 1, 36, -1, lx + 1, 37, 1, 0x6a4a2a); v.box(lx - 2, 34, 1, lx - 1, 35, 2, 0x8a5a2a); v.box(lx + 1, 34, -2, lx + 2, 35, -1, 0x8a5a2a);
+      }
     }
-    return (PROPS[key] = g);
   }
-
-  /* Who lives where: the roller (a hay bale, a log, a boulder, a beach ball, a snowball),
-     the flyer (a crow, a gull, an owl) and the walker (a beetle, a crab, a penguin). */
-  function enemyGeo(kind) {
-    const key = "enemy:" + kind;
-    if (PROPS[key]) return PROPS[key];
-    let g;
-    if (["hay", "log", "boulder", "ball", "snowball", "coconut"].includes(kind)) {
-      const C = { hay: [0xe8c060, 0xc8a040], log: [0x8a5a30, 0xc89a60], boulder: [0x9a7a62, 0x7a5a44],
-                  ball: [0xf6f6f6, 0xe8403a], snowball: [0xf6f8fc, 0xd8e4f0], coconut: [0x7a4e2c, 0x5e3a20] }[kind];
-      g = vox(v => {
-        for (let x = -7; x <= 7; x++) for (let y = -7; y <= 7; y++) for (let z = -6; z <= 6; z++) {
-          const round = kind === "hay" || kind === "log" ? Math.hypot(x, y) : Math.hypot(x, y, z);
-          if (round > 7.3) continue;
-          let c = ((x + y) & 3) === 0 ? C[1] : C[0];
-          if (kind === "log" && Math.abs(z) === 6) c = Math.round(Math.hypot(x, y)) % 3 === 0 ? 0x6a4020 : 0xc89a60;
-          if (kind === "hay" && Math.abs(z) < 2 && Math.abs(Math.hypot(x, y) - 7) < 0.8) c = 0x8a3a2a;
-          if (kind === "ball") c = (Math.atan2(y, x) * 3 / PI + 3) % 2 < 1 ? 0xf6f6f6 : (z > 0 ? 0xe8403a : 0x3a7ae0);
-          v.set(x, y, z, c);
-        }
-        if (kind === "boulder" || kind === "snowball" || kind === "coconut") { v.box(-3, 2, 6, -2, 3, 6, 0x22222a); v.box(2, 2, 6, 3, 3, 6, 0x22222a); }
-        if (kind === "coconut") { v.box(-1, -3, 6, 0, -2, 6, 0x3a2414); for (let x = -5; x <= 5; x += 2) v.set(x, 7, (x * 3) % 5, 0xa87a4a); }
-      });
-    } else if (["crow", "gull", "owl"].includes(kind)) {
-      const C = { crow: [0x26262e, 0x3a3a46, 0xf2c040], gull: [0xf6f6f6, 0xb8bcc4, 0xf2b020], owl: [0x8a6a4a, 0xc8a87a, 0xf2d040] }[kind];
-      g = {
-        body: vox(v => { v.box(-4, -3, -3, 4, 3, 3, C[0]); v.box(3, 0, -2, 7, 5, 2, C[0]); v.box(8, 2, -1, 9, 3, 0, C[2]);
-                         v.set(6, 4, 2, 0xffffff); v.set(6, 4, -3, 0xffffff); v.box(-7, -1, -2, -5, 1, 1, C[1]); }),
-        wing: vox(v => { for (let z = 0; z < 9; z++) v.box(-3 + Math.floor(z / 3), 0, z, 3 - Math.floor(z / 4), 0, z, z > 6 ? C[1] : C[0]); }),
-      };
-    } else {
-      g = vox(v => {
-        if (kind === "crab") {
-          v.box(-6, 2, -4, 5, 6, 3, 0xe0503a); v.box(-4, 7, -3, 3, 7, 2, 0xf06a50);
-          for (const z of [-6, 5]) for (let x = -5; x <= 4; x += 3) v.box(x, 0, z, x, 2, z, 0xc0402a);
-          v.box(5, 4, -6, 9, 7, -5, 0xe0503a); v.box(5, 4, 4, 9, 7, 5, 0xe0503a);
-          v.box(2, 8, -2, 2, 10, -2, 0x22222a); v.box(2, 8, 1, 2, 10, 1, 0x22222a);
-        } else if (kind === "penguin") {
-          v.box(-4, 0, -4, 3, 13, 3, 0x22222a); v.box(-1, 1, 3, 3, 11, 3, 0xf6f6f6); v.box(3, 1, -3, 3, 11, 2, 0xf6f6f6);
-          v.box(4, 9, -1, 5, 10, 0, 0xf2a020); v.set(3, 12, 2, 0xffffff); v.set(3, 12, -3, 0xffffff);
-          v.box(0, -1, -3, 3, 0, -1, 0xf2a020); v.box(0, -1, 0, 3, 0, 2, 0xf2a020);
-        } else {                                      // a stag beetle
-          v.box(-6, 2, -4, 4, 6, 3, 0x2a2238); v.box(-5, 7, -3, 3, 7, 2, 0x4a3a62);
-          v.box(5, 3, -2, 7, 5, 1, 0x2a2238); v.box(8, 4, -3, 11, 5, -3, 0x5a4a2a); v.box(8, 4, 2, 11, 5, 2, 0x5a4a2a);
-          for (const z of [-5, 4]) for (let x = -4; x <= 2; x += 3) v.box(x, 0, z, x, 2, z, 0x1a1626);
-        }
-      });
-    }
-    return (PROPS[key] = g);
-  }
+  /* Where a lamp's light hangs, in metres from its foot (twelve grains a metre), for its glow. */
+  const LAMP_AT = { lamp: [0, 38 / 12], streetlamp: [12 / 12, 56 / 12] };
 
   // ---------------------------------------------------------------- far away
   /* What stands behind each stage, built coarse and set back so the perspective camera
      gives it parallax for free. */
-  function buildFar(T, W, rnd, group) {
-    const M = materials();
+  function buildFar(T, S, rnd, group) {
+    const M = materials(), W = S.W;
+    group.userData.anim = [];
+    const topOf0 = (() => { for (let j = H - 1; j >= 0; j--) if (SOLIDS.indexOf(S.grid[j][0]) >= 0) return j + 1; return 0; })();
+    /* a floor for the backdrop, `depth` deep back from z = front (never nearer than the stage's back) */
+    const plane = (color, y, front, depth) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(W + 900, depth), new THREE.MeshLambertMaterial({ color })); m.rotation.x = -PI / 2; m.position.set(W / 2, y, Math.min(front, -5) - depth / 2); group.add(m); return m; };
+    const clouds = k => cloudBank(group, W, rnd, Math.round(W / 30 * k));
     const add = (geo, x, y, z, s) => { const m = new THREE.Mesh(geo, M.vox); m.position.set(x, y, z); if (s) m.scale.setScalar(s); group.add(m); return m; };
     const band = (grain, z0, z1, base, amp, freq, cols, seed) => {
       const v = new Vox(), r = mulberry32(seed);
@@ -722,51 +1176,71 @@
         }
         break;
       }
-      case "hills":
-        band(2, -70, -60, 9, 5, 0.03, [0x8ab0c8, 0x9cc0d4], 3);
-        band(1, -34, -26, 5, 2.5, 0.07, [0x5c9a3e, 0x6aaa48], 7);
-        band(1, -18, -14, 3, 1.2, 0.11, [0x4f9236, 0x5fa840], 11);
-        trees(-15, Math.round(W / 9), 3);
-        academy(group, W * 0.5, -50);
-        break;
-      case "forest":
-        band(2, -80, -66, 16, 7, 0.025, [0x7a98b8, 0x8aa8c8], 5);
-        band(1, -36, -26, 8, 3, 0.06, [0x2f6a34, 0x3a7a3e], 9);
-        band(1, -18, -14, 4, 1.5, 0.12, [0x3a7a36, 0x468a40], 13);
-        trees(-15, Math.round(W / 6), 4); trees(-26, Math.round(W / 8), 7);
-        for (let x = 40; x < W; x += 70) waterfall(group, x, -25);
-        break;
-      case "mesas": {
-        /* buttes, flat-topped and striped, in three ranks going back into the dusk */
-        for (let k = 0; k < 3; k++) {
-          const v = new Vox(), r = mulberry32(21 + k);
-          const z0 = [-30, -55, -95][k], g = [1, 2, 3][k];
-          for (let x = 0; x < (W + 120) / g; x++) {
-            const X = x * g, up = Math.sin(X * [0.07, 0.045, 0.03][k] + k * 2) > 0.35;
-            const h = Math.round(([1.5, 3, 6][k] + (up ? [5, 10, 18][k] : 0)) / g);
-            for (let y = 0; y < h; y++) for (let z = 0; z < 4; z++)
-              v.set(x, y, z, jit(r, (y % 3 === 0) ? 0xb8603a : (y % 3 === 1 ? 0xc87444 : 0xa8502e), 0.04));
-          }
-          const m = new THREE.Mesh(meshVox(v, g), M.vox); m.position.set(-60, 0, z0); group.add(m);
-        }
+      case "works": {
+        /* Tails' airfield: grass to the sea, a runway, hangars, the control tower, wind
+           turbines turning on the hills, his planes going over */
+        plane(0x62a844, 0, -5, 300);
+        plane(0x2a90d0, 0.1, -300, 400);
+        plane(0x4a4a52, 0.05, -41, 14);                           // the runway
+        { const v = new Vox(); for (let x = 0; x < W + 240; x += 6) v.box(x, 0, 0, x + 2, 0, 1, 0xf2f0e8); const m = new THREE.Mesh(meshVox(v, 1), M.vox); m.position.set(-120, 0.12, -49); group.add(m); }
+        band(2, -150, -140, 7, 4, 0.025, [0x7aa070, 0x86ac7a], 41);
+        for (let x = 20; x < W; x += 95) hangar(group, x + rnd() * 20, -70, rnd);
+        for (let x = 140; x < W; x += 320) tower(group, x, -58);
+        for (let x = 0; x < W + 100; x += 60) group.userData.anim.push(turbine(group, x + rnd() * 30, -135 - rnd() * 10, 10 + rnd() * 4));
+        for (let k = 0; k < 3; k++) group.userData.anim.push(biplane(group, W, k, rnd));
+        clouds(0.8);
         break;
       }
-      case "sea": {
-        const sea = new THREE.Mesh(new THREE.PlaneGeometry(W + 900, 600), new THREE.MeshLambertMaterial({ color: 0x2a8ac8 }));
-        sea.rotation.x = -PI / 2; sea.position.set(W / 2, 1.6, -310); group.add(sea);
-        band(2, -160, -150, 6, 4, 0.04, [0x6a9a6a, 0x7aaa7a], 17);
-        trees(-6, Math.round(W / 14), 4);
-        lighthouse(group, W - 14, -12);
+      case "parlour": {
+        /* Amy's home, from the floor up: the floorboards running back to a papered wall, and
+           what stands along it -- the bed, a dresser with a heart mirror, shelves of books, a
+           window on the city, pictures, a clock, fairy lights -- all of it huge */
+        const base = topOf0;
+        plane(0xc8925c, base - 0.02, -5, 34);
+        wallpaper(group, W, base, -38);
+        const kit = [bed, dresser, windowOn, shelves, pictures, windowOn, dresser, pictures];
+        let k = 0;
+        for (let x = 6; x < W + 20; x += 34 + Math.floor(rnd() * 8)) kit[k++ % kit.length](group, x, base, -30, rnd);
+        for (let x = -10; x < W + 20; x += 24) fairyLights(group, x, base + 26, -37.5);
         break;
       }
-      case "snow":
-        band(2, -80, -64, 22, 9, 0.03, [0xc8d4e4, 0xf4f8fc], 19);
-        band(1, -34, -26, 8, 3, 0.07, [0xe6eef6, 0xffffff], 23);
-        trees(-15, Math.round(W / 7), 4); trees(-24, Math.round(W / 9), 6);
+      case "peak": {
+        /* Knuckles' mountain: snowfields and black rock, the old shrines stepping up the
+           slopes, carved pillars in the snow, and at the summit a light that does not go out */
+        plane(0xeef3f8, 0, -5, 400);
+        mountains(group, W, -230, 3, 70, 0x8a96aa, 1);
+        mountains(group, W, -120, 2, 34, 0x6a6470, 2);
+        for (let x = 30; x < W; x += 140) shrine(group, x + rnd() * 30, -70 - rnd() * 14, rnd);
+        trees(-16, Math.round(W / 22), 0);
+        { const s = new THREE.Sprite(glowMat(0x6af0a0, 0.9)); s.scale.set(26, 26, 1); s.position.set(W + 30, 62, -228); group.add(s); }
+        clouds(0.6);
         break;
-      case "stands":
-        stands(group, W);
+      }
+      case "club": {
+        /* Rouge's street after midnight: the casinos and clubs lit up in neon, signs in the
+           four suits, searchlights crossing the sky, a full moon; her own club at the end */
+        plane(0x1c1428, 0, -5, 400);
+        casinos(group, W, -34, rnd);
+        casinos(group, W, -70, rnd, 1.6);
+        { const m = new THREE.Mesh(new THREE.CircleGeometry(14, 40), new THREE.MeshBasicMaterial({ color: 0xfff6e0, fog: false })); m.position.set(W * 0.6, 70, -280); group.add(m);
+          const s = new THREE.Sprite(glowMat(0xd8c8ff, 0.5)); s.scale.set(70, 70, 1); s.position.set(W * 0.6, 70, -279); group.add(s); }
+        for (let x = 40; x < W; x += 120) group.userData.anim.push(searchlight(group, x + rnd() * 40, -90, rnd));
+        clubFront(group, W - 12, -16);
         break;
+      }
+      case "city": {
+        /* Shadow's road out of the city at sundown: the sun on the horizon, the towers dark
+           against it, a raised road behind with its traffic, lamps along it */
+        plane(0x5a4650, 0, -5, 400);
+        { const m = new THREE.Mesh(new THREE.CircleGeometry(26, 48), new THREE.MeshBasicMaterial({ color: 0xffd080, fog: false })); m.position.set(W * 0.5, 16, -300); group.add(m);
+          const s = new THREE.Sprite(glowMat(0xff9a50, 0.8)); s.scale.set(150, 150, 1); s.position.set(W * 0.5, 16, -299); group.add(s); }
+        skyline(group, W, -250, 0x6a4a6a, 0.0, 60, 1.6);
+        skyline(group, W, -150, 0x4a3448, 0.25, 44, 1.2);
+        skyline(group, W, -85, 0x2e2230, 0.5, 30, 0.9);
+        overpass(group, W, -32);
+        group.userData.anim.push(traffic(group, W, -32));
+        break;
+      }
     }
     // a clear night: stars, far off, past the fog
     if (T.stars) {
@@ -776,13 +1250,244 @@
       group.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.4, fog: false, transparent: true, opacity: 0.85 })));
     }
   }
-  function academy(group, x, z) {                     // Tracen Academy, far off: cream walls, a clock tower
+  /* ---- the backdrops' pieces. Each is built in voxels at its own grain and set far enough
+     back for the camera to give it parallax; `anim` ones hand back a function of the time. */
+  const voxMesh = (v, g, x, y, z, mat) => { const m = new THREE.Mesh(meshVox(v, g), mat || materials().vox); m.position.set(x, y, z); return m; };
+  function cloudBank(group, W, rnd, n, y0) {
+    for (let k = 0; k < n; k++) {
+      const v = new Vox(), r = mulberry32(k * 13 + 7), c = 3 + Math.floor(r() * 4);
+      for (let q = 0; q < c; q++) {
+        const cx = q * 5 + Math.floor(r() * 3), rad = 3 + Math.floor(r() * 3) - (q === 0 || q === c - 1 ? 1 : 0);
+        for (let x = -rad; x <= rad; x++) for (let y = 0; y <= rad; y++) for (let z = -2; z <= 2; z++)
+          if (Math.hypot(x, y * 1.2, z * 1.5) <= rad) v.set(cx + x, y, z, y === 0 ? 0xe6eef6 : 0xffffff);
+      }
+      group.add(voxMesh(v, 1.4, rnd() * (W + 300) - 150, (y0 || 26) + rnd() * 26, -230 - rnd() * 40, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false })));
+    }
+  }
+  function hangar(group, x, z, rnd) {                  // an arched hangar, its doors run back
+    const v = new Vox(), r = mulberry32(x | 0), wall = [0xdcd8d0, 0xc8c4bc], roof = 0x6a86a6;
+    for (let X = -22; X <= 22; X++) {
+      const top = 14 + Math.round(Math.sqrt(1 - (X / 23) * (X / 23)) * 9);
+      for (let y = 0; y <= top; y++) for (let Z = 0; Z < 26; Z++) {
+        if (X > -22 && X < 22 && Z > 0 && Z < 25 && y < top) continue;
+        let c = y >= top - 1 ? (Z % 4 === 0 ? mulC(roof, 0.8) : roof) : wall[(X + 22 >> 1) & 1];
+        if (Z === 25 && Math.abs(X) < 15 && y < 13) c = Math.abs(X) > 12 ? 0x8a929c : 0x262a32;
+        v.set(X, y, Z, jit(r, c, 0.03));
+      }
+    }
+    v.box(-6, 15, 26, 5, 17, 26, 0xf08a24);                       // a stripe of Tails' orange over the door
+    group.add(voxMesh(v, 0.5, x, 0, z));
+  }
+  function tower(group, x, z) {                         // the control tower
     const v = new Vox();
-    v.box(-30, 0, 0, 30, 10, 6, 0xeee6d2); v.box(-30, 11, 0, 30, 12, 6, 0x3a5a8a);
-    for (let wx = -28; wx <= 28; wx += 4) for (const wy of [3, 7]) v.box(wx, wy, 7, wx + 1, wy + 1, 7, 0x9ab8d8);
-    v.box(-5, 0, -1, 4, 24, 7, 0xf2ead8); v.box(-6, 25, -2, 5, 26, 8, 0x3a5a8a); v.box(-3, 27, 0, 2, 30, 5, 0x3a5a8a);
-    v.box(-2, 17, 8, 1, 20, 8, 0xf6f6f2); v.set(0, 19, 9, 0x2a2a30); v.set(0, 18, 9, 0x2a2a30);
-    const m = new THREE.Mesh(meshVox(v, 0.5), materials().vox); m.position.set(x, 2, z); group.add(m);
+    v.box(-4, 0, -4, 3, 44, 3, 0xe8e6e0); for (let y = 6; y < 44; y += 6) v.box(-4, y, 4, 3, y, 4, 0xc8c6c0);
+    v.box(-7, 45, -7, 6, 52, 6, 0x6ab8e0); for (const X of [-7, 6]) v.box(X, 45, -7, X, 52, 6, 0xe8e6e0);
+    v.box(-8, 53, -8, 7, 54, 7, 0x3a4048); v.box(0, 55, 0, 0, 62, 0, 0x8a8e96);
+    group.add(voxMesh(v, 0.5, x, 0, z));
+    const s = new THREE.Sprite(glowMat(0xff4a3a, 0.9)); s.scale.set(3, 3, 1); s.position.set(x, 31.5, z); group.add(s);
+  }
+  function turbine(group, x, z, h) {                    // a wind turbine on the hills: it turns
+    const v = new Vox(); v.box(-1, 0, -1, 0, Math.round(h * 2), 0, 0xf2f2ee); v.box(-2, Math.round(h * 2), -2, 1, Math.round(h * 2) + 2, 3, 0xe8e8e4);
+    group.add(voxMesh(v, 0.5, x, 0, z));
+    const b = new Vox(); for (let k = 0; k < 3; k++) { const a = k / 3 * PI * 2; for (let s = 1; s < 18; s++) b.set(Math.round(Math.cos(a) * s), Math.round(Math.sin(a) * s), 0, s > 15 ? 0xd8303a : 0xf6f6f2); }
+    const m = voxMesh(b, 0.5, x, h + 1, z + 2); group.add(m);
+    const ph = x * 0.37;
+    return t => { m.rotation.z = t * 1.3 + ph; };
+  }
+  function biplane(group, W, k, rnd) {                  // a biplane going over, across the whole field and round again
+    const v = new Vox(), C = [[0xf08a24, 0xf6f6f2], [0x3a7ae0, 0xf2d040], [0xd8303a, 0xf6f6f2]][k % 3];
+    v.box(-8, 0, -1, 7, 2, 1, C[0]); v.box(8, 0, -1, 9, 2, 1, 0x3a3a40); v.box(10, -3, 0, 10, 5, 0, 0xc8ccd4);
+    for (const y of [-1, 4]) v.box(0, y, -9, 4, y, 9, C[1]); for (const Z of [-7, 7]) v.box(2, -1, Z, 2, 4, Z, 0x8a6a4a);
+    v.box(-8, 3, 0, -6, 6, 0, C[0]); v.box(-8, 2, -3, -6, 2, 3, C[1]); v.box(2, 3, 0, 4, 4, 0, 0x5ab4e0);
+    const m = voxMesh(v, 0.25, 0, 0, -70 - k * 25); group.add(m);
+    const sp = 7 + k * 2, off = rnd() * W, y0 = 24 + k * 6;
+    return t => { m.position.x = ((t * sp + off) % (W + 260)) - 130; m.position.y = y0 + Math.sin(t * 0.6 + k) * 1.5; };
+  }
+  function wallpaper(group, W, base, z) {               // Amy's wallpaper: pink stripes and little hearts, a white dado below
+    const c = document.createElement("canvas"); c.width = c.height = 32;
+    const g = c.getContext("2d");
+    for (let x = 0; x < 32; x += 8) { g.fillStyle = "#f6c2d4"; g.fillRect(x, 0, 4, 32); g.fillStyle = "#fad6e2"; g.fillRect(x + 4, 0, 4, 32); }
+    g.fillStyle = "#ec7aa6";
+    for (const [hx, hy] of [[6, 6], [22, 22]]) { g.fillRect(hx, hy, 2, 2); g.fillRect(hx + 3, hy, 2, 2); g.fillRect(hx - 1, hy + 1, 7, 2); g.fillRect(hx, hy + 3, 5, 1); g.fillRect(hx + 1, hy + 4, 3, 1); g.fillRect(hx + 2, hy + 5, 1, 1); }
+    const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set((W + 300) / 5, 90 / 5);
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(W + 300, 90), new THREE.MeshLambertMaterial({ map: t }));
+    wall.position.set(W / 2, base + 45, z); group.add(wall);
+    const dado = new THREE.Mesh(new THREE.PlaneGeometry(W + 300, 7), new THREE.MeshLambertMaterial({ color: 0xfaf4ee })); dado.position.set(W / 2, base + 3.5, z + 0.05); group.add(dado);
+    for (const [y, hgt, c2] of [[0.35, 0.7, 0xe6d6cc], [7, 0.5, 0xf4e8e0]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(W + 300, hgt), new THREE.MeshLambertMaterial({ color: c2 })); m.position.set(W / 2, base + y, z + 0.1); group.add(m); }
+  }
+  function bed(group, x, base, z) {                     // the bed: a pink quilt with hearts, pillows, a heart in the headboard
+    const v = new Vox();
+    for (const X of [0, 54]) for (const Z of [0, 20]) v.box(X, 0, Z, X + 2, 4, Z + 2, 0xf6efe6);
+    v.box(0, 5, 0, 56, 10, 22, 0xf8f4ee);
+    for (let X = 2; X <= 56; X++) for (let Z = -1; Z <= 23; Z++) for (let y = 11; y <= 13; y++) {
+      const heart = ((X >> 2) + (Z >> 2)) % 3 === 0 && (X & 3) === 1 && (Z & 3) === 1;
+      v.set(X, y, Z, heart ? 0xffffff : y === 11 && (Z === -1 || Z === 23) ? 0xe86c9c : 0xf48ab4);
+    }
+    v.box(4, 14, 2, 14, 17, 10, 0xffffff); v.box(4, 14, 12, 14, 17, 20, 0xfad0de);
+    v.box(-2, 0, -1, 1, 30, 23, 0xf6efe6);
+    for (let y = -6; y <= 6; y++) for (let Z = -6; Z <= 6; Z++) {
+      const X = Z / 5, Y = (y + 1) / 5, k = X * X + Y * Y - 1;
+      if (k * k * k - X * X * Y * Y * Y <= 0) v.set(2, 22 + y, 11 + Z, 0xf06a9c);
+    }
+    group.add(voxMesh(v, 0.5, x, base, z));
+  }
+  function dresser(group, x, base, z) {                 // a white dresser, gold knobs; on it a heart-shaped mirror and bottles
+    const v = new Vox();
+    v.box(0, 0, 0, 24, 22, 12, 0xf8f2ea);
+    for (const y of [3, 10, 17]) { v.box(1, y, 13, 23, y + 5, 13, 0xf2e8de); v.box(11, y + 2, 14, 12, y + 3, 14, 0xe8c050); }
+    v.box(-1, 23, -1, 25, 23, 13, 0xf6efe6);
+    for (let y = -10; y <= 10; y++) for (let X = -10; X <= 10; X++) {
+      const a = X / 9, b2 = (y + 1) / 9, k = a * a + b2 * b2 - 1, k2 = (X / 7.5) ** 2 + ((y + 1) / 7.5) ** 2 - 1;
+      if (k * k * k - a * a * b2 * b2 * b2 > 0) continue;
+      v.set(12 + X, 36 + y, 5, k2 * k2 * k2 - (X / 7.5) ** 2 * ((y + 1) / 7.5) ** 3 <= 0 ? ((X + y) % 7 === 0 ? 0xffffff : 0xbfe2f2) : 0xe8c050);
+    }
+    v.box(11, 24, 5, 13, 26, 5, 0xe8c050);
+    v.box(2, 24, 6, 4, 29, 8, 0xf48ab4); v.box(3, 30, 7, 3, 31, 7, 0xe8c050); v.box(19, 24, 6, 22, 27, 9, 0xb070e0); v.box(20, 28, 7, 21, 28, 8, 0xffffff);
+    group.add(voxMesh(v, 0.5, x, base, z));
+  }
+  function windowOn(group, x, base, z) {                // a window on the city, the curtains drawn back
+    const v = new Vox(), sky = [0x7ac0f0, 0x9ad0f4, 0xbfe2f8];
+    for (let X = 0; X <= 32; X++) for (let y = 0; y <= 40; y++) {
+      const frame = X === 0 || X === 32 || y === 0 || y === 40 || X === 16 || y === 20;
+      let c = frame ? 0xf8f6f2 : sky[Math.min(2, Math.floor((40 - y) / 14))];
+      if (!frame && y < 10 && ((X * 7) % 5 < 3) && y < 4 + ((X * 13) % 7)) c = 0x8aa0c0;     // rooftops
+      if (!frame && y > 26 && y < 31 && X > 4 && X < 13) c = 0xffffff;                        // a cloud
+      v.set(X, y, 0, c);
+    }
+    v.box(-2, -1, 1, 34, -1, 3, 0xf8f6f2);
+    for (const [X0, s] of [[-7, 1], [33, -1]]) for (let y = -4; y <= 42; y++) for (let k = 0; k < 6; k++) v.set(X0 + k + (s > 0 ? 0 : 0), y, 1 + ((k + y) % 3 === 0 ? 1 : 0), (k + (y >> 2)) % 3 === 0 ? 0xe86c9c : 0xf48ab4);
+    v.box(-8, 43, 1, 40, 44, 2, 0xe8c050);
+    group.add(voxMesh(v, 0.5, x, base + 14, z - 7.5));
+  }
+  function shelves(group, x, base, z) {                 // a tall bookcase, books of every colour, a pot plant on top
+    const v = new Vox();
+    v.box(0, 0, 0, 22, 60, 1, 0xf2ece4); for (const X of [0, 22]) v.box(X, 0, 0, X, 60, 10, 0xf8f2ea);
+    for (let s = 0; s <= 4; s++) {
+      const y = s * 15; v.box(0, y, 0, 22, y, 10, 0xf8f2ea);
+      if (s === 4) continue;
+      let X = 1, k = s * 5;
+      while (X < 21) { const t = 1 + (k % 3 === 0 ? 1 : 0), h = 8 + (k * 7) % 5; v.box(X, y + 1, 2, Math.min(21, X + t - 1), y + h, 9, BOOKS[k % BOOKS.length]); X += t; k++; }
+    }
+    v.box(8, 61, 3, 14, 66, 9, 0xd8784a); v.box(9, 67, 5, 13, 72, 7, 0x5ab84a); v.box(10, 73, 5, 12, 74, 7, 0xff5a8a);
+    group.add(voxMesh(v, 0.5, x, base, z));
+  }
+  function pictures(group, x, base, z) {                // two pictures and a clock on the wall
+    const v = new Vox(), P = [[0, 0xff8ab0, 0x5ab84a], [18, 0x7ac0f0, 0xf2c040]];
+    for (const [X0, c1, c2] of P) for (let X = 0; X <= 12; X++) for (let y = 0; y <= 15; y++) {
+      const edge = X === 0 || X === 12 || y === 0 || y === 15;
+      v.set(X0 + X, y, 0, edge ? 0xe8c050 : (Math.hypot(X - 6, y - 9) < 3 ? c1 : y < 5 ? c2 : 0xfaf6ee));
+    }
+    for (let X = -6; X <= 6; X++) for (let y = -6; y <= 6; y++) { const d = Math.hypot(X, y); if (d > 6.4) continue; v.set(40 + X, 26 + y, 0, d > 5.2 ? 0xf06a9c : (X === 0 && y >= 0 && y < 5) || (y === 0 && X >= 0 && X < 4) ? 0x2a2a30 : 0xfaf6ee); }
+    group.add(voxMesh(v, 0.5, x, base + 13, z - 7.6));
+  }
+  function fairyLights(group, x, y, z) {                // a string of fairy lights along the wall, sagging between pins
+    const C = [0xff8ab0, 0xfff0a0, 0xffffff, 0x9ad8ff];
+    for (let k = 0; k <= 8; k++) {
+      const t = k / 8, sx = x + t * 24, sy = y - Math.sin(t * PI) * 2.2;
+      const s = new THREE.Sprite(glowMat(C[k % 4], 0.85)); s.scale.set(1.6, 1.6, 1); s.position.set(sx, sy, z); group.add(s);
+    }
+  }
+  function mountains(group, W, z, g, height, rock, seed) {   // snow-capped peaks, black rock below the snowline
+    const v = new Vox(), r = mulberry32(seed * 31);
+    for (let x = 0; x < (W + 600) / g; x++) {
+      const X = x * g, s = 0.5 + 0.5 * Math.sin(X * 0.011 + seed) * Math.sin(X * 0.023 + seed * 3), h = Math.max(2, Math.round((height * (0.35 + s * 0.65)) / g));
+      for (let y = 0; y < h; y++) for (let Z = 0; Z < 3; Z++) {
+        const snow = y > h * 0.55 + Math.sin(X * 0.3) * 1.5 || y === h - 1;
+        v.set(x, y, Z, jit(r, snow ? 0xf4f8fc : rock, 0.05));
+      }
+    }
+    group.add(voxMesh(v, g, -300, 0, z));
+  }
+  function shrine(group, x, z, rnd) {                   // an old shrine stepping up the slope, snow on every step
+    const v = new Vox(), r = mulberry32(x | 0);
+    for (let t = 0; t < 6; t++) {
+      const w = 22 - t * 3, y0 = t * 5;
+      for (let X = -w; X <= w; X++) for (let y = y0; y < y0 + 5; y++) for (let Z = -8 + t; Z <= 8 - t; Z++)
+        v.set(X, y, Z, y === y0 + 4 ? 0xf4f8fc : ((X * 7 + y * 3) % 11 === 0 ? 0x4ab87a : jit(r, (y & 1) ? 0xbcb29c : 0xb0a690, 0.04)));
+    }
+    v.box(-3, 0, 9, 3, 10, 9, 0x2a2228);
+    for (const X of [-12, 12]) { v.box(X - 1, 0, 10, X + 1, 22, 12, 0xc4baa4); v.box(X - 2, 23, 9, X + 2, 24, 13, 0xf4f8fc); }
+    group.add(voxMesh(v, 0.5, x, 0, z));
+  }
+  const SUITS = [                                       // the four suits, 7x7
+    [0x08, 0x1c, 0x3e, 0x7f, 0x3e, 0x1c, 0x08],
+    [0x36, 0x7f, 0x7f, 0x7f, 0x3e, 0x1c, 0x08],
+    [0x08, 0x1c, 0x3e, 0x7f, 0x7f, 0x2a, 0x1c],
+    [0x1c, 0x1c, 0x6b, 0x7f, 0x6b, 0x08, 0x1c]];
+  function casinos(group, W, z, rnd, k) {               // a street of casinos and clubs, every one lit
+    k = k || 1;
+    const NEON = [0xff5ac8, 0x7ad8ff, 0xffd060, 0xa070ff, 0xff7a5a];
+    let x = -60;
+    while (x < W + 60) {
+      const v = new Vox(), gl = new Vox(), r = mulberry32((x * 3 + z) | 0);
+      let X = 0;
+      for (let b = 0; b < 6 && X < 300; b++) {
+        const bw = 11 + Math.floor(r() * 12), bh = 16 + Math.floor(r() * 32), neon = NEON[Math.floor(r() * NEON.length)], body = r() < 0.5 ? 0x2a2236 : 0x221c2e;
+        for (let i = 0; i < bw; i++) for (let y = 0; y < bh; y++) v.set(X + i, y, 0, body);
+        for (let i = 2; i < bw - 2; i += 2) for (let y = 11; y < bh - 3; y += 3) if (r() < 0.45) gl.set(X + i, y, 1, r() < 0.7 ? 0xffe6a0 : 0xfff6e0);
+        for (let i = 0; i < bw; i++) gl.set(X + i, bh, 1, neon);
+        for (let y = 0; y < bh; y++) { gl.set(X, y, 1, neon); gl.set(X + bw - 1, y, 1, neon); }
+        for (let i = 1; i < bw - 1; i += 2) gl.set(X + i, 6, 1, (i >> 1) & 1 ? 0xfff0a0 : 0xffffff);      // the marquee
+        if (bh > 24) { const S = SUITS[Math.floor(r() * 4)], sx = X + (bw >> 1) - 3, sy = bh - 11, sc = NEON[Math.floor(r() * NEON.length)];
+          for (let j = 0; j < 7; j++) for (let i = 0; i < 7; i++) if ((S[j] >> (6 - i)) & 1) gl.set(sx + i, sy + 6 - j, 2, sc); }
+        X += bw + 1 + Math.floor(r() * 3);
+      }
+      group.add(voxMesh(v, 0.8 * k, x, 0, z)); group.add(voxMesh(gl, 0.8 * k, x, 0, z, materials().glow));
+      x += X * 0.8 * k;
+    }
+  }
+  function searchlight(group, x, z, rnd) {              // a searchlight's beam, swinging across the sky
+    const geo = new THREE.ConeGeometry(5, 150, 16, 1, true); geo.translate(0, -75, 0);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xe8e0ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    m.position.set(x, 0, z); m.rotation.z = PI; group.add(m);
+    const ph = rnd() * 6;
+    return t => { m.rotation.z = PI + Math.sin(t * 0.35 + ph) * 0.55; };
+  }
+  function clubFront(group, x, z) {                     // her club: black and gold, and a great neon heart over the door
+    const v = new Vox(), gl = new Vox();
+    v.box(-30, 0, 0, 30, 46, 4, 0x1e1626); v.box(-8, 0, 5, 8, 12, 5, 0x0e0a14); v.box(-12, 13, 5, 12, 14, 9, 0xb01e3a);
+    for (let X = -30; X <= 30; X += 2) gl.set(X, 46, 5, 0xe8c050);
+    for (let y = -12; y <= 12; y++) for (let X = -13; X <= 13; X++) {
+      const a = X / 11, b = (y + 1) / 11, k = a * a + b * b - 1, a2 = X / 9, b2 = (y + 1) / 9, k2 = a2 * a2 + b2 * b2 - 1;
+      if (k * k * k - a * a * b * b * b <= 0 && !(k2 * k2 * k2 - a2 * a2 * b2 * b2 * b2 <= 0)) gl.set(X, 30 + y, 6, 0xff4aa8);
+    }
+    group.add(voxMesh(v, 0.5, x, 0, z)); group.add(voxMesh(gl, 0.5, x, 0, z, materials().glow));
+    const s = new THREE.Sprite(glowMat(0xff4aa8, 0.6)); s.scale.set(22, 22, 1); s.position.set(x, 15, z + 4); group.add(s);
+  }
+  function skyline(group, W, z, color, lit, maxH, g) {  // towers against the sunset, a few windows lit
+    let x = -150;
+    while (x < W + 150) {
+      const v = new Vox(), gl = new Vox(), r = mulberry32((x * 7 + z) | 0);
+      let X = 0;
+      while (X < 200) {
+        const bw = 6 + Math.floor(r() * 14), bh = Math.round((maxH * (0.3 + r() * 0.7)) / g);
+        for (let i = 0; i < bw; i++) for (let y = 0; y < bh; y++) v.set(X + i, y, 0, color);
+        if (r() < 0.3) v.box(X + (bw >> 1), bh, 0, X + (bw >> 1), bh + 4, 0, color);
+        for (let i = 1; i < bw - 1; i += 2) for (let y = 2; y < bh - 1; y += 2) if (r() < lit * 0.35) gl.set(X + i, y, 1, r() < 0.5 ? 0xffd890 : 0xffb070);
+        X += bw + Math.floor(r() * 3);
+      }
+      group.add(voxMesh(v, g, x, 0, z)); if (gl.m.size) group.add(voxMesh(gl, g, x, 0, z, materials().glow));
+      x += X * g;
+    }
+  }
+  function overpass(group, W, z) {                      // a raised road behind, on pillars, lamps along it
+    for (let x0 = -60; x0 < W + 60; x0 += 120) {
+      const v = new Vox();
+      for (let X = 0; X < 120; X++) { v.box(X, 12, 0, X, 13, 7, 0xa8a29a); v.set(X, 14, 0, 0x8a847e); v.set(X, 14, 7, 0x8a847e); if (X % 22 === 0) v.box(X, 0, 2, X + 1, 11, 4, 0x9a948e); }
+      group.add(voxMesh(v, 1, x0, 0, z - 3.5));
+    }
+    for (let x = 0; x < W; x += 30) { const s = new THREE.Sprite(glowMat(0xffd8a0, 0.7)); s.scale.set(3, 3, 1); s.position.set(x, 16, z + 0.2); group.add(s); }
+  }
+  function traffic(group, W, z) {                       // the traffic on it: headlights one way, tail lights the other
+    const cars = [];
+    for (let k = 0; k < 12; k++) {
+      const dir = k % 2 ? 1 : -1, v = new Vox(), C = [0x2a3a5a, 0x5a2a2a, 0xd8d8d8, 0x3a3a40][k % 4];
+      v.box(0, 0, 0, 15, 4, 6, C); v.box(3, 5, 1, 11, 7, 5, mulC(C, 0.8));
+      const m = voxMesh(v, 0.25, 0, 13.5, z + (dir > 0 ? -2 : 1)); group.add(m);
+      const s = new THREE.Sprite(glowMat(dir > 0 ? 0xfff0c0 : 0xff4030, 0.9)); s.scale.set(1.4, 1.4, 1); group.add(s);
+      cars.push({ m, s, dir, off: k * 97 % (W + 200), sp: 14 + (k * 7) % 9 });
+    }
+    return t => { for (const c of cars) { const x = ((c.off + t * c.sp * c.dir) % (W + 200) + (W + 200)) % (W + 200) - 100; c.m.position.x = x; c.s.position.set(x + (c.dir > 0 ? 4 : 0), 14.2, c.m.position.z + 1.6); } };
   }
   function torii(group, x, z) {                       // a red gate out on a rock in the sea
     const v = new Vox(), r = mulberry32(x | 0);
@@ -793,38 +1498,6 @@
     v.set(-9, 22, -1, 0x2a2a30); v.set(9, 22, -1, 0x2a2a30); v.set(-9, 22, 0, 0x2a2a30); v.set(9, 22, 0, 0x2a2a30);
     v.box(0, 16, -1, 0, 18, 0, 0xd8402e);
     const m = new THREE.Mesh(meshVox(v, 0.5), materials().vox); m.position.set(x, -0.8, z); group.add(m);
-  }
-  function waterfall(group, x, z) {
-    const v = new Vox(), r = mulberry32(x | 0);
-    v.box(-6, 0, 0, 6, 24, 4, 0x6a6a66);
-    for (let y = 0; y < 24; y++) for (let k = -2; k <= 2; k++) v.set(k, y, 5, r() < 0.3 ? 0xffffff : 0x9ad4f4);
-    v.box(-4, 0, 6, 4, 1, 9, 0xd8f0fc);
-    const m = new THREE.Mesh(meshVox(v, 0.5), materials().vox); m.position.set(x, 0, z); group.add(m);
-  }
-  function lighthouse(group, x, z) {
-    const v = new Vox();
-    for (let y = 0; y < 30; y++) { const r = 3 - Math.floor(y / 12); v.box(-r, y, -r, r, y, r, Math.floor(y / 5) % 2 ? 0xd8303a : 0xf6f6f2); }
-    v.box(-2, 30, -2, 2, 33, 2, 0xfff2a0); v.box(-3, 34, -3, 3, 35, 3, 0x2a2a30);
-    const m = new THREE.Mesh(meshVox(v, 0.5), materials().vox); m.position.set(x, 2, z); group.add(m);
-  }
-  /* Nakayama at night: the grandstand lit up behind the course, floodlight towers, a crowd. */
-  function stands(group, W) {
-    const r = mulberry32(5);
-    for (let seg = 0; seg * 200 < W + 80; seg++) {
-    const v = new Vox();
-    for (let x = 0; x < 400; x++) {
-      for (let tier = 0; tier < 7; tier++) for (let d = 0; d < 3; d++) v.set(x, tier * 2, -tier * 2 - d, tier % 2 ? 0x5a5e6a : 0x4a4e5a);
-      for (let tier = 0; tier < 7; tier++) if (r() < 0.6) v.set(x, tier * 2 + 1, -tier * 2 - 1, pick(r, [0xd8303a, 0xf2d040, 0x3a7ae0, 0xf6f6f2, 0x5ab84a, 0xf08ac0, 0x2a2a30]));
-      v.set(x, 16, -16, 0x2a2e3a); v.set(x, 17, -15, 0x2a2e3a);
-      if (x % 6 === 0) v.set(x, 15, -14, 0xfff2c0);
-    }
-    const m = new THREE.Mesh(meshVox(v, 0.5), materials().vox); m.position.set(-40 + seg * 200, 0, -62); group.add(m);
-    }
-    for (let x = 10; x < W; x += 48) {
-      const t = new THREE.Mesh(vox(w => { w.box(-1, 0, -1, 0, 60, 0, 0x8a8e9a); w.box(-6, 60, -1, 5, 66, 0, 0x3a3e4a); w.box(-5, 61, 0, 4, 65, 0, 0xfffbe0); }, 0.5), materials().vox);
-      t.position.set(x, 0, -46); group.add(t);
-      const s = new THREE.Sprite(glowMat(0xfff4c0, 0.9)); s.scale.set(16, 16, 1); s.position.set(x, 31.5, -45); group.add(s);
-    }
   }
   let GLOW_TEX = null;
   function glowMat(color, op) {
@@ -911,6 +1584,8 @@
     goal: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, f, 0.18, "square", 0.07, i * 0.11)),
     star: () => [784, 988, 1175, 1319, 1568].forEach((f, i) => tone(f, f, 0.1, "triangle", 0.08, i * 0.05)),
     stumble: () => tone(260, 140, 0.15, "square", 0.08),
+    pop: () => { noise(0.07, 0.12, 1600); tone(880, 1500, 0.08, "triangle", 0.07); },
+    bumper: () => { tone(620, 980, 0.09, "square", 0.08); tone(1320, 1320, 0.07, "triangle", 0.05, 0.05); },
   };
 
   // ---------------------------------------------------------------- the save
@@ -945,8 +1620,9 @@
   }
 
   function buildWorld(def) {
-    const T = Object.assign({ id: def.theme }, THEMES[def.theme] || THEMES.hills);
+    const T = Object.assign({ id: def.theme }, THEMES[def.theme] || THEMES.cape);
     const S = parse(def);
+    H = S.H;
     scene = new THREE.Scene();
     scene.background = skyTexture(T);
     scene.fog = new THREE.Fog(T.fog[0], T.fog[1], T.fog[2]);
@@ -961,13 +1637,16 @@
 
     const W = S.W, rnd = mulberry32(def.id.length * 97 + 5);
     const group = new THREE.Group(); scene.add(group);
-    for (let i0 = 0; i0 < W; i0 += 16) for (const m of buildChunk(S, T, i0, Math.min(W, i0 + 16))) group.add(m);
+    /* the ground near the start is built now, the rest a little at a time as the camera
+       comes near it (buildAhead): a long stage opens without a wait */
+    const pending = [];
+    for (let i0 = 0; i0 < W; i0 += 16) { if (i0 < 64) for (const m of buildChunk(S, T, i0, Math.min(W, i0 + 16))) group.add(m); else pending.push(i0); }
     const far = new THREE.Group(); scene.add(far);
-    buildFar(T, W, rnd, far);
+    buildFar(T, S, rnd, far);
     group.add(skirts(S, T));
 
-    const w = { def, T, S, W, group, far, tiles: {}, ents: [], carrots: [], solids: [], plats: [], enemies: [], vents: [], bubbles: [],
-                shots: [], fx: [], traps: [], flashes: [], drafts: [], hazards: [], checks: [], start: { x: 2, y: 5 }, goal: null, shoes: [], total: 0,
+    const w = { def, T, S, W, group, far, pending, tiles: {}, ents: [], carrots: [], solids: [], plats: [], enemies: [], vents: [], bubbles: [],
+                shots: [], fx: [], traps: [], flashes: [], eshots: [], booms: [], drafts: [], hazards: [], checks: [], start: { x: 2, y: 5 }, goal: null, shoes: [], total: 0,
                 parts: null, t: 0 };
     const M = materials();
     // tiles that can go
@@ -998,7 +1677,9 @@
         case "H": w.shoes.push({ t: "shoe", n: shoeN, x, y: y + 0.3, m: put(propGeo("shoe"), x, y + 0.3) }); shoeN++; break;
         case "S": w.ents.push({ t: "spring", x, y, m: put(propGeo("spring"), x, y), sq: 0 }); break;
         case ">": w.ents.push({ t: "dash", x, y, m: put(propGeo("dash"), x, y + 0.01) }); break;
-        case "h": { const m = put(propGeo("hurdle"), x, y); w.solids.push({ t: "hurdle", x0: x - 0.2, x1: x + 0.2, y0: y, y1: y + 1.0, m, alive: true }); break; }
+        case "h": { const m = put(propGeo("hurdle", T), x, y); w.solids.push({ t: "hurdle", x0: x - 0.2, x1: x + 0.2, y0: y, y1: y + 1.0, m, alive: true }); break; }
+        case "Q": w.ents.push({ t: "bumper", x, y: y + 0.5, m: put(propGeo("bumper", T), x, y + 0.5, -0.3), sq: 0, cd: 0 }); break;
+        case "o": w.ents.push({ t: "balloon", x, y: y + 0.3, y0: y + 0.3, m: put(propGeo("balloon", T), x, y + 0.3), back: 0 }); break;
         case "M": case "V": {
           const len = e.len || 3;
           const v = new Vox(); for (let sx = 0; sx < len * 4; sx++) for (let z = ZB; z <= ZF; z++) v.set(sx, 3, z, jit(rnd, ((sx & 3) === 0) ? mulC(T.plank, 0.75) : T.plank, 0.05));
@@ -1007,23 +1688,23 @@
           w.plats.push({ t: e.t, i: e.i, j: e.j, len, x0: e.i, y0: e.j, x: e.i, y: e.j, dx: 0, dy: 0, m, ph: (e.i * 0.37) % (PI * 2), range: 3 });
           break;
         }
-        case "r": case "k": case "b": {
-          const kind = e.t === "r" ? T.roller : e.t === "b" ? T.bird : T.walker;
-          const g = enemyGeo(kind);
-          let m;
-          if (g.body) {
-            m = new THREE.Group(); const b = new THREE.Mesh(g.body, M.vox); m.add(b);
-            const wl = new THREE.Mesh(g.wing, M.vox), wr = new THREE.Mesh(g.wing, M.vox); wl.position.set(0, 3 * F, 3 * F); wr.position.set(0, 3 * F, -3 * F); wr.scale.z = -1;
-            m.add(wl, wr); m.userData.wings = [wl, wr]; group.add(m);
-          } else m = put(g, x, y);
-          const roll = e.t === "r";
-          w.enemies.push({ t: e.t, kind, x, y, x0: x, y0: y + (e.t === "b" ? 0.4 : 0), vx: roll ? -2.2 : -1.3, vy: 0, w: roll ? 0.9 : 0.8,
-                           h: roll ? 0.9 : e.t === "b" ? 0.7 : 0.65, m, alive: true, ph: e.i * 1.3, spin: 0 });
+        case "k": case "r": case "b": case "n": case "p": {      // a badnik: which, the theme says
+          const key = T.foes && T.foes[e.t];
+          if (!key || !BADS || !BADS.f[key]) break;
+          const B = BADNIKS[key], box = BADS.f[key].box, m = badCard(); group.add(m);
+          const y0 = B.air ? y + 0.4 : y;
+          w.enemies.push({ key, B, x, y: y0, x0: x, y0, w: box[0] * PX * 0.82, h: box[1] * PX * 0.88, m, alive: true,
+                           ph: e.i * 1.3, t: (e.i % 7) * 0.3, at: 0, mode: "walk", dir: -1, face: -1, vx: 0, vy: 0, reach: 0 });
           break;
         }
         case "U": w.drafts.push({ x0: e.i, x1: e.i + 1, y0: e.j, y1: e.j + 8 }); break;
         case "O": w.vents.push({ x, y, t: (e.i % 3) * 0.8, m: put(propGeo("vent"), x, y) }); break;
-        case "T": put(propGeo("tree", T), x, y, -2.6).scale.setScalar(1.1); break;
+        case "T": {
+          put(propGeo("tree", T), x, y, -2.6).scale.setScalar(1.1);
+          const L = LAMP_AT[T.tree];                       // a lamp's light
+          if (L) { const s = new THREE.Sprite(glowMat(T.tree === "lamp" ? 0xffd890 : 0xfff0c8, 0.8)); s.scale.set(2.6, 2.6, 1); s.position.set(x + L[0] * 1.1, y + L[1] * 1.1, -2.4); group.add(s); }
+          break;
+        }
         case "^": {
           const m = new THREE.Mesh(vox(v => { for (let k = -7; k <= 7; k += 2) for (let z = -20; z <= 18; z += 4) v.box(k, 0, z + (k & 3), k, 4 + ((k + z) & 3), z + (k & 3), (k & 2) ? 0x3a6a2a : 0x6a3a5a); }), M.vox);
           m.position.set(x, y, 0); group.add(m); w.hazards.push({ x0: e.i + 0.1, x1: e.i + 0.9, y0: e.j, y1: e.j + 0.45 });
@@ -1033,7 +1714,7 @@
     }
     // updraft columns: drifting motes
     for (const d of w.drafts) {
-      const geo = vox(v => v.box(0, 0, 0, 0, 1, 0, T.id === "snow" ? 0xffffff : 0xd8f0d0));
+      const geo = vox(v => v.box(0, 0, 0, 0, 1, 0, T.snowfall ? 0xffffff : 0xd8f0d0));
       d.motes = [];
       for (let k = 0; k < 7; k++) { const m = new THREE.Mesh(geo, M.glow); m.position.set(d.x0 + Math.random(), d.y0 + Math.random() * 8, 0.3); group.add(m); d.motes.push(m); }
     }
@@ -1056,6 +1737,18 @@
     return w;
   }
 
+  /* Build the next ground chunk the camera is coming to: the nearest unbuilt within forty
+     metres, every other frame -- every frame once it is nearly in sight. */
+  function buildAhead(w) {
+    const P = w.pending; if (!P.length) return;
+    let best = -1, bd = 1e9;
+    for (let k = 0; k < P.length; k++) { const d = Math.abs(P[k] + 8 - camX); if (d < bd) { bd = d; best = k; } }
+    w.buildT = (w.buildT || 0) + 1;
+    if (bd > 40 || (bd > 22 && w.buildT % 2)) return;
+    const i0 = P.splice(best, 1)[0];
+    for (const m of buildChunk(w.S, w.T, i0, Math.min(w.W, i0 + 16))) w.group.add(m);
+  }
+
   function disposeWorld() {
     if (!scene) return;
     scene.traverse(o => {
@@ -1068,6 +1761,7 @@
   // ---------------------------------------------------------------- the runner
   function makePlayer(c) {
     sheetMats(c.id).mat.color.setHex(world.T.tint || 0xffffff);
+    if (BADS) badMats().mat.color.setHex(world.T.tint || 0xffffff);        // the badniks in the same light
     const spr = makeCard(c.id); world.group.add(spr);
     // Sonic Advance's Spin Dash dust, kicked up behind a rev
     const dust = framesOf(c.id, "fx.rev") ? makeCard(c.id, "fx") : null;
@@ -1079,6 +1773,7 @@
              flyLeft: c.flyTime || 0, hh: c.h, warnAt: 0, mv: null, sp: null, anim: { key: null, t: 0 }, landT: 0, drop: false };
   }
   const AIR = 16;                                    // seconds of breath under water: everyone, as in the classic games
+  const BELT = 3.6;                                  // a conveyor belt's speed, m/s
   const GRAV = 34;
 
   const tile = (i, j) => (i < 0 || i >= world.W) ? "#" : (j < 0 || j >= H) ? "." : world.S.grid[j][i];
@@ -1155,7 +1850,12 @@
     let n = 0;
     const at = (a0, a1, b0, b1) => { if (!n) world.hitAt = { x: (Math.max(x0, a0) + Math.min(x1, a1)) / 2, y: (Math.max(y0, b0) + Math.min(y1, b1)) / 2 }; };
     world.hitAt = null;
-    for (const e of world.enemies) if (e.alive && e.x + e.w / 2 > x0 && e.x - e.w / 2 < x1 && e.y + e.h > y0 && e.y < y1) { at(e.x - e.w / 2, e.x + e.w / 2, e.y, e.y + e.h); defeat(e, kick); n++; }
+    for (const e of world.enemies) if (e.alive && !e.hidden && e.x + e.w / 2 > x0 && e.x - e.w / 2 < x1 && e.y + e.h > y0 && e.y < y1) {
+      at(e.x - e.w / 2, e.x + e.w / 2, e.y, e.y + e.h);
+      /* a blow (not a blast) glances off spikes, a spin, Pierrot's ball and Gao-gao's face */
+      if (!(kick && kick.r) && (e.guard || e.B.armor === "ball" || (e.B.armor === "front" && sgn((x0 + x1) / 2 - e.x) === e.face))) { glance(e); continue; }
+      defeat(e, kick); n++;
+    }
     for (let i = Math.floor(x0); i <= Math.floor(x1 - 0.01); i++) for (let j = Math.floor(y0); j <= Math.floor(y1 - 0.01); j++) {
       const t = tile(i, j);
       if ((t === "X" || t === "B") && breakTile(i, j)) { at(i, i + 1, j, j + 1); n++; }
@@ -1198,7 +1898,7 @@
   }
   function smashHurdle(b) {
     b.alive = false; b.m.visible = false;
-    burst((b.x0 + b.x1) / 2, b.y0 + 0.5, [0x3a7e32, 0x2a6a2a, 0xf6f6f2], 16, 7);
+    burst((b.x0 + b.x1) / 2, b.y0 + 0.5, HURDLE_C[world.T.hurdle] || HURDLE_C.brush, 16, 7);
     SFX.breakIt();
   }
 
@@ -1607,8 +2307,9 @@
       const d = Math.hypot(dx, dy);
       if (d < bd) { bd = d; best = t; }
     };
-    for (const e of world.enemies) if (e.alive) consider(e, e.x, e.y + e.h / 2);
+    for (const e of world.enemies) if (e.alive && !e.hidden && !e.guard) consider(e, e.x, e.y + e.h / 2);
     for (const e of world.ents) if (e.t === "spring") consider(e, e.x, e.y + 0.3);
+      else if ((e.t === "balloon" && !e.back) || e.t === "bumper") consider(e, e.x, e.y - 0.4);
     for (const b of world.solids) if (b.alive) consider(Object.assign(b, { x: (b.x0 + b.x1) / 2, y: b.y0, h: 1 }), (b.x0 + b.x1) / 2, b.y0 + 0.5);
     return best;
   }
@@ -1884,7 +2585,7 @@
   }
   function nearestEnemy(x, y, range) {
     let best = null, bd = range;
-    for (const e of world.enemies) if (e.alive) { const d = Math.hypot(e.x - x, e.y + e.h / 2 - y); if (d < bd) { bd = d; best = e; } }
+    for (const e of world.enemies) if (e.alive && !e.hidden) { const d = Math.hypot(e.x - x, e.y + e.h / 2 - y); if (d < bd) { bd = d; best = e; } }
     return best;
   }
   function stepShots(dt) {
@@ -1944,13 +2645,13 @@
       } else if (!t.grounded) {                            // tossed: falls to the ground
         t.vy -= GRAV * 0.8 * dt; t.x += t.vx * dt; t.y += t.vy * dt;
         const gy = groundY(t.x, t.y + 0.3);
-        if (gy !== null && t.vy < 0 && t.y <= gy) { t.y = gy; t.grounded = true; t.vx = 0; }
+        if (gy !== null && t.vy < 0 && t.y <= gy) { t.y = gy; t.grounded = true; t.vx = 0; t.landT = t.t; }
         if (t.y < -3) { t.gone = true; w.group.remove(t.card); t.card.geometry.dispose(); continue; }
       } else if (t.kind === "chase") {                     // the Chu² Bomb crawls after its mark
         const e = nearestEnemy(t.x, t.y, 8);
         if (e) { const nx = t.x + sgn(e.x - t.x) * 3 * dt, gy = groundY(nx, t.y); if (gy !== null) { t.x = nx; t.y = gy; t.face = sgn(e.x - t.x) || t.face; } }
       }
-      for (const e of w.enemies) if (e.alive && Math.abs(e.x - t.x) < e.w / 2 + 0.35 && t.y > e.y - 0.5 && t.y < e.y + e.h + 0.3) { boomTrap(t); break; }
+      for (const e of w.enemies) if (e.alive && !e.hidden && Math.abs(e.x - t.x) < e.w / 2 + 0.35 && t.y > e.y - 0.5 && t.y < e.y + e.h + 0.3) { boomTrap(t); break; }
       if (!t.gone && t.life <= 0) boomTrap(t);
     }
     if (w.traps.length > 12) w.traps = w.traps.filter(t => !t.gone);
@@ -1968,6 +2669,10 @@
     const dx = p.vx * dt, n = Math.max(1, Math.ceil(Math.abs(dx) / 0.2));
     for (let k = 0; k < n; k++) { moveX(p, dx / n); if (p.state === "climb") break; }
     if (p.on && p.ground) { p.x += p.on.dx; }
+    if (p.ground && p.onTile) {                           // a conveyor belt carries what stands on it
+      const bt = tile(p.onTile.i, p.onTile.j);
+      if (bt === "}" || bt === "{") moveX(p, (bt === "}" ? BELT : -BELT) * dt);
+    }
     if (p.ground) {
       const reach = 0.18 + Math.abs(p.vx) * dt * 1.3 + (p.on ? Math.abs(p.on.dy) + 0.05 : 0);
       const hit = floorBetween(p, p.y + 0.42 + (p.on ? Math.max(0, p.on.dy) : 0), p.y - reach);
@@ -2018,6 +2723,21 @@
         }
       } else if (e.t === "dash") {
         if (p.ground && touches(e.x, e.y + 0.1, 0.6)) { if (p.vx < 18) { p.vx = 18; p.face = 1; SFX.dash(); burst(p.x, p.y + 0.2, [0xf2d040, 0xffffff], 5, 3); } }
+      } else if (e.t === "balloon") {                      // pops, and throws whoever touched it up, their air moves back
+        if (!e.back && touches(e.x, e.y, 0.55)) {
+          e.back = 3.5; e.m.visible = false;
+          p.vy = 15; p.ground = false; p.on = null; p.jumping = false; p.airMove = false; p.airSp = false; p.airUses = 0; p.flyLeft = p.c.flyTime || 0;
+          if (p.state !== "roll" && p.state !== "fly") p.state = "run";
+          burst(e.x, e.y, (w.T.balloon || [0xff5a5a, 0xffb0a8]).concat([0xffffff]), 12, 4); SFX.pop();
+        }
+      } else if (e.t === "bumper") {                       // knocks whoever touches it straight away from its middle
+        const dx = p.x - e.x, dy = p.y + p.hh / 2 - e.y, d = Math.hypot(dx, dy) || 1;
+        if (e.cd <= 0 && d < 0.66 + p.c.w / 2) {
+          p.vx = dx / d * 15; p.vy = Math.max(dy / d * 15, 4); p.ground = false; p.on = null; p.jumping = false; p.airMove = false; p.airUses = 0;
+          if (p.state !== "roll") p.state = "run";
+          if (Math.abs(p.vx) > 0.5) p.face = sgn(p.vx);
+          e.sq = 1; e.cd = 0.2; SFX.bumper(); flash(e.x, e.y, 1.4, w.T.id === "club" ? 0xff7ad8 : 0xffd060);
+        }
       } else if (touches(e.x, e.y + 0.4, 0.42)) {
         e.gone = true; e.m.visible = false;
         if (e.t === "juice") { p.hearts = Math.min(3, p.hearts + 1); SFX.juice(); }
@@ -2038,14 +2758,30 @@
     if (w.goal && p.x >= w.goal.x && mode === "play") finish(p);
     // thorns
     for (const z of w.hazards) if (bx1 > z.x0 && bx0 < z.x1 && by0 < z.y1 && by1 > z.y0) hurt(p, p.x + p.face);
-    // enemies
+    // badniks
     for (const e of w.enemies) {
-      if (!e.alive) continue;
+      if (!e.alive || e.hidden) continue;
+      if (e.reach && p.state !== "teleport") {               // Leon's tongue, Piko-piko's mallet, out in front
+        const rx0 = e.face > 0 ? e.x : e.x - e.reach, rx1 = e.face > 0 ? e.x + e.reach : e.x;
+        if (bx1 > rx0 && bx0 < rx1 && by0 < e.y + e.h && by1 > e.y) hurt(p, e.x);
+      }
       const ex0 = e.x - e.w / 2, ex1 = e.x + e.w / 2, ey0 = e.y, ey1 = e.y + e.h;
       if (bx1 < ex0 || bx0 > ex1 || by1 < ey0 || by0 > ey1) continue;
+      const stomp = p.vy < -0.5 && by0 > ey0 + e.h * 0.4;
+      if (e.guard && p.star <= 0) {                         // spikes out, or spinning: it hurts, whatever touches it
+        glance(e); if (p.state !== "teleport") hurt(p, e.x);
+        continue;
+      }
+      const armoured = p.star <= 0 && (e.B.armor === "ball" ? !(stomp || p.curl) : e.B.armor === "front" ? !stomp && sgn(p.x - e.x) === e.face : false);
       /* a blow that meets it lands -- in its wind-up too, so a heavy's step never carries the
          runner into a hurt -- and so does the aim attack's dash */
       const swinging = p.state === "seek" || (p.state === "atk" && p.mv && Math.floor(p.mv.t * p.mv.fps) <= p.mv.h1);
+      if (armoured && (swinging || attacking(p))) {         // it takes the blow: the runner bounces off, neither hurt
+        glance(e);
+        p.vx = (sgn(p.x - e.x) || -p.face) * 6; if (!p.ground) p.vy = Math.max(p.vy, 5);
+        if (p.state !== "run" && p.state !== "fly" && p.state !== "glide") { p.state = "run"; p.mv = null; }
+        continue;
+      }
       if (swinging || attacking(p)) {
         if (swinging) {
           if (p.state === "seek") { const air = !p.ground; startBlow(p, "aim"); p.mv.air = air; p.vx = p.face * 2; }
@@ -2058,7 +2794,7 @@
         hitStop(homing ? 0.05 : 0.035); shakeCam(homing ? 0.1 : 0.06); SFX.hit();
         if (p.state === "homing") { p.state = "run"; p.vy = 10; p.vx = p.face * 4; p.airMove = false; p.airUses = 0; p.curl = true; }
         else if (p.curl && !p.ground && p.vy < 0) p.vy = input.J ? 12 : 9;
-      } else if (p.vy < -0.5 && by0 > ey0 + e.h * 0.4) {
+      } else if (stomp) {
         defeat(e); hitSpark(p.x, ey1, 0.9, 0xffffff); hitStop(0.025);
         p.vy = input.J ? 13 : 9.5; p.ground = false; p.airMove = false; p.airUses = 0; SFX.stomp();
         if (p.state !== "fly" && p.state !== "glide") p.state = "run";
@@ -2094,16 +2830,28 @@
   function pop(e, lost) {
     if (e.fling) SFX.stomp();
     e.fling = null; e.m.visible = false; whiten(e.m, false);
-    const C = { hay: [0xe8c060, 0xc8a040], log: [0x8a5a30, 0xc89a60], boulder: [0x9a7a62, 0x7a5a44], ball: [0xf6f6f6, 0xe8403a],
-                snowball: [0xffffff, 0xd8e4f0], crow: [0x26262e, 0x3a3a46], gull: [0xffffff, 0xb8bcc4], owl: [0x8a6a4a, 0xc8a87a],
-                crab: [0xe0503a, 0xf06a50], penguin: [0x22222a, 0xffffff], beetle: [0x2a2238, 0x4a3a62] }[e.kind] || [0xffffff];
-    burst(e.x, e.y + e.h / 2, C.concat([0xffffff]), 14, 5);
-    if (!lost) spawnLoose(e.x, e.y + 0.6, 0, 7);
+    burst(e.x, e.y + e.h / 2, [0xffffff, 0xf2d040, 0xc8ccd8], 10, 5);
+    if (!lost) {                                           // Sonic Advance's puff of smoke, and what it was carrying
+      const m = badCard(); m.castShadow = false; world.group.add(m);
+      world.booms.push({ key: "boom", x: e.x, y: e.y + e.h / 2, r: -9, t: 0, m });
+      spawnLoose(e.x, e.y + 0.6, 0, 7);
+    }
+  }
+  /* A blow that does not land: a white spark and a clink, and nothing else. */
+  function glance(e) {
+    if (e.clink > world.t) return;
+    e.clink = world.t + 0.25;
+    hitSpark(e.x, e.y + e.h / 2, 0.7, 0xffffff); SFX.grab();
   }
   /* a thing struck shows pure white for a moment */
   let WHITE = null;
   function whiten(m, on) {
     WHITE = WHITE || new THREE.MeshBasicMaterial({ color: 0xffffff });
+    if (m.userData.bad) {                                   // a sprite: its own white silhouette
+      if (on && !m.userData.m0) { m.userData.m0 = m.material; m.material = badMats().white; }
+      else if (!on && m.userData.m0) { m.material = m.userData.m0; m.userData.m0 = null; }
+      return;
+    }
     m.traverse(o => {
       if (!o.isMesh) return;
       if (on && !o.userData.m0) { o.userData.m0 = o.material; o.material = WHITE; }
@@ -2129,34 +2877,16 @@
       if (F.t > 0.45 || ny < -2 || solid(tile(Math.floor(nx), Math.floor(ny + e.h / 2)))) pop(e, ny < -2);
       else { e.x = nx; e.y = ny; }
     }
-    for (const e of w.enemies) {
-      if (!e.alive) continue;
-      if (e.t === "b") {
-        const nx = e.x0 + Math.sin(w.t * 0.8 + e.ph) * 3.2;
-        e.vx = (nx - e.x) / Math.max(dt, 1e-4); e.x = nx;
-        e.y = e.y0 + Math.sin(w.t * 2.3 + e.ph) * 0.55;
-        continue;
-      }
-      const speed = e.t === "r" ? 2.3 : (Math.sin(w.t * 1.7 + e.ph) > -0.6 ? 1.4 : 0);
-      e.dir = e.dir || -1;
-      const ahead = e.x + e.dir * (e.w / 2 + 0.05);
-      const wall = solid(tile(Math.floor(ahead), Math.floor(e.y + 0.3))) || w.solids.some(b => b.alive && ahead > b.x0 && ahead < b.x1 && e.y < b.y1);
-      const floor = solid(tile(Math.floor(ahead), Math.floor(e.y - 0.1))) || tile(Math.floor(ahead), Math.floor(e.y - 0.1)) === "-" ||
-                    "/\\".indexOf(tile(Math.floor(ahead), Math.floor(e.y - 0.1))) >= 0 || "/\\".indexOf(tile(Math.floor(ahead), Math.floor(e.y + 0.1))) >= 0;
-      if (wall || !floor) e.dir = -e.dir;
-      e.vx = e.dir * speed;
-      e.x += e.vx * dt;
-      // follow the ground, slopes included
-      const ci = Math.floor(e.x);
-      let gy = null;
-      for (let j = Math.floor(e.y + 0.6); j >= Math.floor(e.y - 1.2); j--) {
-        const c = tile(ci, j);
-        if (c === "/" || c === "\\") { gy = slopeY(c, ci, j, e.x); break; }
-        if (solid(c) || c === "-") { gy = j + 1; break; }
-      }
-      if (gy !== null) e.y = gy; else e.y -= 6 * dt;
+    for (const e of w.enemies) {                            // the badniks near enough to matter
+      if (!e.alive || Math.abs(e.x - p.x) > 28) continue;
+      stepBadnik(e, dt, p);
       if (e.y < -3) e.alive = false;
-      e.spin += e.vx * dt / 0.45;
+    }
+    stepEnemyShots(dt, p);
+    // balloons come back, bumpers ready again
+    for (const e of w.ents) {
+      if (e.t === "balloon" && e.back > 0) { e.back -= dt; if (e.back <= 0) { e.back = 0; e.m.visible = true; } }
+      else if (e.t === "bumper") e.cd = Math.max(0, e.cd - dt);
     }
     // shots, effects and traps
     stepShots(dt);
@@ -2326,8 +3056,15 @@
     for (const e of w.fx) if (!e.gone) setFrame(e.card, e.name, Math.floor(e.t * e.fps), e.face, e.x, e.y, e.mid, e.mid ? 0.25 : 0.04, e.k);
     for (const t of w.traps) if (!t.gone) {
       const n = framesOf(t.who, "fx.trap").length, k = Math.floor(t.t * 8);
-      const i = t.who === "amy" ? Math.min(k, n - 1) : t.who === "rouge" ? (k < 3 ? k : 3 + (k - 3) % (n - 3)) : k % n;
-      setFrame(t.card, "fx.trap", i, t.face, t.x, t.y, t.flies || t.kind === "orbit", 0.15);
+      let name = "fx.trap", i = t.who === "amy" ? Math.min(k, n - 1) : t.who === "rouge" ? (k < 3 ? k : 3 + (k - 3) % (n - 3)) : k % n;
+      /* Sonic Cracker tumbles as it goes down, settles, then sits armed, blinking, till it goes */
+      const set = framesOf(t.who, "fx.trapset");
+      if (set && t.grounded) {
+        const since = t.t - (t.landT || 0);
+        if (since < n / 12) i = Math.min(Math.floor(since * 12), n - 1);
+        else { name = "fx.trapset"; i = Math.floor(since * 8) % set.length; }
+      }
+      setFrame(t.card, name, i, t.face, t.x, t.y, t.flies || t.kind === "orbit", 0.15);
       t.card.visible = !(t.life < 1.6 && Math.sin(t.t * 30) > 0.3);
     }
   }
@@ -2349,21 +3086,20 @@
     w.carrotMesh.instanceMatrix.needsUpdate = true;
     for (const e of w.ents) if (!e.gone && e.m && (e.t === "juice" || e.t === "star")) { e.m.rotation.y = w.t * 2; e.m.position.y = e.y + Math.sin(w.t * 3 + e.x) * 0.1; }
     for (const e of w.ents) if (e.t === "spring") { e.sq = Math.max(0, e.sq - dt * 4); e.m.scale.y = 1 + e.sq * 0.6; }
+      else if (e.t === "bumper") { e.sq = Math.max(0, e.sq - dt * 5); e.m.scale.set(1 + e.sq * 0.3, 1 + e.sq * 0.3, 1); }
+      else if (e.t === "balloon") { e.m.position.y = e.y + Math.sin(w.t * 2.2 + e.x) * 0.12; e.m.rotation.z = Math.sin(w.t * 1.3 + e.x) * 0.12; }
     for (const s of w.shoes) if (!s.got) { s.m.rotation.y = w.t * 2.2; s.m.position.y = s.y + Math.sin(w.t * 2.5 + s.x) * 0.12; }
     for (const e of w.enemies) {
       if (e.fling) {                                       // shaking through the freeze-frame, then spinning away
+        drawBadnik(e);
         const j = stopT > 0 ? 0.09 : 0;
-        e.m.position.set(e.x + (Math.random() - 0.5) * j, e.y + (e.t === "r" ? 0.45 : 0) + (Math.random() - 0.5) * j * 0.5, 0.05);
+        e.m.position.x += (Math.random() - 0.5) * j; e.m.position.y += (Math.random() - 0.5) * j * 0.5;
         e.m.rotation.z = e.fling.rot;
         continue;
       }
-      if (!e.alive) continue;
-      e.m.position.set(e.x, e.y + (e.t === "r" ? 0.45 : 0), e.t === "b" ? 0 : 0);
-      if (e.t === "r") e.m.rotation.z = -e.spin;
-      else e.m.rotation.y = e.vx > 0 ? 0 : PI;
-      if (e.t === "k") e.m.position.y = e.y + Math.abs(Math.sin(w.t * 9 + e.ph)) * 0.06;
-      if (e.m.userData.wings) { const a = Math.sin(w.t * 14 + e.ph) * 0.8; e.m.userData.wings[0].rotation.x = a; e.m.userData.wings[1].rotation.x = -a; }
+      if (e.alive && Math.abs(e.x - camX) < 30) drawBadnik(e);
     }
+    drawEnemyShots();
     if (w.snow) {
       const a = w.snow.geometry.attributes.position;
       for (let k = 0; k < a.count; k++) {
@@ -2373,6 +3109,8 @@
       }
       a.needsUpdate = true; w.snow.position.x = camX - 0;
     }
+    for (const f of w.far.userData.anim) f(w.t);
+    buildAhead(w);
     if (w.goal && w.goal.fire) fireworks(dt);
     // the camera
     const aspect = R.domElement.width / Math.max(1, R.domElement.height);
@@ -2451,13 +3189,85 @@
     if (!host) return;
     const k = e.key;
     const b = KEYS[k];
+    if (menuKey(e, down)) return;
     if (k === "Escape" || k === "p" || k === "P") { if (down && mode === "play") togglePause(); e.preventDefault(); return; }
-    if (k === "Enter" && down && mode === "menu") { const s = host.querySelector("#advStart"); if (s && !s.disabled) s.click(); return; }
     if (!b) return;
     if (mode === "play" || mode === "goal") e.preventDefault();
     keys[b] = down ? 1 : 0;
   }
   const kd = e => onKey(e, true), ku = e => onKey(e, false);
+
+  /* The menus by keyboard. Enter starts the stage from the stage select, and opens and
+     closes the pause menu in a run; in any menu the arrows move between its buttons (to the
+     nearest one that way), Z presses the one picked (Enter too, on the pause and results
+     screens) and X backs out: to the hall from the stage select, back into the run from the
+     pause menu, to the stage select from the results. Returns true if it took the key. */
+  let kbFocus = null, kbUsed = false;
+  const NAV = { ArrowLeft: "L", ArrowRight: "R", ArrowUp: "U", ArrowDown: "D" };
+  function menuKey(e, down) {
+    const k = e.key, inMenu = mode === "menu" || mode === "results" || (mode === "play" && paused);
+    if (k === "Enter" && mode === "play" && !paused) { if (down && !e.repeat) { kbUsed = true; togglePause(); } e.preventDefault(); return true; }
+    if (!inMenu) return false;
+    const z = k === "z" || k === "Z", x = k === "x" || k === "X";
+    if (!(NAV[k] || z || x || k === "Enter")) return false;
+    e.preventDefault();
+    if (!down) return true;
+    kbUsed = true;
+    const ov = host.querySelector(".adv-ov"), click = sel => { const el = ov && ov.querySelector(sel); if (el && !el.disabled) el.click(); };
+    if (NAV[k]) { moveFocus(NAV[k]); return true; }
+    if (e.repeat) return true;
+    if (k === "Enter") {
+      if (mode === "menu") click("#advStart");
+      else if (mode === "play") togglePause();
+      else pressFocus();
+      return true;
+    }
+    if (z) { pressFocus(); return true; }
+    if (mode === "menu") click("#advBack");
+    else if (mode === "play") togglePause();
+    else click("#advSel");
+    return true;
+  }
+  function menuItems() {
+    const ov = host && host.querySelector(".adv-ov");
+    return ov ? [...ov.querySelectorAll("button:not([disabled])")].filter(el => el.offsetParent !== null) : [];
+  }
+  function defaultFocus() {
+    const ov = host.querySelector(".adv-ov"), items = menuItems();
+    return (ov && (ov.querySelector("#advRes") || ov.querySelector("#advNext") || ov.querySelector("#advMenu") || ov.querySelector("#advStart"))) || items[0] || null;
+  }
+  function setFocus(el) {
+    if (kbFocus) kbFocus.classList.remove("kb");
+    kbFocus = el;
+    if (!el) return;
+    el.classList.add("kb");
+    try { el.focus({ preventScroll: true }); } catch (err) {}
+    el.scrollIntoView({ block: "nearest" });
+  }
+  /* to the nearest button that way: the closest straight ahead, a step aside counting double */
+  function moveFocus(dir) {
+    const items = menuItems();
+    if (!items.includes(kbFocus)) { setFocus(defaultFocus()); return; }
+    const r0 = kbFocus.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+    let best = null, bd = Infinity;
+    for (const el of items) {
+      if (el === kbFocus) continue;
+      const r = el.getBoundingClientRect(), dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
+      const along = dir === "L" ? -dx : dir === "R" ? dx : dir === "U" ? -dy : dy;
+      if (along <= 4) continue;
+      const d = along + 2 * (dir === "L" || dir === "R" ? Math.abs(dy) : Math.abs(dx));
+      if (d < bd) { bd = d; best = el; }
+    }
+    if (best) setFocus(best);
+  }
+  function pressFocus() {
+    if (!menuItems().includes(kbFocus)) { setFocus(defaultFocus()); return; }
+    const el = kbFocus;
+    el.click();
+    if (el.isConnected && menuItems().includes(el)) setFocus(el);      // a runner or stage picked: stay on it
+  }
+  /* a menu just drawn: if the keys are in use, start on its first choice */
+  function autoFocus() { kbFocus = null; if (kbUsed && host) setFocus(defaultFocus()); }
   const tapAt = { L: 0, R: 0 };
   function readInput() {
     const gp = navigator.getGamepads ? Array.from(navigator.getGamepads()).find(g => g && g.connected) : null;
@@ -2517,7 +3327,8 @@
   const fmt = t => { if (t == null) return "--:--.-"; const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
   /* open once the stage before it is cleared -- or once this one has been, so a stage added
      ahead of the others never locks what a player has already run */
-  const cleared = i => !!(saveData.stages[stages()[i].id] || {}).clear;
+  /* a stage that took the place of an older one (`was`) counts that one's clear */
+  const cleared = i => { const st = stages()[i]; return !!((saveData.stages[st.id] || {}).clear || (st.was && (saveData.stages[st.was] || {}).clear)); };
   const unlocked = i => i === 0 || cleared(i - 1) || cleared(i);
 
   function load3d(i) {
@@ -2564,6 +3375,7 @@
               return `
               <button class="adv-st ${i === stageIdx ? "on" : ""} ${open ? "" : "locked"}" data-st="${i}" ${open ? "" : "disabled"}>
                 <span class="adv-n" style="background:var(--w${(i % 8) + 1});${i === 0 || i === 4 ? "color:var(--ink)" : ""}">${i + 1}</span>
+                ${s.who ? `<canvas class="adv-st-who" width="36" height="38" data-face="${s.who}" title="${esc(castOf(s.who).name)}'s stage"></canvas>` : ""}
                 <span class="adv-st-tx"><b>${esc(s.name)}</b><i>${esc(s.sub)}</i></span>
                 ${open ? `
                   <span class="adv-shoes">${[0, 1, 2].map(k => `<em class="${sh[k] ? "got" : ""}">${ico("goldshoe")}</em>`).join("")}</span>
@@ -2579,11 +3391,13 @@
           </div>
           <div class="adv-keys">${TOUCH ? "On screen: the pad moves, crouches and picks a move (Up or Down with Heavy or Special); Jump, Light, Heavy and Special." :
             `<b>&larr; &rarr;</b> run, twice to dash &middot; <b>Space</b> jump, again in the air &middot; <b>Z</b> light &middot; <b>X</b> heavy &middot; <b>C</b> special<br>
-             <b>&uarr;</b> or <b>&darr;</b> with <b>X</b> or <b>C</b> for another move &middot; <b>&darr;</b> crouch &middot; <b>&darr; + Space</b> Spin Dash, or drop through &middot; <b>Esc</b> pause`}</div>
-          <div class="adv-credit">Sonic, Tails, Knuckles, Amy, Rouge and Shadow belong to SEGA. Their sprites are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing and the Spin Dash rev, dust and blast effects are from Sonic Advance (2001), ripped by AsuharaMoon (both The Spriters Resource).</div>
+             <b>&uarr;</b> or <b>&darr;</b> with <b>X</b> or <b>C</b> for another move &middot; <b>&darr;</b> crouch &middot; <b>&darr; + Space</b> Spin Dash, or drop through &middot; <b>Enter</b> start, and pause<br>
+             In the menus: <b>arrows</b> to choose &middot; <b>Z</b> to confirm &middot; <b>X</b> to go back`}</div>
+          <div class="adv-credit">Sonic, Tails, Knuckles, Amy, Rouge and Shadow belong to SEGA. Their sprites are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing and the Spin Dash rev, dust and blast effects are from Sonic Advance (2001), ripped by AsuharaMoon. The badniks are from Sonic Advance, Sonic Advance 2 and Sonic Advance 3, ripped by SpitfyaUK and Techokami, Fatazz and SkyLights. All from The Spriters Resource.</div>
         </div>
       </div>`;
     ov.querySelectorAll(".adv-spr").forEach(cv => paintCard(cv, cv.dataset.who));
+    ov.querySelectorAll("[data-face]").forEach(cv => paintCard(cv, cv.dataset.face, "idle", 1));
     ov.querySelectorAll("[data-cast]").forEach(b => b.onclick = () => {
       castId = b.dataset.cast; saveData.cast = castId; save(saveData);
       ov.querySelectorAll("[data-cast]").forEach(x => x.classList.toggle("on", x === b));
@@ -2597,9 +3411,10 @@
     });
     ov.querySelector("#advStart").onclick = () => play();
     ov.querySelector("#advBack").onclick = () => exit();
+    autoFocus();
   }
   function music() {
-    const T = THEMES[stages()[stageIdx].theme] || THEMES.hills;
+    const T = THEMES[stages()[stageIdx].theme] || THEMES.cape;
     try { if (root.Sound && Sound.play) Sound.play(T.music); } catch (e) {}
   }
 
@@ -2680,6 +3495,7 @@
     ov.querySelector("#advRes").onclick = () => togglePause();
     ov.querySelector("#advRe").onclick = () => { paused = false; play(); };
     ov.querySelector("#advQuit").onclick = () => { paused = false; load3d(stageIdx); menu(); };
+    autoFocus();
   }
 
   function results(r) {
@@ -2700,7 +3516,7 @@
         </div>
         ${r.earned ? `<div class="adv-pay">${ico("carrot")}<b class="num">+${r.earned}</b> carrots to your stable</div>` : ""}
         <div class="adv-btns">
-          ${next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All seven cleared</button>`}
+          ${next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All six cleared</button>`}
           <button class="btn ghost" id="advAgain">Run it again</button>
           <button class="btn ghost" id="advSel">${ico("back")}Stage select</button>
         </div>
@@ -2708,6 +3524,7 @@
     const go = id => { const b = ov.querySelector(id); return b; };
     if (go("#advNext")) go("#advNext").onclick = () => { stageIdx = next; play(); };
     if (go("#advMenu")) go("#advMenu").onclick = () => { load3d(stageIdx); menu(); };
+    setTimeout(autoFocus, 0);
     go("#advAgain").onclick = () => play();
     go("#advSel").onclick = () => { if (next >= 0) stageIdx = next; load3d(stageIdx); menu(); };
   }
@@ -2729,6 +3546,7 @@
     if ((saveData.stages[list[stageIdx].id] || {}).clear && stageIdx + 1 < list.length && unlocked(stageIdx + 1)) stageIdx++;
     el.innerHTML = `<div class="adv"><div class="adv-3d"></div><div class="adv-hud"></div><div class="adv-ov"></div></div>`;
     host = el.querySelector(".adv");
+    host.addEventListener("pointerdown", () => { kbUsed = false; if (kbFocus) kbFocus.classList.remove("kb"); kbFocus = null; });
     load3d(stageIdx);
     menu(); music();
     addEventListener("keydown", kd); addEventListener("keyup", ku);

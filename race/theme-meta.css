@@ -2024,6 +2024,8 @@
 .adv-st.on{background:var(--gold-pale)}
 .adv-st.locked{cursor:default;opacity:.6}
 .adv-n{flex:0 0 28px;height:28px;display:grid;place-items:center;color:#fff;font:800 italic 17px/1 var(--font-num);border-radius:var(--r-sm);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.adv-ov .kb{outline:3px solid var(--gold);outline-offset:2px;position:relative;z-index:1}
+.adv-st-who{flex:0 0 36px;width:36px;height:38px;image-rendering:pixelated;margin:-4px 0}
 .adv-st-tx{flex:1;display:flex;flex-direction:column;min-width:0}
 .adv-st-tx b{font:400 15px/1.15 var(--font-display)}
 .adv-st-tx i{font:600 12px/1.25 var(--font-ui);font-style:normal;color:var(--ink-3)}
