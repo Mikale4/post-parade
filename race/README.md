@@ -1254,16 +1254,34 @@ air breaking the sound barrier -- tearing along the ground at 28 m/s for about f
 metres, trailing air. It throws him back a metre, braced in his braking pose. Sonic Storm is
 the same from the air, angled down.
 
-**Every special lands with weight.** While a move winds up, energy of its colour gathers to
-the runner's hand to a rising note; its release flashes that colour, jolts the picture and,
-for the shots, pushes the runner back; the heaviest (Deep Impact, Chaos Burst, Major
-Eruption, the Big Hand, Silent Size) freeze the world for a few hundredths of a second.
-Shots fly faster and bigger and leave a trail of their colour -- Tails' Energy Ball at
-20 m/s, Shadow's Chaos Spear at 30, Amy's Pink Typhoon and Rouge's Beauty Shock see-through
-(wind and sound) -- and each hit flashes and catches for an instant. Knuckles' rocks land
-in dust and a jolt; dives come down in dust both sides; Girl Tornado whirls wind round Amy;
-every trap goes off in Knuckles' Deep Impact explosion. Each move's colour, flash, jolt,
-recoil and freeze are in `SPECIALS` in `adventure.js`.
+**Every special lands with weight.** While a move winds up, energy of its colour gathers in
+to a rising note: to the runner's hand, or, for Tails' Energy Ball and Rouge's Beauty Shock,
+to the mouth of his cannon and to her pointing hand (measured off the frame each fires on),
+from the frame the cannon or hand is there, a glow swelling at it as it fills. The release
+flashes that colour, jolts the picture and, for the shots, pushes the runner back; Tails'
+and Rouge's blow their sparks out of the muzzle the way the shot goes, rather than up in a
+spray, and the shot leaves from it. The heaviest (Deep Impact, Chaos Burst, Major Eruption,
+the Big Hand, Silent Size) freeze the world for a few hundredths of a second. Shots fly
+faster and bigger and leave a trail of their colour -- Tails' Energy Ball at 20 m/s,
+Shadow's Chaos Spear at 30, Amy's Pink Typhoon and Rouge's Beauty Shock see-through (wind
+and sound) -- and each hit flashes and catches for an instant. Knuckles' specials raise no
+dust and throw no bits: his rocks, Deep Impact, Major Eruption and Mole Bomb land on their
+light, the jolt and the freeze alone. Sonic Meteor and Spiral Dive come down in dust; Girl
+Tornado whirls wind round Amy; every trap goes off in Knuckles' Deep Impact explosion. Each
+move's colour, flash, jolt, recoil, freeze and muzzle are in `SPECIALS` in `adventure.js`.
+
+**Every blow lands too.** When a jab, heavy, upper, dash, air or aim attack connects, a hit
+spark -- an eight-pointed star in the runner's colour round a white heart -- pops where it
+met, with a flash; the picture stops dead for a few hundredths of a second and jolts, the
+jabs briefly and the finishers (the third jab, the heavies, the upper, the dash and aim
+attacks) longest, while what was hit shows pure white. Then it is thrown, tumbling, the way
+the blow sends it (an upper straight up), and bursts where it hits something or a moment
+later. Knuckles hits hardest of the six, and Amy's hammer blows land like a hammer. A blow
+that meets something in its wind-up lands there and then, so a heavy's step never carries
+the runner into a hurt; the aim attack's dash does the same. A Spin Dash, roll or Homing
+Attack that hits throws its mark the way it was going, a stomp sparks underfoot, and a
+special's blast throws what it hits away from it. Each blow's freeze, jolt, spark and knock
+are in `HITS` in `adventure.js`.
 
 | | Moves in the platformers | Its Sonic Battle set |
 |---|---|---|

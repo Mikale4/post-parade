@@ -121,12 +121,32 @@
     shadow:   { atk1: [25, 0.7, 2.4], atk2: [25, 0.8, 2.6], atk3: [24, 0.9, 3.6], heavy: [26, 1.1, 4] },
   };
   const blow = (c, name) => { const b = (BLOWS[c.id] || {})[name] || BLOWS.base[name]; return { fps: b[0], reach: b[1], step: b[2] }; };
+  /* How a blow lands, by its row: the freeze-frame when it connects (seconds), the jolt through
+     the picture, the size of the hit spark (metres), and the knock it gives what it hits (m/s
+     forward, up). The finishers -- the third jab, the heavies, the upper, the dash and aim
+     attacks -- hold the picture longest and throw furthest. Knuckles hits hardest of the six,
+     and Amy's hammer blows land like a hammer. A hit spark is in the runner's colour. */
+  const HITS = {
+    atk1:    { stop: 0.035, shake: 0.04, spark: 0.95, kick: [6, 4] },
+    atk2:    { stop: 0.04,  shake: 0.05, spark: 1.05, kick: [7, 4.5] },
+    atk3:    { stop: 0.07,  shake: 0.14, spark: 1.4,  kick: [12, 7],  heavy: true },
+    heavy:   { stop: 0.085, shake: 0.18, spark: 1.6,  kick: [15, 6],  heavy: true },
+    upper:   { stop: 0.075, shake: 0.16, spark: 1.5,  kick: [3, 16],  heavy: true },
+    dashatk: { stop: 0.07,  shake: 0.16, spark: 1.5,  kick: [16, 5],  heavy: true },
+    airatk:  { stop: 0.05,  shake: 0.1,  spark: 1.2,  kick: [10, 2] },
+    aim:     { stop: 0.06,  shake: 0.12, spark: 1.3,  kick: [11, 6],  heavy: true },
+  };
+  const HIT_C = { sonic: 0x9ad4ff, tails: 0xfff070, knuckles: 0xff9030, amy: 0xff80c0, rouge: 0xff70d0, shadow: 0xff4060 };
+  const hitWeight = (c, name) => c.id === "knuckles" ? 1.3 : c.id === "amy" && /^(heavy|upper|airatk)$/.test(name) ? 1.25 : 1;
 
   /* How hard each lands: `charge` is the colour of the energy gathered while the move winds up;
      `pow` what its release does (a flash of that colour and size, a jolt through the picture,
      a recoil, a freeze-frame of `stop` seconds); `trail` the colour a shot leaves behind it, `k`
      its size, `ghost` a see-through one (wind, sound); `land` what a lobbed rock does when it
-     comes down.
+     comes down; `bits: 0` none of the flying bits. A `muzzle` is where on the firing frame the
+     shot leaves from (metres ahead of the runner, metres up): Tails' cannon, Rouge's hand. The
+     charge gathers there from frame `gfrom`, and the release bursts out of it the way the shot
+     goes.
 
      The specials, as Sonic Battle has each one (Sonic Center's character FAQ and the Green
      Hill Zone's guide): `body` the runner's frames, `at` the frame it happens on, then what
@@ -146,9 +166,9 @@
       airtrap:  { body: "airtrap", fps: 16, at: 4, trap: "mine", toss: true } },
     tails: {
       shot:     { body: "shot", fps: 30, at: 9, fly: "fx.shot", speed: 20, life: 0.7, loop: true, k: 1.5, trail: 0xfff070,   // Energy Ball, from his arm cannon
-                  charge: 0xfff070, pow: { c: 0xfff070, flash: 2.2, shake: 0.12, recoil: 3 } },
+                  muzzle: [0.68, 0.55], gfrom: 6, charge: 0xfff070, pow: { c: 0xfff070, flash: 2.2, shake: 0.12, recoil: 3 } },
       airshot:  { body: "shot", fps: 30, at: 9, fly: "fx.shot", speed: 20, down: 0.6, life: 0.6, loop: true, k: 1.5, trail: 0xfff070,
-                  charge: 0xfff070, pow: { c: 0xfff070, flash: 2.2, shake: 0.12, recoil: 3 } },
+                  muzzle: [0.68, 0.55], gfrom: 6, charge: 0xfff070, pow: { c: 0xfff070, flash: 2.2, shake: 0.12, recoil: 3 } },
       power:    { body: "power", fps: 16, at: 3, area: "fx.power", ax: 1.5, ay: 0.7, w: 2.1, h: 2.2, k: 1.5,           // Flick: a Big Hand
                   charge: 0xffffff, pow: { c: 0xffffff, flash: 3, shake: 0.22, stop: 0.06 } },
       airpower: { body: "airpower", fps: 16, at: 3, area: "fx.power", ax: 1.5, ay: 0.55, w: 2.1, h: 2.2, k: 1.5,
@@ -156,13 +176,15 @@
       trap:     { body: "trap", fps: 16, at: 3, trap: "chase" },                                                // Chu² Bomb: crawls after its mark
       airtrap:  { body: "airtrap", fps: 16, at: 3, trap: "chase", toss: true } },
     knuckles: {
-      shot:     { body: "shot", fps: 20, at: 8, lob: "fx.shot", speed: 8, rise: 9, k: 1.35, trail: 0xb08a5a,       // Rock Free Fall: a rock, lobbed
-                  charge: 0xffc080, land: { c: 0xffc080, flash: 2.4, shake: 0.26, stop: 0.04 } },
-      airshot:  { body: "airshot", fps: 18, at: 3, lob: "fx.shot", speed: 9, rise: -7, k: 1.35, trail: 0xb08a5a,     // Meteor Crush: hurled down
-                  land: { c: 0xffc080, flash: 2.4, shake: 0.26, stop: 0.04 } },
-      power:    { body: "power", fps: 32, at: 29, area: "fx.power", ax: 1.2, ay: 0.7, w: 2.6, h: 2.4, step: 1.6, k: 1.7, // Deep Impact: the punch goes off
-                  charge: 0xff9030, pow: { c: 0xff9030, flash: 4.5, shake: 0.4, stop: 0.09, recoil: 2 } },
-      airpower: { body: "airpower", fps: 20, at: 0, dive: "erupt", pow: { c: 0xff9030, flash: 4, shake: 0.38, stop: 0.08 } }, // Major Eruption: dives, burrows, bursts out
+      /* no dust or flying bits on his: the rock, the punch and the blast land on their light,
+         the jolt and the freeze alone */
+      shot:     { body: "shot", fps: 20, at: 8, lob: "fx.shot", speed: 8, rise: 9, k: 1.35, bits: 0,              // Rock Free Fall: a rock, lobbed
+                  charge: 0xffc080, land: { c: 0xffc080, flash: 2.4, shake: 0.26, stop: 0.04, bits: 0 } },
+      airshot:  { body: "airshot", fps: 18, at: 3, lob: "fx.shot", speed: 9, rise: -7, k: 1.35, bits: 0,            // Meteor Crush: hurled down
+                  land: { c: 0xffc080, flash: 2.4, shake: 0.26, stop: 0.04, bits: 0 } },
+      power:    { body: "power", fps: 32, at: 29, area: "fx.power", ax: 1.2, ay: 0.7, w: 2.6, h: 2.4, step: 1.6, k: 1.7, bits: 0, // Deep Impact: the punch goes off
+                  charge: 0xff9030, pow: { c: 0xff9030, flash: 4.5, shake: 0.4, stop: 0.09, recoil: 2, bits: 0 } },
+      airpower: { body: "airpower", fps: 20, at: 0, dive: "erupt", bits: 0, pow: { c: 0xff9030, flash: 4, shake: 0.38, stop: 0.08, bits: 0 } }, // Major Eruption: dives, burrows, bursts out
       trap:     { body: "trap", fps: 18, at: 5, trap: "mine", faint: true },                                    // Mole Bomb: a landmine you can barely see
       airtrap:  { body: "airtrap", fps: 18, at: 3, trap: "mine", faint: true, toss: true } },
     amy: {
@@ -178,9 +200,9 @@
     rouge: {
       /* Beauty Shock: an ultrasonic shriek -- sound, so you can see through it; short reach */
       shot:     { body: "shot", fps: 22, at: 7, fly: "fx.shot", speed: 18, life: 0.35, loop: true, ghost: 1.6, trail: 0xffb0f0,
-                  charge: 0xff70d0, pow: { c: 0xff70d0, flash: 2, shake: 0.1, recoil: 2 } },
+                  muzzle: [0.64, 0.68], gfrom: 4, charge: 0xff70d0, pow: { c: 0xff70d0, flash: 2, shake: 0.1, recoil: 2 } },
       airshot:  { body: "airshot", fps: 22, at: 6, fly: "fx.shot", speed: 18, down: 0.7, life: 0.35, loop: true, ghost: 1.6, trail: 0xffb0f0,
-                  charge: 0xff70d0, pow: { c: 0xff70d0, flash: 2, shake: 0.1, recoil: 2 } },
+                  muzzle: [0.63, 0.72], gfrom: 3, charge: 0xff70d0, pow: { c: 0xff70d0, flash: 2, shake: 0.1, recoil: 2 } },
       power:    { body: "power", fps: 22, at: 3, area: "fx.power", ax: 1.5, ay: 0.6, w: 2.4, h: 1.8, k: 1.5,           // Silent Size
                   charge: 0xa0ff70, pow: { c: 0xa0ff70, flash: 3, shake: 0.22, stop: 0.06 } },
       airpower: { body: "airpower", fps: 22, at: 0, dive: "drill", pow: { c: 0xff70d0, flash: 2.4, shake: 0.22, stop: 0.04 } }, // Spiral Dive: spins down, through rock
@@ -1060,15 +1082,18 @@
     world.ents.push({ t: "loose", x, y, vx, vy, m, life: 6 });
   }
   /** A blow lands on a box of the world: whatever is in it -- things alive, cracked rock,
-      crates, hurdles -- is beaten or broken. Returns how many. */
-  function strike(x0, x1, y0, y1) {
+      crates, hurdles -- is beaten or broken, things alive knocked by `kick` (see defeat).
+      Returns how many; world.hitAt is where the first one was met. */
+  function strike(x0, x1, y0, y1, kick) {
     let n = 0;
-    for (const e of world.enemies) if (e.alive && e.x + e.w / 2 > x0 && e.x - e.w / 2 < x1 && e.y + e.h > y0 && e.y < y1) { defeat(e); n++; }
+    const at = (a0, a1, b0, b1) => { if (!n) world.hitAt = { x: (Math.max(x0, a0) + Math.min(x1, a1)) / 2, y: (Math.max(y0, b0) + Math.min(y1, b1)) / 2 }; };
+    world.hitAt = null;
+    for (const e of world.enemies) if (e.alive && e.x + e.w / 2 > x0 && e.x - e.w / 2 < x1 && e.y + e.h > y0 && e.y < y1) { at(e.x - e.w / 2, e.x + e.w / 2, e.y, e.y + e.h); defeat(e, kick); n++; }
     for (let i = Math.floor(x0); i <= Math.floor(x1 - 0.01); i++) for (let j = Math.floor(y0); j <= Math.floor(y1 - 0.01); j++) {
       const t = tile(i, j);
-      if ((t === "X" || t === "B") && breakTile(i, j)) n++;
+      if ((t === "X" || t === "B") && breakTile(i, j)) { at(i, i + 1, j, j + 1); n++; }
     }
-    for (const b of world.solids) if (b.alive && b.x1 > x0 && b.x0 < x1 && b.y1 > y0 && b.y0 < y1) { smashHurdle(b); n++; }
+    for (const b of world.solids) if (b.alive && b.x1 > x0 && b.x0 < x1 && b.y1 > y0 && b.y0 < y1) { at(b.x0, b.x1, b.y0, b.y1); smashHurdle(b); n++; }
     return n;
   }
 
@@ -1112,7 +1137,7 @@
 
   const AIR_STATES = { homing: 1, fly: 1, glide: 1, teleport: 1, seek: 1, climb: 1 };
   function land(p, hit) {
-    if (!p.ground && p.vy < -14) burst(p.x, p.y, [0xd8d0c0, 0xc8c0b0], 5, 2);
+    if (!p.ground && p.vy < -14 && !(p.state === "dive" && p.diveS && p.diveS.bits === 0)) burst(p.x, p.y, [0xd8d0c0, 0xc8c0b0], 5, 2);
     if (!p.ground && p.vy < -4) p.landT = 0.14;
     const fell = p.vy;
     p.ground = true; p.vy = 0; p.airMove = false; p.airSp = false; p.airUses = 0; p.jumping = false; p.flyLeft = p.c.flyTime || 0;
@@ -1450,7 +1475,7 @@
     if (m.live) {
       const up = m.name === "upper" ? 0.9 : 0;
       const x0 = p.face > 0 ? p.x : p.x - c.w / 2 - m.reach, x1 = p.face > 0 ? p.x + c.w / 2 + m.reach : p.x;
-      if (strike(x0, x1, p.y + 0.08, p.y + p.hh + up) && !m.struck) { m.struck = true; SFX.hit(); }
+      if (strike(x0, x1, p.y + 0.08, p.y + p.hh + up, blowKick(p)) && !m.struck) landBlow(p);
     }
     // the combo: the next blow, pressed once this one has landed
     if (i >= m.h0 && !m.air) {
@@ -1463,6 +1488,24 @@
       if (m.queue && p.ground) { if (m.queue === "aim") startSeek(p); else startBlow(p, m.queue); }
       else if (/^atk[123]$/.test(m.name)) { p.comboT = 0.25; p.comboLast = m.name; p.comboNext = m.name === "atk1" ? "atk2" : m.name === "atk2" ? "atk3" : null; }
     }
+  }
+  /** The knock a blow gives what it hits: forward and up, by its row and the runner's weight. */
+  function blowKick(p) {
+    const H = HITS[p.mv.name] || HITS.atk1, k = hitWeight(p.c, p.mv.name);
+    return { vx: p.face * H.kick[0] * k, vy: H.kick[1] * k };
+  }
+  /** A blow connects: a hit spark in the runner's colour where it met, a flash, and the picture
+      stops dead for a few hundredths of a second and jolts -- longest and hardest for a finisher,
+      while what it hit shakes white and is then thrown. Once a blow. */
+  function landBlow(p) {
+    const m = p.mv; if (!m || m.struck) return;
+    m.struck = true;
+    const H = HITS[m.name] || HITS.atk1, k = hitWeight(p.c, m.name), col = HIT_C[p.c.id] || 0xffffff;
+    const h = world.hitAt || { x: p.x + p.face * (p.c.w / 2 + m.reach * 0.6), y: p.y + p.hh * 0.55 };
+    hitSpark(h.x, h.y, H.spark * k, col);
+    flash(h.x, h.y, H.spark * 1.5 * k, col);
+    hitStop(H.stop * k); shakeCam(H.shake * k);
+    SFX.hit(); if (H.heavy) SFX.impact();
   }
   /* Down + X: the aim attack -- a dash at the nearest thing, then the blow. */
   function startSeek(p) {
@@ -1526,7 +1569,7 @@
     if (!s.fired && s.charge && s.at > 1) {
       if (!s.hum) { s.hum = true; SFX.charge(s.at / s.fps); }
       s.glow = (s.glow || 0) - dt;
-      if (s.glow <= 0) { s.glow = 0.03; gather(p, s.charge); }
+      if (s.glow <= 0 && s.bits !== 0 && i >= (s.gfrom || 0)) { s.glow = s.muzzle ? 0.02 : 0.03; gather(p, s.charge, s); }
     }
     if (!s.fired && i >= s.at) { s.fired = true; fire(p, s); if (p.state !== "special") { p.sp = null; return; } }
     if (i >= s.n) {
@@ -1578,27 +1621,78 @@
     world.group.add(sp); world.flashes.push({ s: sp, size, t: 0, life: 0.24 });
   }
   /** A blow landing: a flash of its colour, a jolt through the picture, sparks, and for the
-      heaviest a freeze-frame -- everything stops for a few hundredths of a second. */
+      heaviest a freeze-frame -- everything stops for a few hundredths of a second. With `cone`
+      (a facing) the sparks blow out of a muzzle the way the shot goes (`down` its slope), not
+      up in a spray; with `bits: 0` there are none. */
   function impact(x, y, o) {
     if (!o) return;
     flash(x, y, o.flash || 1.5, o.c);
     if (o.shake) shakeCam(o.shake);
     if (o.stop) hitStop(o.stop);
-    burst(x, y, [o.c || 0xffffff, 0xffffff, mixC(o.c || 0xffffff, 0x000000, 0.25)], Math.round(8 + (o.flash || 1.5) * 4), 3 + (o.flash || 1.5));
+    if (o.bits === 0) return;
+    const cols = [o.c || 0xffffff, 0xffffff, mixC(o.c || 0xffffff, 0x000000, 0.25)];
+    if (o.cone) {
+      const a0 = Math.atan2(-(o.down || 0), 1);
+      for (let k = 0, n = Math.round(10 + (o.flash || 1.5) * 4); k < n; k++) {
+        const a = a0 + (Math.random() - 0.5) * 0.9, sp = 4 + Math.random() * 7, life = 0.12 + Math.random() * 0.12;
+        world.parts.list.push({ x, y, z: (Math.random() - 0.5) * 0.3, vx: o.cone * Math.cos(a) * sp, vy: Math.sin(a) * sp + 9 * life, vz: (Math.random() - 0.5) * 2,
+                                life, s: 0.05 + Math.random() * 0.05, c: cols[k % 3] });
+      }
+      return;
+    }
+    burst(x, y, cols, Math.round(8 + (o.flash || 1.5) * 4), 3 + (o.flash || 1.5));
   }
-  /* energy gathering to the hand while a move winds up */
-  function gather(p, color) {
+  /* energy gathering to the hand while a move winds up; with a muzzle, to the mouth of the
+     cannon (or the hand) itself, a glow swelling there as it fills */
+  function gather(p, color, s) {
+    const m = s && s.muzzle;
+    if (m) {
+      const hx = p.x + p.face * m[0], hy = p.y + m[1], L = 0.16, fill = Math.min(1, s.t * s.fps / s.at);
+      for (let k = 0; k < 3; k++) {
+        const a = Math.random() * PI * 2, r = 0.4 + Math.random() * 0.35, x = hx + Math.cos(a) * r, y = hy + Math.sin(a) * r;
+        world.parts.list.push({ x, y, z: 0.2, vx: (hx - x) / L, vy: (hy - y) / L + 9 * L, vz: 0, life: L, s: 0.06, c: Math.random() < 0.5 ? color : 0xffffff });
+      }
+      if ((s.glows = (s.glows || 0) + 1) % 3 === 1) flash(hx, hy, 0.45 + fill * 0.6, color);
+      return;
+    }
     const hx = p.x + p.face * 0.55, hy = p.y + p.hh * 0.55;
     for (let k = 0; k < 2; k++) {
       const a = Math.random() * PI * 2, r = 0.7 + Math.random() * 0.4, x = hx + Math.cos(a) * r, y = hy + Math.sin(a) * r;
       world.parts.list.push({ x, y, z: 0.2, vx: (hx - x) * 6, vy: (hy - y) * 6 + 2.2, vz: 0, life: 0.16, s: 0.07, c: Math.random() < 0.5 ? color : 0xffffff });
     }
   }
+  /* A hit spark: an eight-pointed star of a landed blow, drawn in pixels -- the runner's colour
+     round a white heart, popping out and gone in a few hundredths of a second (it holds through
+     the freeze-frame). */
+  let SPARK_TEX = null;
+  function sparkMat(color) {
+    if (!SPARK_TEX) {
+      const N = 32, c = document.createElement("canvas"); c.width = c.height = N;
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.beginPath();
+      for (let k = 0; k < 16; k++) {
+        const a = k * PI / 8, r = k % 2 ? 3.6 : k % 4 === 0 ? 15.5 : 9;
+        g[k ? "lineTo" : "moveTo"](16 + Math.cos(a) * r, 16 + Math.sin(a) * r);
+      }
+      g.closePath(); g.fill();
+      SPARK_TEX = new THREE.CanvasTexture(c);
+      SPARK_TEX.magFilter = SPARK_TEX.minFilter = THREE.NearestFilter; SPARK_TEX.generateMipmaps = false;
+    }
+    return new THREE.SpriteMaterial({ map: SPARK_TEX, color, alphaTest: 0.5, depthWrite: false, rotation: (Math.random() - 0.5) * 0.7 });
+  }
+  function hitSpark(x, y, size, color) {
+    const a = new THREE.Sprite(sparkMat(color)), b = new THREE.Sprite(sparkMat(0xffffff));
+    b.material.rotation = a.material.rotation;
+    a.position.set(x, y, 0.45); b.position.set(x, y, 0.47);
+    a.scale.setScalar(size); b.scale.setScalar(size * 0.5);
+    world.group.add(a, b); world.flashes.push({ s: a, s2: b, size, t: 0, life: 0.17, spark: true });
+  }
   function fire(p, s) {
     const who = p.c.id, f = p.face;
     // the release: a flash at the hand, a jolt, and a push back
+    const mz = s.muzzle;
     if (s.pow && !s.dive) {
-      impact(p.x + f * 0.75, p.y + p.hh * 0.55, s.pow);
+      if (mz) impact(p.x + f * mz[0], p.y + mz[1], Object.assign({ cone: f, down: s.air ? s.down || 0 : 0 }, s.pow));
+      else impact(p.x + f * 0.75, p.y + p.hh * 0.55, s.pow);
       if (s.pow.recoil) { p.vx = -f * s.pow.recoil; if (s.air) p.vy = Math.max(p.vy, 2.5); }
     }
     const k = s.k || s.ghost || 1;
@@ -1606,18 +1700,18 @@
                              w: 1.0 * k, h: 1.3 * k, k, face: f, ghost: s.ghost, trail: s.trail });
     else if (s.fly) {
       const held = s.hold && input.C ? s.hold : 0;
-      shoot(who, { fx: s.fly, x: p.x + f * (0.6 + (s.ahead || 0)), y: p.y + p.hh * 0.55, vx: f * s.speed, vy: -(s.down || 0) * s.speed,
+      shoot(who, { fx: s.fly, x: mz ? p.x + f * (mz[0] + 0.3 * k) : p.x + f * (0.6 + (s.ahead || 0)), y: mz ? p.y + mz[1] : p.y + p.hh * 0.55,
+                   vx: f * s.speed, vy: -(s.down || 0) * s.speed,
                    life: s.life + held, loop: s.loop, mid: true, w: 0.8 * k, h: 0.8 * k, k, face: f, ghost: s.ghost, trail: s.trail });
       if (!s.ghost) SFX.shot();
     } else if (s.lob) {
       shoot(who, { fx: s.lob, x: p.x + f * 0.5, y: p.y + p.hh + 0.5, vx: f * s.speed, vy: s.rise, g: 26, life: 3, loop: true, mid: true,
-                   w: 0.9 * k, h: 0.9 * k, k, face: f, bursts: 1.8, trail: s.trail, land: s.land });
+                   w: 0.9 * k, h: 0.9 * k, k, face: f, bursts: 1.8, trail: s.trail, land: s.land, bits: s.bits });
       SFX.shot();
     } else if (s.area) {
       const ax = p.x + f * s.ax, ay = p.y + s.ay;
       effect(who, s.area, ax, ay, f, 22, true, "fx", k);
-      if (strike(ax - s.w / 2, ax + s.w / 2, ay - s.h / 2, ay + s.h / 2)) hitStop(0.05);
-      if (who === "knuckles") burst(ax, ay, [0xfff3a0, 0xf08a24, 0xe8403a], 22, 8);
+      if (strike(ax - s.w / 2, ax + s.w / 2, ay - s.h / 2, ay + s.h / 2, { r: 11, cx: ax - f * 0.6, cy: ay - 0.3 })) hitStop(0.05);
       SFX.boom();
     } else if (s.drive) {
       shoot(who, { fx: "fx.ring", x: p.x + f * 0.8, y: p.y + 0.5, vx: f * 14, vy: 0, life: 0.42, loop: true, mid: true, w: 0.5, h: 0.5, face: f, ring: true, trail: 0xfff070 });
@@ -1648,7 +1742,7 @@
   function diveLand(p, fell) {
     const kind = p.dive;
     if (kind === "meteor" || kind === "drill") {
-      strike(p.x - 1.0, p.x + 1.0, p.y - 0.2, p.y + 1.2);
+      strike(p.x - 1.0, p.x + 1.0, p.y - 0.2, p.y + 1.2, { r: 9, cx: p.x, cy: p.y });
       burst(p.x, p.y + 0.1, [0xd8d0c0, 0xffffff, kind === "drill" ? 0xb070c0 : 0x5a9ae0], 16, 5);
       impact(p.x, p.y + 0.3, p.diveS && p.diveS.pow);
       if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.5, p.y, -1, 22, false); effect(p.c.id, "fx.dust", p.x + 0.5, p.y, 1, 22, false); }
@@ -1664,11 +1758,12 @@
     const i = e.from + Math.floor(e.t * e.fps);
     if (!e.fired && i >= e.from + e.at) {
       e.fired = true;
-      if (e.fx) effect(p.c.id, e.fx, p.x, p.y + 0.7, p.face, 22, true, "fx", 1.45);
-      else { burst(p.x, p.y + 0.3, [0x8a6a4a, 0xb08a5a, 0xe8403a, 0xfff3a0], 30, 9); effect(p.c.id, "fx.boom", p.x, p.y + 0.6, p.face, 22, true, "fx", 1.5); }
-      if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.7, p.y, -1, 20, false); effect(p.c.id, "fx.dust", p.x + 0.7, p.y, 1, 20, false); }
+      if (e.fx) {                                          // Shadow's Air Chaos Burst, kicking up dust
+        effect(p.c.id, e.fx, p.x, p.y + 0.7, p.face, 22, true, "fx", 1.45);
+        if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.7, p.y, -1, 20, false); effect(p.c.id, "fx.dust", p.x + 0.7, p.y, 1, 20, false); }
+      } else effect(p.c.id, "fx.boom", p.x, p.y + 0.6, p.face, 22, true, "fx", 1.5);   // Knuckles' Major Eruption: the blast alone
       impact(p.x, p.y + 0.7, p.diveS && p.diveS.pow);
-      strike(p.x - e.r, p.x + e.r, p.y - 0.3, p.y + 2.2);
+      strike(p.x - e.r, p.x + e.r, p.y - 0.3, p.y + 2.2, { r: 12, cx: p.x, cy: p.y });
       SFX.boom(); SFX.impact();
     }
     if (i > e.to) { p.state = "run"; p.er = null; }
@@ -1680,7 +1775,7 @@
     if (i >= T.from) {
       T.left -= dt;
       p.vx = p.face * (T.air ? 3.5 : 4.5);
-      if (strike(p.x - 0.9, p.x + 0.9, p.y + 0.05, p.y + p.hh + 0.2)) { impact(p.x + p.face * 0.6, p.y + 0.6, { c: 0xff80c0, flash: 1.4, shake: 0.08 }); hitStop(0.03); SFX.hit(); }
+      if (strike(p.x - 0.9, p.x + 0.9, p.y + 0.05, p.y + p.hh + 0.2, { vx: p.face * 10, vy: 8 })) { impact(p.x + p.face * 0.6, p.y + 0.6, { c: 0xff80c0, flash: 1.4, shake: 0.08 }); hitStop(0.03); SFX.hit(); }
       T.whirl = (T.whirl || 0) - dt;
       if (T.whirl <= 0) {                                  // the wind of the swing, round and round
         T.whirl = 0.035; const a = T.t * 18;
@@ -1713,11 +1808,11 @@
   function boomTrap(t) {
     if (t.gone) return;
     t.gone = true; world.group.remove(t.card); t.card.geometry.dispose();
-    const by = t.y + (t.flies || t.kind === "orbit" ? 0 : 0.5);
+    const by = t.y + (t.flies || t.kind === "orbit" ? 0 : 0.5), knux = t.who === "knuckles";   // his Mole Bomb: the blast alone
     effect(t.who, "fx.boom", t.x, by, 1, 22, true, "fx", 1.6);
-    burst(t.x, by, [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 24, 7);
-    impact(t.x, by, { c: 0xffb040, flash: 3.6, shake: 0.28, stop: 0.05 });
-    strike(t.x - 1.5, t.x + 1.5, t.y - 0.6, t.y + 1.8);
+    if (!knux) burst(t.x, by, [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 24, 7);
+    impact(t.x, by, { c: 0xffb040, flash: 3.6, shake: 0.28, stop: 0.05, bits: knux ? 0 : 1 });
+    strike(t.x - 1.5, t.x + 1.5, t.y - 0.6, t.y + 1.8, { r: 11, cx: t.x, cy: by - 0.4 });
     SFX.boom(); SFX.impact();
   }
   function nearestEnemy(x, y, range) {
@@ -1737,12 +1832,12 @@
       if (t === "X" || t === "B") breakTile(Math.floor(s.x), Math.floor(ty));
       else if (solid(t) || (s.mid && (t === "/" || t === "\\"))) { if (s.bursts) boomAt(s.x, s.y, s.bursts, s); s.life = 0; }
       if (s.life > 0) {
-        const n = strike(s.x - s.w / 2, s.x + s.w / 2, s.mid ? s.y - s.h / 2 : s.y, s.mid ? s.y + s.h / 2 : s.y + s.h);
+        const n = strike(s.x - s.w / 2, s.x + s.w / 2, s.mid ? s.y - s.h / 2 : s.y, s.mid ? s.y + s.h / 2 : s.y + s.h, s.bursts ? null : { vx: sgn(s.vx) * 11, vy: 5 });
         if (n) { SFX.hit(); if (!s.bursts) { impact(s.x, s.mid ? s.y : s.y + 0.5, { c: s.trail || 0xffffff, flash: 1.3, shake: 0.06 }); hitStop(0.03); } }
         if (n && s.bursts) { boomAt(s.x, s.y, s.bursts, s); s.life = 0; }
       }
       if (s.ring && Math.abs(player.x - s.x) < 0.7 && player.state === "roll") s.life = 0;
-      if (s.trail && Math.random() < 0.7) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.35 * (s.k || 1), y: (s.mid ? s.y : s.y + 0.3 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.3,
+      if (s.trail && s.bits !== 0 && Math.random() < 0.7) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.35 * (s.k || 1), y: (s.mid ? s.y : s.y + 0.3 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.3,
         z: (Math.random() - 0.5) * 0.3, vx: -s.vx * 0.06, vy: 0.5 + Math.random(), vz: 0, life: 0.22, s: 0.07, c: Math.random() < 0.6 ? s.trail : 0xffffff });
       if (s.ghost && !s.trail && Math.random() < 0.6) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.5, y: s.y + (s.mid ? 0 : 0.2 + Math.random() * 0.9), z: (Math.random() - 0.5) * 0.4,
         vx: -s.vx * 0.08, vy: 1 + Math.random() * 1.5, vz: 0, life: 0.25, s: 0.06, c: Math.random() < 0.5 ? 0xffffff : 0xcfe8ff });
@@ -1753,6 +1848,12 @@
     for (const f of w.flashes) {
       if (f.gone) continue;
       f.t += dt; const k = f.t / f.life;
+      if (f.spark) {                                       // a hit spark: pops, then shrinks away
+        const sc = f.size * (k < 0.3 ? 1 + k * 0.6 : 1.18 - (k - 0.3) * 1.4);
+        f.s.scale.setScalar(Math.max(0.01, sc)); f.s2.scale.setScalar(Math.max(0.01, sc * 0.5));
+        if (k >= 1) { f.gone = true; w.group.remove(f.s, f.s2); f.s.material.dispose(); f.s2.material.dispose(); }
+        continue;
+      }
       f.s.scale.setScalar(f.size * (0.3 + k * 1.4)); f.s.material.opacity = 0.95 * (1 - k);
       if (k >= 1) { f.gone = true; w.group.remove(f.s); f.s.material.dispose(); }
     }
@@ -1787,11 +1888,11 @@
     }
     if (w.traps.length > 12) w.traps = w.traps.filter(t => !t.gone);
   }
+  /* A lobbed rock comes down (Knuckles'): no dust, only its light, the jolt and the freeze. */
   function boomAt(x, y, r, s) {
-    burst(x, y, [0x9a7a62, 0x7a5a44, 0xd8c8a8, 0xb08a5a], 22, 7);
+    if (s && s.bits !== 0) burst(x, y, [0x9a7a62, 0x7a5a44, 0xd8c8a8, 0xb08a5a], 22, 7);
     if (s && s.land) impact(x, y, s.land);
-    if (s && framesOf(s.who, "fx.dust")) { effect(s.who, "fx.dust", x - 0.5, y - 0.3, -1, 22, false); effect(s.who, "fx.dust", x + 0.5, y - 0.3, 1, 22, false); }
-    strike(x - r, x + r, y - r * 0.6, y + r);
+    strike(x - r, x + r, y - r * 0.6, y + r, { r: 9, cx: x, cy: y - 0.5 });
     SFX.breakIt(); if (s && s.land) SFX.impact();
   }
 
@@ -1875,12 +1976,24 @@
       if (!e.alive) continue;
       const ex0 = e.x - e.w / 2, ex1 = e.x + e.w / 2, ey0 = e.y, ey1 = e.y + e.h;
       if (bx1 < ex0 || bx0 > ex1 || by1 < ey0 || by0 > ey1) continue;
-      if (attacking(p)) {
-        defeat(e);
+      /* a blow that meets it lands -- in its wind-up too, so a heavy's step never carries the
+         runner into a hurt -- and so does the aim attack's dash */
+      const swinging = p.state === "seek" || (p.state === "atk" && p.mv && Math.floor(p.mv.t * p.mv.fps) <= p.mv.h1);
+      if (swinging || attacking(p)) {
+        if (swinging) {
+          if (p.state === "seek") { const air = !p.ground; startBlow(p, "aim"); p.mv.air = air; p.vx = p.face * 2; }
+          world.hitAt = { x: clamp(p.x + p.face * (p.c.w / 2 + 0.2), ex0, ex1), y: clamp(p.y + p.hh * 0.55, ey0, ey1) };
+          defeat(e, blowKick(p)); landBlow(p); continue;
+        }
+        const homing = p.state === "homing", v = Math.max(8, Math.abs(p.vx) * 0.8);
+        defeat(e, { vx: (sgn(p.vx) || p.face) * v, vy: homing ? 6 : 7 });
+        hitSpark((e.x + p.x) / 2, clamp(p.y + p.hh * 0.5, ey0, ey1), homing ? 1.3 : 1.1, HIT_C[p.c.id] || 0xffffff);
+        hitStop(homing ? 0.05 : 0.035); shakeCam(homing ? 0.1 : 0.06); SFX.hit();
         if (p.state === "homing") { p.state = "run"; p.vy = 10; p.vx = p.face * 4; p.airMove = false; p.airUses = 0; p.curl = true; }
         else if (p.curl && !p.ground && p.vy < 0) p.vy = input.J ? 12 : 9;
       } else if (p.vy < -0.5 && by0 > ey0 + e.h * 0.4) {
-        defeat(e); p.vy = input.J ? 13 : 9.5; p.ground = false; p.airMove = false; p.airUses = 0; SFX.stomp();
+        defeat(e); hitSpark(p.x, ey1, 0.9, 0xffffff); hitStop(0.025);
+        p.vy = input.J ? 13 : 9.5; p.ground = false; p.airMove = false; p.airUses = 0; SFX.stomp();
         if (p.state !== "fly" && p.state !== "glide") p.state = "run";
       } else if (p.state !== "teleport") hurt(p, e.x);
     }
@@ -1894,14 +2007,41 @@
       if (t && t.c === "C" && !t.t && !t.gone) t.t = 0.45;
     }
   }
-  function defeat(e) {
-    e.alive = false; e.m.visible = false;
+  /** Beaten. Knocked by a blow or a blast -- `kick` a push {vx, vy}, or {r, cx, cy}: r m/s away
+      from a point -- it shows white through the freeze-frame, then flies off tumbling and
+      bursts where it hits something or after a moment; stomped, it bursts at once. */
+  function defeat(e, kick) {
+    e.alive = false;
+    if (kick) {
+      let vx = kick.vx, vy = kick.vy;
+      if (kick.r) {
+        const dx = e.x - kick.cx, dy = e.y + e.h / 2 - kick.cy, d = Math.hypot(dx, dy) || 1;
+        vx = dx / d * kick.r + (sgn(dx) || 1) * 2; vy = Math.max(5, dy / d * kick.r + 5);
+      }
+      e.fling = { vx, vy, t: 0, rot: 0, spin: -(sgn(vx) || 1) * (11 + Math.random() * 6) };
+      whiten(e.m, true);
+      return;
+    }
+    pop(e); SFX.stomp();
+  }
+  function pop(e, lost) {
+    if (e.fling) SFX.stomp();
+    e.fling = null; e.m.visible = false; whiten(e.m, false);
     const C = { hay: [0xe8c060, 0xc8a040], log: [0x8a5a30, 0xc89a60], boulder: [0x9a7a62, 0x7a5a44], ball: [0xf6f6f6, 0xe8403a],
                 snowball: [0xffffff, 0xd8e4f0], crow: [0x26262e, 0x3a3a46], gull: [0xffffff, 0xb8bcc4], owl: [0x8a6a4a, 0xc8a87a],
                 crab: [0xe0503a, 0xf06a50], penguin: [0x22222a, 0xffffff], beetle: [0x2a2238, 0x4a3a62] }[e.kind] || [0xffffff];
     burst(e.x, e.y + e.h / 2, C.concat([0xffffff]), 14, 5);
-    SFX.stomp();
-    spawnLoose(e.x, e.y + 0.6, 0, 7);
+    if (!lost) spawnLoose(e.x, e.y + 0.6, 0, 7);
+  }
+  /* a thing struck shows pure white for a moment */
+  let WHITE = null;
+  function whiten(m, on) {
+    WHITE = WHITE || new THREE.MeshBasicMaterial({ color: 0xffffff });
+    m.traverse(o => {
+      if (!o.isMesh) return;
+      if (on && !o.userData.m0) { o.userData.m0 = o.material; o.material = WHITE; }
+      else if (!on && o.userData.m0) { o.material = o.userData.m0; o.userData.m0 = null; }
+    });
   }
 
   // ---------------------------------------------------------------- everything else that moves
@@ -1913,6 +2053,14 @@
       q.dx = nx - q.x; q.dy = ny - q.y; q.x = nx; q.y = ny;
       q.m.position.set(q.x, q.y, 0);
       if (p.on === q && p.ground) { p.y = q.y + 1; }
+    }
+    for (const e of w.enemies) if (e.fling) {               // knocked flying: tumbles off, bursts where it hits
+      const F = e.fling; F.t += dt;
+      if (F.t > 0.05 && !F.lit) { F.lit = true; whiten(e.m, false); }
+      F.vy -= 30 * dt; F.rot += F.spin * dt;
+      const nx = e.x + F.vx * dt, ny = e.y + F.vy * dt;
+      if (F.t > 0.45 || ny < -2 || solid(tile(Math.floor(nx), Math.floor(ny + e.h / 2)))) pop(e, ny < -2);
+      else { e.x = nx; e.y = ny; }
     }
     for (const e of w.enemies) {
       if (!e.alive) continue;
@@ -2136,6 +2284,12 @@
     for (const e of w.ents) if (e.t === "spring") { e.sq = Math.max(0, e.sq - dt * 4); e.m.scale.y = 1 + e.sq * 0.6; }
     for (const s of w.shoes) if (!s.got) { s.m.rotation.y = w.t * 2.2; s.m.position.y = s.y + Math.sin(w.t * 2.5 + s.x) * 0.12; }
     for (const e of w.enemies) {
+      if (e.fling) {                                       // shaking through the freeze-frame, then spinning away
+        const j = stopT > 0 ? 0.09 : 0;
+        e.m.position.set(e.x + (Math.random() - 0.5) * j, e.y + (e.t === "r" ? 0.45 : 0) + (Math.random() - 0.5) * j * 0.5, 0.05);
+        e.m.rotation.z = e.fling.rot;
+        continue;
+      }
       if (!e.alive) continue;
       e.m.position.set(e.x, e.y + (e.t === "r" ? 0.45 : 0), e.t === "b" ? 0 : 0);
       if (e.t === "r") e.m.rotation.z = -e.spin;
