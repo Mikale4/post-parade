@@ -4,9 +4,9 @@
  * A side-on platformer in the race's own voxels: the same mesher, the same light, seen from
  * the side. Its runners are Sonic and five friends, each in their own 2D sprites from SEGA's
  * Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor (The Spriters Resource):
- * adventure-sprites.js holds the frames, tools/pack-sonic-battle.py cuts them. Six stages
- * run left to right to a winning post, each a place with its own ground and weather -- grass
- * hills behind the academy, a river, a quarry of red rock, the summer camp by the sea, a
+ * adventure-sprites.js holds the frames, tools/pack-sonic-battle.py cuts them. Seven stages
+ * run left to right to a winning post, each a place with its own ground and weather -- chalk
+ * clifftops over the sea, grass hills behind the academy, a river, a quarry of red rock, the summer camp by the sea, a
  * snowfield in Hokkaido, and Nakayama's jump course at night -- with platforms, water,
  * springs, hurdles, things to collect and things in the way.
  *
@@ -276,10 +276,17 @@
     if (img.complete && img.naturalWidth) go(); else img.addEventListener("load", go, { once: true });
   }
 
-  // ---------------------------------------------------------------- the six places
+  // ---------------------------------------------------------------- the seven places
   /* Each stage names a theme: its sky, its light, what its ground is made of, and who lives
      there. Colours are the lobby's and the race's own family. */
   const THEMES = {
+    /* green turf on white chalk, banded with flint, the sea all the way to the sky */
+    cape: {
+      sky: [0x2a86ec, 0xd6f0fa], fog: [0xd8eef8, 60, 320], sun: [0xfff4dc, 0.9, [10, 32, 22]], hemi: [0xffffff, 0x94b88a, 0.6],
+      top: [0x52b43a, 0x60c044, 0x48a632], drip: 0x44a02e, soil: [0xe4dac2, 0xc8ba9a, 0xd6c8aa], deep: 0xb2a282,
+      block: [0xb4bec8, 0xa0aab6], plank: 0xc8965a, water: 0x1ca8e0, crack: 0xa8a49a, back: 0x8a7e68,
+      tufts: [0x6cc84a, 0x7ad254], flowers: [0xffffff, 0xf2d040, 0x8aa8f0, 0xf08ac0], rail: false,
+      roller: "coconut", bird: "gull", walker: "crab", far: "cape", music: "career" },
     hills: {
       sky: [0x5aa6e6, 0xdcefF4], fog: [0xd8eaf0, 45, 160], sun: [0xfff2da, 0.85, [14, 30, 20]], hemi: [0xfff8ea, 0x9ab07a, 0.62],
       top: [0x5fae3e, 0x6cbf47, 0x52a038], drip: 0x4f9a36, soil: [0x8a5a36, 0x7a4e2e, 0x9a6a42], deep: 0x5e3c24,
@@ -586,6 +593,20 @@
         } else if (T.id === "beach") {
           for (let k = 0; k < 5; k++) { const a = k / 5 * PI * 2; for (let s = 0; s < 12; s++) v.set(Math.round(Math.cos(a) * s), 34 - Math.round(s * s / 18), Math.round(Math.sin(a) * s), s % 3 ? 0x4aa83a : 0x3a8a2a); }
           v.box(-2, 26, -2, 1, 34, 1, 0x9a6a3a);
+        } else if (T.id === "cape") {
+          /* a palm bent by the sea wind: the trunk ringed and leaning, seven fronds and coconuts */
+          v.m.clear();
+          let lx = 0;
+          for (let y = 0; y < 38; y++) { lx = Math.round(y * y / 150); v.box(lx - 1, y, -1, lx + 1, y, 1, y % 4 === 0 ? 0x7a5a3a : 0x9a7448); }
+          for (let k = 0; k < 7; k++) {
+            const a = k / 7 * PI * 2 + 0.3;
+            for (let s = 1; s < 14; s++) {
+              const fx = lx + Math.round(Math.cos(a) * s), fz = Math.round(Math.sin(a) * s), fy = 39 - Math.round(s * s / 14);
+              v.set(fx, fy, fz, s % 4 === 0 ? 0x2f8a2a : 0x4cae3a);
+              if (s > 2 && s < 11) v.set(fx, fy - 1, fz, 0x3a9a30);
+            }
+          }
+          v.box(lx - 1, 36, -1, lx + 1, 37, 1, 0x6a4a2a); v.box(lx - 2, 34, 1, lx - 1, 35, 2, 0x8a5a2a); v.box(lx + 1, 34, -2, lx + 2, 35, -1, 0x8a5a2a);
         } else {
           for (let x = -10; x <= 10; x++) for (let y = 18; y <= 40; y++) for (let z = -10; z <= 10; z++) {
             if (Math.hypot(x, (y - 29) * 0.95, z) > 10.5) continue;
@@ -603,9 +624,9 @@
     const key = "enemy:" + kind;
     if (PROPS[key]) return PROPS[key];
     let g;
-    if (["hay", "log", "boulder", "ball", "snowball"].includes(kind)) {
+    if (["hay", "log", "boulder", "ball", "snowball", "coconut"].includes(kind)) {
       const C = { hay: [0xe8c060, 0xc8a040], log: [0x8a5a30, 0xc89a60], boulder: [0x9a7a62, 0x7a5a44],
-                  ball: [0xf6f6f6, 0xe8403a], snowball: [0xf6f8fc, 0xd8e4f0] }[kind];
+                  ball: [0xf6f6f6, 0xe8403a], snowball: [0xf6f8fc, 0xd8e4f0], coconut: [0x7a4e2c, 0x5e3a20] }[kind];
       g = vox(v => {
         for (let x = -7; x <= 7; x++) for (let y = -7; y <= 7; y++) for (let z = -6; z <= 6; z++) {
           const round = kind === "hay" || kind === "log" ? Math.hypot(x, y) : Math.hypot(x, y, z);
@@ -616,7 +637,8 @@
           if (kind === "ball") c = (Math.atan2(y, x) * 3 / PI + 3) % 2 < 1 ? 0xf6f6f6 : (z > 0 ? 0xe8403a : 0x3a7ae0);
           v.set(x, y, z, c);
         }
-        if (kind === "boulder" || kind === "snowball") { v.box(-3, 2, 6, -2, 3, 6, 0x22222a); v.box(2, 2, 6, 3, 3, 6, 0x22222a); }
+        if (kind === "boulder" || kind === "snowball" || kind === "coconut") { v.box(-3, 2, 6, -2, 3, 6, 0x22222a); v.box(2, 2, 6, 3, 3, 6, 0x22222a); }
+        if (kind === "coconut") { v.box(-1, -3, 6, 0, -2, 6, 0x3a2414); for (let x = -5; x <= 5; x += 2) v.set(x, 7, (x * 3) % 5, 0xa87a4a); }
       });
     } else if (["crow", "gull", "owl"].includes(kind)) {
       const C = { crow: [0x26262e, 0x3a3a46, 0xf2c040], gull: [0xf6f6f6, 0xb8bcc4, 0xf2b020], owl: [0x8a6a4a, 0xc8a87a, 0xf2d040] }[kind];
@@ -665,6 +687,41 @@
     };
     const trees = (z, n, y) => { for (let k = 0; k < n; k++) add(propGeo("tree", T), rnd() * (W + 40) - 20, y, z - rnd() * 6, 1 + rnd() * 0.4); };
     switch (T.far) {
+      case "cape": {
+        /* the open sea below the clifftops; headlands of the same chalk across the bay; a
+           torii out on a rock, sails, and clouds */
+        const sea = new THREE.Mesh(new THREE.PlaneGeometry(W + 900, 700), new THREE.MeshLambertMaterial({ color: 0x1f8fd0 }));
+        sea.rotation.x = -PI / 2; sea.position.set(W / 2, -0.5, -355); group.add(sea);
+        const glint = vox(v => { for (let k = 0; k < 160; k++) { const x = Math.floor(rnd() * 1600), z = Math.floor(rnd() * 240); v.set(x, 0, z, 0xffffff); if (rnd() < 0.5) v.set(x + 1, 0, z, 0xd8f2fc); } }, 0.25);
+        for (let x = -60; x < W + 60; x += 400) { const m = new THREE.Mesh(glint, M.glow); m.position.set(x, -0.5, -75); group.add(m); }
+        {                                                         // chalk, sheer to the water, turf on top
+          const v = new Vox(), r = mulberry32(31), g = 3;
+          for (let x = 0; x < (W + 260) / g; x++) {
+            const X = x * g, s = Math.sin(X * 0.022) + Math.sin(X * 0.057) * 0.35;
+            if (s < 0.15) continue;                               // open water between the headlands
+            const h = Math.round((5 + s * 7) / g);
+            for (let y = 0; y < h; y++) for (let z = 0; z < 4; z++)
+              v.set(x, y, z, y >= h - 1 ? jit(r, 0x5ea04a, 0.05) : jit(r, (y % 3 === 1) ? 0xcabfa4 : 0xe8e0cc, 0.03));
+          }
+          const m = new THREE.Mesh(meshVox(v, g), M.vox); m.position.set(-130, -0.5, -160); group.add(m);
+        }
+        for (let x = 30; x < W; x += 110) torii(group, x + rnd() * 30, -48 - rnd() * 10);
+        for (let k = 0; k < Math.round(W / 40); k++) {
+          const b = vox(v => { v.box(-4, 0, -1, 4, 1, 1, 0xf6f6f2); v.box(-5, 1, -1, 5, 1, 1, 0x3a5a8a); for (let y = 2; y < 12; y++) v.box(0, y, 0, Math.round((12 - y) * 0.45), y, 0, 0xfaf8f0); v.box(0, 2, 0, 0, 13, 0, 0x8a6a4a); }, 0.5);
+          const m = new THREE.Mesh(b, M.vox); m.position.set(rnd() * (W + 80) - 40, -0.5, -70 - rnd() * 60); m.rotation.y = rnd() < 0.5 ? 0 : PI; group.add(m);
+        }
+        for (let k = 0; k < Math.round(W / 30); k++) {
+          const v = new Vox(), r = mulberry32(k * 13 + 7), n = 3 + Math.floor(r() * 4);
+          for (let c = 0; c < n; c++) {
+            const cx = c * 5 + Math.floor(r() * 3), rad = 3 + Math.floor(r() * 3) - (c === 0 || c === n - 1 ? 1 : 0);
+            for (let x = -rad; x <= rad; x++) for (let y = 0; y <= rad; y++) for (let z = -2; z <= 2; z++)
+              if (Math.hypot(x, y * 1.2, z * 1.5) <= rad) v.set(cx + x, y, z, y === 0 ? 0xe6eef6 : 0xffffff);
+          }
+          const m = new THREE.Mesh(meshVox(v, 1.4), new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
+          m.position.set(rnd() * (W + 300) - 150, 26 + rnd() * 26, -230 - rnd() * 40); group.add(m);
+        }
+        break;
+      }
       case "hills":
         band(2, -70, -60, 9, 5, 0.03, [0x8ab0c8, 0x9cc0d4], 3);
         band(1, -34, -26, 5, 2.5, 0.07, [0x5c9a3e, 0x6aaa48], 7);
@@ -726,6 +783,16 @@
     v.box(-5, 0, -1, 4, 24, 7, 0xf2ead8); v.box(-6, 25, -2, 5, 26, 8, 0x3a5a8a); v.box(-3, 27, 0, 2, 30, 5, 0x3a5a8a);
     v.box(-2, 17, 8, 1, 20, 8, 0xf6f6f2); v.set(0, 19, 9, 0x2a2a30); v.set(0, 18, 9, 0x2a2a30);
     const m = new THREE.Mesh(meshVox(v, 0.5), materials().vox); m.position.set(x, 2, z); group.add(m);
+  }
+  function torii(group, x, z) {                       // a red gate out on a rock in the sea
+    const v = new Vox(), r = mulberry32(x | 0);
+    for (let y = 0; y < 5; y++) { const w = 7 - Math.floor(y / 2); v.box(-w, y, -4, w, y, 4, jit(r, y === 4 ? 0x7a7468 : 0x8a8478, 0.06)); }
+    for (const px of [-4, 3]) v.box(px, 5, -1, px + 1, 19, 0, 0xd8402e);
+    v.box(-6, 15, -1, 6, 15, 0, 0xd8402e);                          // the tie beam
+    v.box(-7, 19, -1, 7, 20, 0, 0xd8402e); v.box(-8, 21, -1, 8, 21, 0, 0x2a2a30);
+    v.set(-9, 22, -1, 0x2a2a30); v.set(9, 22, -1, 0x2a2a30); v.set(-9, 22, 0, 0x2a2a30); v.set(9, 22, 0, 0x2a2a30);
+    v.box(0, 16, -1, 0, 18, 0, 0xd8402e);
+    const m = new THREE.Mesh(meshVox(v, 0.5), materials().vox); m.position.set(x, -0.8, z); group.add(m);
   }
   function waterfall(group, x, z) {
     const v = new Vox(), r = mulberry32(x | 0);
@@ -2448,7 +2515,10 @@
 
   // ---------------------------------------------------------------- screens
   const fmt = t => { if (t == null) return "--:--.-"; const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
-  const unlocked = i => i === 0 || !!(saveData.stages[stages()[i - 1].id] || {}).clear;
+  /* open once the stage before it is cleared -- or once this one has been, so a stage added
+     ahead of the others never locks what a player has already run */
+  const cleared = i => !!(saveData.stages[stages()[i].id] || {}).clear;
+  const unlocked = i => i === 0 || cleared(i - 1) || cleared(i);
 
   function load3d(i) {
     disposeWorld();
@@ -2630,7 +2700,7 @@
         </div>
         ${r.earned ? `<div class="adv-pay">${ico("carrot")}<b class="num">+${r.earned}</b> carrots to your stable</div>` : ""}
         <div class="adv-btns">
-          ${next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All six cleared</button>`}
+          ${next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All seven cleared</button>`}
           <button class="btn ghost" id="advAgain">Run it again</button>
           <button class="btn ghost" id="advSel">${ico("back")}Stage select</button>
         </div>
