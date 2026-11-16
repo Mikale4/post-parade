@@ -1877,6 +1877,10 @@
         const c = tile(i, j);
         if (!solid(c)) continue;
         if ((c === "X" || c === "B") && attacking(p)) { breakTile(i, j); continue; }
+        /* the foot of a slope and the lip at its top: the ground under the next stretch is a
+           few hand-widths above the feet, because the runner moves along before the ground
+           lifts them (more, the faster they go). A step that low is run onto, not into. */
+        if (p.ground && j + 1 - p.y <= 0.5 && !solid(tile(i, j + 1))) continue;
         hit = true; break;
       }
       if (hit) {
@@ -2675,7 +2679,7 @@
     }
     if (p.ground) {
       const reach = 0.18 + Math.abs(p.vx) * dt * 1.3 + (p.on ? Math.abs(p.on.dy) + 0.05 : 0);
-      const hit = floorBetween(p, p.y + 0.42 + (p.on ? Math.max(0, p.on.dy) : 0), p.y - reach);
+      const hit = floorBetween(p, p.y + 0.52 + (p.on ? Math.max(0, p.on.dy) : 0), p.y - reach);   // up onto such a lip
       if (hit && p.vy <= 0.01) { p.y = hit.y; p.vy = 0; p.on = hit.on; p.onTile = hit.tl; }
       else { p.ground = false; p.on = null; p.onTile = null; }
     }
