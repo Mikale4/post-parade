@@ -1865,10 +1865,17 @@
   }
 
   /* Walls: tiles, and hurdles while they stand. A glide into a wall grabs it. */
+  /* A tile in the way whose top is no more than half a metre over the feet, with nothing on
+     it, is a lip, not a wall: the foot of a slope and the edge at its top are such lips (the
+     ground under the next stretch of slope is a hand-width or two over the feet, because a
+     runner moves along before the ground lifts them -- the more, the faster they go). Every
+     tile step in a stage is a whole metre, so no real wall is ever a lip. */
+  const isLip = (p, i, j) => j + 1 - p.y <= 0.5 && !solid(tile(i, j + 1));
   function moveX(p, dx) {
     p.x += dx;
     const hb = p.hh;
     const yb = p.y + (p.ground ? 0.36 : 0.06), yt = p.y + hb - 0.06;
+    let lift = null;
     for (let pass = 0; pass < 2; pass++) {
       const edge = dx > 0 ? p.x + p.c.w / 2 : p.x - p.c.w / 2;
       const i = Math.floor(edge);
@@ -1877,10 +1884,7 @@
         const c = tile(i, j);
         if (!solid(c)) continue;
         if ((c === "X" || c === "B") && attacking(p)) { breakTile(i, j); continue; }
-        /* the foot of a slope and the lip at its top: the ground under the next stretch is a
-           few hand-widths above the feet, because the runner moves along before the ground
-           lifts them (more, the faster they go). A step that low is run onto, not into. */
-        if (p.ground && j + 1 - p.y <= 0.5 && !solid(tile(i, j + 1))) continue;
+        if (isLip(p, i, j)) { if (!lift || j + 1 > lift.y) lift = { y: j + 1, i, j }; continue; }   // run (or fly, glide, roll) up onto it
         hit = true; break;
       }
       if (hit) {
@@ -1890,6 +1894,11 @@
         p.vx = 0;
         if (p.state === "roll") p.state = "run";
       }
+    }
+    /* up onto a lip: stand on it -- and, coming down onto it from the air, land */
+    if (lift && lift.y > p.y) {
+      p.y = lift.y;
+      if (!p.ground && p.vy <= 0) land(p, { on: null, tl: { i: lift.i, j: lift.j } });
     }
     for (const b of world.solids) {
       if (!b.alive) continue;
@@ -2150,8 +2159,13 @@
   function chaosControl(p) {
     const from = { x: p.x, y: p.y };
     const blocked = x => { for (let j = Math.floor(p.y + 0.1); j <= Math.floor(p.y + p.hh - 0.1); j++) {
-      const i = Math.floor(x + p.face * p.c.w / 2); if (solid(tile(i, j))) return true; } return false; };
-    for (let d = 0; d < 3.6; d += 0.1) { if (blocked(p.x + p.face * 0.1)) break; p.x += p.face * 0.1; }
+      const i = Math.floor(x + p.face * p.c.w / 2); if (solid(tile(i, j)) && !isLip(p, i, j)) return true; } return false; };
+    for (let d = 0; d < 3.6; d += 0.1) {
+      if (blocked(p.x + p.face * 0.1)) break;
+      p.x += p.face * 0.1;
+      const gy = groundY(p.x, p.y + 0.3);                 // along a slope: up it, never into it
+      if (gy !== null && gy > p.y) p.y = gy;
+    }
     p.vy = Math.max(p.vy, 1.5); p.state = "teleport"; p.st = 0.28; p.inv = Math.max(p.inv, 0.3); p.curl = false; p.jumping = false;
     effect(p.c.id, "after", from.x, from.y, p.face, 18, false, "body");
     burst(from.x, from.y + 0.5, [0xf03a4a, 0xffe060, 0xffffff], 8, 3);
@@ -2672,6 +2686,15 @@
     // horizontal, in small steps so a fast runner cannot pass through a wall
     const dx = p.vx * dt, n = Math.max(1, Math.ceil(Math.abs(dx) / 0.2));
     for (let k = 0; k < n; k++) { moveX(p, dx / n); if (p.state === "climb") break; }
+    /* come at a slope from the side (low, in a jump, a glide, a teleport) and the feet can be
+       under its surface: they are set on it -- coming down, landed -- never left inside it */
+    if (p.state !== "climb") {
+      const ci = Math.floor(p.x), cj = Math.floor(p.y + 0.02), sc = tile(ci, cj);
+      if (sc === "/" || sc === "\\") {
+        const s = slopeY(sc, ci, cj, p.x);
+        if (s > p.y) { p.y = s; if (!p.ground && p.vy <= 0) land(p, { on: null, tl: null }); }
+      }
+    }
     if (p.on && p.ground) { p.x += p.on.dx; }
     if (p.ground && p.onTile) {                           // a conveyor belt carries what stands on it
       const bt = tile(p.onTile.i, p.onTile.j);
@@ -2694,7 +2717,7 @@
         const j = Math.floor(p.y + hb);
         for (let i = Math.floor(p.x - p.c.w / 2 + 0.05); i <= Math.floor(p.x + p.c.w / 2 - 0.05); i++) {
           const c = tile(i, j);
-          if (solid(c) || c === "/" || c === "\\") {
+          if (solid(c)) {                                  // (a slope always stands on something: it is never a ceiling)
             if (c === "B" || (c === "X" && attacking(p))) { breakTile(i, j); continue; }
             p.y = j - hb - 1e-3; p.vy = 0; p.jumping = false;
             break;
