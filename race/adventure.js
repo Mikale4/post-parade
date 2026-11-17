@@ -1813,6 +1813,8 @@
            the world turning far below; pipes, and warning lights going round */
         group.userData.anim.push(worldBelow(group, W));
         plane(0x3a3e48, topOf0 - 0.02, -5, 36);                   // the deck, back to the wall: the world is out of the windows
+        { const m = new THREE.Mesh(new THREE.PlaneGeometry(W + 900, 64), new THREE.MeshLambertMaterial({ color: 0x14161c }));
+          m.rotation.x = -PI / 2; m.position.set(W / 2, -1.5, -22); group.add(m); }   // and the shafts' floors, far down in the dark
         stationWall(group, W, topOf0, -40);
         group.userData.anim.push(warnLights(group, W, topOf0, -39));
         break;
@@ -3988,7 +3990,7 @@
     const i = pick ? pick(a.t) : frameAt(count(name), a.t, fps, loop);
     const lift = c.lift && !p.dead ? c.lift + Math.sin(world.t * 3.4) * 0.05 : 0;          // Eggman's Egg Mobile, hovering
     setFrame(p.spr, name, i, face, p.x, p.y + lift);
-    p.spr.visible = !(p.inv > 0 && !p.dead && p.state !== "dash" && p.state !== "teleport" && !(p.sp && p.sp.shield) && Math.sin(world.t * 40) > 0.4);
+    p.spr.visible = mode !== "title" && !(p.inv > 0 && !p.dead && p.state !== "dash" && p.state !== "teleport" && !(p.sp && p.sp.shield) && Math.sin(world.t * 40) > 0.4);
   }
   /* The dust behind a rev: Sonic Advance's spray, looping faster and swelling as the rev
      builds (each tap of Space kicks it up), at the runner's heels, trailing away from them. */
@@ -4159,15 +4161,16 @@
   }
   const kd = e => onKey(e, true), ku = e => onKey(e, false);
 
-  /* The menus by keyboard. Enter starts the stage from the stage select, and opens and
-     closes the pause menu in a run; in any menu the arrows move between its buttons (to the
-     nearest one that way), Z presses the one picked (Enter too, on the pause and results
-     screens) and X backs out: to the hall from the stage select, back into the run from the
-     pause menu, to the stage select from the results. Returns true if it took the key. */
+  /* The menus by keyboard. Enter goes on from the title to the stage select, starts the
+     stage from the stage select, and opens and closes the pause menu in a run; in any menu the
+     arrows move between its buttons (to the nearest one that way), Z presses the one picked
+     (Enter too, on the pause and results screens) and X backs out: to the hall from the
+     title, to the title from the stage select, back into the run from the pause menu, to the
+     stage select from the results. Returns true if it took the key. */
   let kbFocus = null, kbUsed = false;
   const NAV = { ArrowLeft: "L", ArrowRight: "R", ArrowUp: "U", ArrowDown: "D" };
   function menuKey(e, down) {
-    const k = e.key, inMenu = mode === "menu" || mode === "results" || (mode === "play" && paused);
+    const k = e.key, inMenu = mode === "title" || mode === "menu" || mode === "results" || (mode === "play" && paused);
     if (k === "Enter" && mode === "play" && !paused) { if (down && !e.repeat) { kbUsed = true; togglePause(); } e.preventDefault(); return true; }
     if (!inMenu) return false;
     const z = k === "z" || k === "Z", x = k === "x" || k === "X";
@@ -4179,13 +4182,15 @@
     if (NAV[k]) { moveFocus(NAV[k]); return true; }
     if (e.repeat) return true;
     if (k === "Enter") {
-      if (mode === "menu") click("#advStart");
+      if (mode === "title") click("#advTStart");
+      else if (mode === "menu") click("#advStart");
       else if (mode === "play") togglePause();
       else pressFocus();
       return true;
     }
     if (z) { pressFocus(); return true; }
-    if (mode === "menu") click("#advBack");
+    if (mode === "title") click("#advTBack");
+    else if (mode === "menu") click("#advBack");
     else if (mode === "play") togglePause();
     else click("#advSel");
     return true;
@@ -4196,7 +4201,7 @@
   }
   function defaultFocus() {
     const ov = host.querySelector(".adv-ov"), items = menuItems();
-    return (ov && (ov.querySelector("#advRes") || ov.querySelector("#advNext") || ov.querySelector("#advMenu") || ov.querySelector("#advStart"))) || items[0] || null;
+    return (ov && (ov.querySelector("#advRes") || ov.querySelector("#advNext") || ov.querySelector("#advMenu") || ov.querySelector("#advStart") || ov.querySelector("#advTStart"))) || items[0] || null;
   }
   function setFocus(el) {
     if (kbFocus) kbFocus.classList.remove("kb");
@@ -4268,6 +4273,9 @@
         while (acc >= h && n < 14) { readInput(); step(h); worldStep(h); input.jp = input.zp = input.xp = input.cp = 0; input.dash = 0; acc -= h; n++; }
         hud();
       }
+    } else if (mode === "title") {
+      // the title: the camera goes along the stage on its own, the cast parades below
+      world.t += dt; titleGlide(dt); worldStep(dt * 0.6); drawParade(dt);
     } else {
       // the menu: she waits at the start, the world goes on around her
       world.t += dt; worldStep(dt * 0.6);
@@ -4305,8 +4313,92 @@
     R.domElement.__w = 0;
   }
 
+  /* The title screen: the stage going by behind, slowly, from its start to its end and round
+     again; the logo; Press Enter; the trainer's record on a little tote board; and along the
+     bottom the whole cast in a post parade -- the thirteen of them going by in a line along
+     the rail on a strip of mown turf, each in their own running frames. */
+  let glideX = 12, parade = null;
+  function title() {
+    if (mode !== "title" && world) { glideX = Math.max(12, world.start.x); camX = glideX + 3; }
+    mode = "title"; paused = false;
+    const ov = host.querySelector(".adv-ov"), list = stages();
+    host.querySelector(".adv-hud").classList.remove("on");
+    host.classList.remove("playing");
+    const st = list.map(s => saveData.stages[s.id] || {});
+    const clearedN = list.filter((s, i) => cleared(i)).length;
+    const shoes = st.reduce((n, r) => n + (r.shoes || []).filter(Boolean).length, 0);
+    const sGrades = st.filter(r => r.grade === "S").length;
+    ov.innerHTML = `
+      <div class="adv-title pop">
+        <div class="adv-brand">
+          <div class="uma-title adv-kicker">POST PARADE</div>
+          <div class="uma-title adv-logo">ADVENTURE 2</div>
+        </div>
+        <div class="adv-press">${TOUCH ? "Tap Start" : "Press Enter"}</div>
+        <div class="adv-tgo">
+          <button class="btn lg" id="advTStart">${ico("flag")}Start</button>
+          <button class="btn ghost" id="advTBack">${ico("back")}Back to the hall</button>
+        </div>
+        <div class="adv-tote">
+          <div><b class="num">${clearedN}<i>/${list.length}</i></b><small>Stages cleared</small></div>
+          <div><b class="num">${shoes}<i>/${list.length * 3}</i></b><small>Golden Horseshoes</small></div>
+          <div><b class="num">${sGrades}</b><small>S grades</small></div>
+        </div>
+      </div>
+      <canvas class="adv-parade"></canvas>
+      <div class="adv-legal">A fan-made cabinet, not affiliated with SEGA. Sonic and his friends, rivals and Dr. Eggman belong to SEGA.</div>`;
+    parade = { cv: ov.querySelector(".adv-parade"), t: 0 };
+    ov.querySelector("#advTStart").onclick = () => { parade = null; load3d(stageIdx); menu(); };
+    ov.querySelector("#advTBack").onclick = () => exit();
+    autoFocus();
+  }
+  /* the camera goes along the stage's low road on its own; nobody is there to see */
+  function titleGlide(dt) {
+    const p = player, w = world;
+    glideX += dt * 4.2;
+    if (glideX > w.W - 30) { glideX = Math.max(12, w.start.x); camX = glideX + 3; }   // round again, a cut
+    let y = 0;
+    for (let j = 0; j < H; j++) { const c = tile(Math.floor(glideX), j); if (!solid(c) && c !== "~" && c !== "/" && c !== "\\") { y = j; break; } }
+    p.x = glideX; p.y = y; p.vx = 0; p.vy = 0; p.face = 1; p.state = "run"; p.inv = 99; p.dead = 0; p.hearts = 3;
+  }
+  /* the post parade along the bottom: everyone's running frames from their own atlas, crisp,
+     at a whole number of times size; Eggman's Egg Mobile floats over the turf */
+  function drawParade(dt) {
+    const cv = parade && parade.cv;
+    if (!cv || !cv.isConnected) return;
+    parade.t += dt;
+    const dpr = Math.min(2, root.devicePixelRatio || 1), W = cv.clientWidth, Hh = cv.clientHeight;
+    if (!W || !Hh) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(Hh * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr); }
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hh); g.imageSmoothingEnabled = false;
+    const k = Hh >= 110 ? 2 : 1.5, track = Math.round(Hh * 0.3), top = Hh - track, t = parade.t;
+    // the turf: broad stripes of two greens, mown; the white rail along its far side
+    const stripe = 44;
+    for (let x = -((t * 18) % (stripe * 2)) - stripe * 2; x < W + stripe * 2; x += stripe * 2) {
+      g.fillStyle = "#2f8f3e"; g.fillRect(x, top, stripe, track);
+      g.fillStyle = "#45a852"; g.fillRect(x + stripe, top, stripe, track);
+    }
+    g.fillStyle = "#124a1d"; g.fillRect(0, top, W, 3);
+    g.fillStyle = "#f6f6f2"; g.fillRect(0, top - 9, W, 4);
+    for (let x = -((t * 18) % 60); x < W; x += 60) g.fillRect(x, top - 9, 3, 12);
+    // the parade
+    const gap = 46 * k, period = W + CAST.length * gap + 120, base = (t * 64) % period, feet = top + 12;   // (just inside the rail: the credit line runs along the turf below them)
+    CAST.forEach((c, n) => {
+      const A = SHEETS[c.id]; if (!A) return;
+      const img = IMGS[c.id] || (IMGS[c.id] = Object.assign(new Image(), { src: A.url }));
+      if (!img.complete || !img.naturalWidth) return;
+      const X = base - n * gap - 60;
+      if (X < -80 || X > W + 80) return;
+      const run = A.f.run || A.f.idle, f = run[Math.floor(t * 11 + n * 3) % run.length];
+      const lift = c.lift ? Math.round(c.lift / PX * k * 0.6 + Math.sin(t * 3.4 + n) * 2) : 0;
+      g.fillStyle = "rgba(10,30,14,.35)"; g.beginPath(); g.ellipse(X, feet + 1, f[2] * k * 0.32, 3.5, 0, 0, PI * 2); g.fill();
+      g.drawImage(img, f[0], f[1], f[2], f[3], Math.round(X - f[4] * k), Math.round(feet - f[3] * k - lift), f[2] * k, f[3] * k);
+    });
+  }
+
   function menu() {
-    mode = "menu"; paused = false;
+    mode = "menu"; paused = false; parade = null;
     const ov = host.querySelector(".adv-ov"), list = stages();
     host.querySelector(".adv-hud").classList.remove("on");
     host.classList.remove("playing");
@@ -4349,7 +4441,7 @@
           </div>
           <div class="adv-go">
             <button class="btn lg" id="advStart">${ico("flag")}Start</button>
-            <button class="btn ghost" id="advBack">${ico("back")}Back to the hall</button>
+            <button class="btn ghost" id="advBack">${ico("back")}Title screen</button>
           </div>
           <div class="adv-keys">${TOUCH ? "On screen: the pad moves, crouches and picks a move (Up or Down with Heavy or Special); Jump, Light, Heavy and Special." :
             `<b>&larr; &rarr;</b> run, twice to dash &middot; <b>Space</b> jump, again in the air &middot; <b>Z</b> light &middot; <b>X</b> heavy &middot; <b>C</b> special<br>
@@ -4372,7 +4464,7 @@
       load3d(i); music();
     });
     ov.querySelector("#advStart").onclick = () => play();
-    ov.querySelector("#advBack").onclick = () => exit();
+    ov.querySelector("#advBack").onclick = () => title();
     autoFocus();
   }
   function music() {
@@ -4510,7 +4602,7 @@
     host = el.querySelector(".adv");
     host.addEventListener("pointerdown", () => { kbUsed = false; if (kbFocus) kbFocus.classList.remove("kb"); kbFocus = null; });
     load3d(stageIdx);
-    menu(); music();
+    title(); music();
     addEventListener("keydown", kd); addEventListener("keyup", ku);
     raf = requestAnimationFrame(frame);
     return true;

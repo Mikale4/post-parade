@@ -1382,12 +1382,21 @@ trainer had already opened is locked again (their best times start afresh, the s
 new). First clears pay 60 carrots into the stable, each first horseshoe 20, a first S 40.
 Best times, grades and horseshoes are kept per trainer (`postparade.adventure.<account>`).
 
+**The title screen** comes first. Behind it the stage you are on goes by on its own, from
+its start to its end and round again; over it the Post Parade Adventure 2 logo, Press Enter,
+Start and Back to the hall, and your record on a little tote board in amber (stages
+cleared, Golden Horseshoes found, S grades). Along the bottom the whole cast goes by in a
+post parade -- the thirteen of them in a line, in their own running frames, along the rail
+on a strip of mown turf, Eggman's Egg Mobile floating over it -- with the line that says
+it is a fan-made cabinet and the characters are SEGA's.
+
 **Controls.** Arrows or WASD to run (and Up and Down to pick a move, crouch or climb), Space
-to jump (hold for height), Z, X and C to attack. Enter starts the stage from the stage
-select and opens and closes the pause menu (Esc pauses too). In the menus the arrows move
-between the choices -- to the nearest one that way, with a gold outline round it -- Z
-confirms and X goes back: to the hall from the stage select, back into the run from the
-pause menu, to the stage select from the results. A gamepad works (stick or d-pad; A jumps,
+to jump (hold for height), Z, X and C to attack. Enter goes on from the title to the stage
+select, starts the stage from the stage select, and opens and closes the pause menu (Esc
+pauses too). In the menus the arrows move between the choices -- to the nearest one that
+way, with a gold outline round it -- Z confirms and X goes back: to the hall from the title,
+to the title from the stage select, back into the run from the pause menu, to the stage
+select from the results. A gamepad works (stick or d-pad; A jumps,
 X light, Y heavy, B special; Start pauses). On a phone there are buttons on screen -- a pad
 of four, and Light, Heavy, Special and Jump -- and the camera backs off on a tall screen so
 twelve metres fit across.
