@@ -27,16 +27,24 @@ the art and music next to it.
 | `audio/` | The game's music (from the gamerip) and two CC0 crowd recordings in `audio/sfx/`. |
 
 In the hall stands an arcade cabinet, **Post Parade Adventure 2**: a voxel platformer with
-six long stages, one for each of Sonic, Tails, Knuckles, Amy, Rouge and Shadow, played as any
-of them in their own Sonic Battle sprites, with that game's combos and specials on Z, X and
-C, against Eggman's badniks from Sonic Advance 1-3.
+thirteen long stages, one for each of Sonic, Tails, Knuckles, Amy, Rouge, Shadow, Cream,
+Chaos, Chaos Gamma, Dr. Eggman, Metal Sonic, Mighty and Silver, played as any of them in
+Sonic Battle's sprites (or sprites drawn in its style), with that game's combos and specials
+on Z, X and C, against Eggman's badniks.
 
 Umamusume: Pretty Derby, its characters, art and music belong to Cygames, Inc. This is a
 non-commercial fan project, not affiliated with Cygames, and will come down on request.
-Sonic the Hedgehog and his friends belong to SEGA; their sprites in Post Parade Adventure 2
-are from SEGA's *Sonic Battle* (Game Boy Advance), ripped by QuadFactor, and Knuckles'
-climbing and the Spin Dash rev, dust and blast effects from *Sonic Advance*, ripped by
-AsuharaMoon, and its badniks from *Sonic Advance*, *Sonic Advance 2* and *Sonic Advance 3*,
-ripped by SpitfyaUK and Techokami, Fatazz and SkyLights (all The Spriters Resource). Hatsune
+Sonic the Hedgehog, his friends and rivals and Dr. Eggman belong to SEGA. In Post Parade
+Adventure 2, Sonic, Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos and Chaos Gamma are
+from SEGA's *Sonic Battle* (Game Boy Advance), ripped by QuadFactor, and Knuckles' climbing
+and the Spin Dash rev, dust and blast effects from *Sonic Advance*, ripped by AsuharaMoon;
+the first six stages' badniks are from *Sonic Advance*, *Sonic Advance 2* and *Sonic Advance
+3*, ripped by SpitfyaUK and Techokami, Fatazz and SkyLights (all The Spriters Resource).
+Dr. Eggman, Metal Sonic, Mighty and Silver are sprite sheets in Sonic Battle's style by
+TheKnucklesMainG4 ([Eggman](https://www.deviantart.com/theknucklesmaing4/art/Dr.-Eggman-%28Sonic-Battle%29-Sprite-Sheet-896689723), [Metal Sonic](https://www.deviantart.com/theknucklesmaing4/art/Metal-Sonic-Sprite-Sheet-911313604), [Mighty](https://www.deviantart.com/theknucklesmaing4/art/Mighty-the-Armadillo-Sprite-Sheet-935708034),
+[Silver](https://www.deviantart.com/theknucklesmaing4/art/Silver-the-Hedgehog-%28Sonic-Battle%29-896294717)), and the last seven stages' badniks are from his
+[Modern Sonic Badniks](https://www.deviantart.com/theknucklesmaing4/art/Badniks-Sprite-Sheet-%28Modern-Sonic-Generations%29-914913506) sheet (which credits Dolphman/retrobunyjp, Techokami,
+SkyLights, Ren "Foxx" Ramos, Fatazz and Flare), all on DeviantArt, used with credit as he
+asks. Hatsune
 Miku is © Crypton Future Media, Inc. 2007, used under the Piapro Character License
 (non-commercial fan works).

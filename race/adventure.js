@@ -2,16 +2,22 @@
  * Post Parade Adventure 2 -- the arcade cabinet in the hall.
  *
  * A side-on platformer in the race's own voxels: the same mesher, the same light, seen from
- * the side. Its runners are Sonic and five friends, each in their own 2D sprites from SEGA's
- * Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor (The Spriters Resource):
- * adventure-sprites.js holds the frames, tools/pack-sonic-battle.py cuts them. Six stages
+ * the side. Its runners are thirteen, each in their own 2D sprites in Sonic Battle's style: Sonic,
+ * Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos and Chaos Gamma from SEGA's Sonic Battle
+ * (Game Boy Advance, 2003), ripped by QuadFactor (The Spriters Resource); Dr. Eggman, Metal
+ * Sonic, Mighty and Silver drawn in its style by TheKnucklesMainG4 (DeviantArt).
+ * adventure-sprites.js holds the frames, tools/pack-sonic-battle.py cuts them. Thirteen stages
  * run left to right to a winning post, each one runner's own ground, as Sonic Battle gives each
  * fighter a home arena -- Sonic's clifftops over the sea, Tails' workshop and airstrip, Amy's
  * home seen from the floor up, Knuckles' shrines up a snowy mountain, Rouge's club and the
- * casino street, Shadow's road out of the city at sundown -- each long and tall the way the
- * Genesis and Game Boy Advance acts are, with a low road, a high one and the sky over both.
- * In them are Eggman's badniks, in their own sprites from Sonic Advance 1, 2 and 3
- * (adventure-badniks.js; tools/pack-badniks.py cuts them), each doing what it does there.
+ * casino street, Shadow's road out of the city at sundown, Cream's natural history hall,
+ * Chaos's springs under the old shrine, Mighty's canyon, Silver's burning city two hundred
+ * years on, Gamma's storage depot in Eggman's hideout, Metal Sonic's racecourse among the
+ * stars, and last Eggman's own station in orbit -- each long and tall the way the Genesis and
+ * Game Boy Advance acts are, with a low road, a high one and the sky over both. In them are
+ * Eggman's badniks, in their own sprites -- from Sonic Advance 1, 2 and 3 in the first six,
+ * TheKnucklesMainG4's Modern Sonic Badniks in the rest (adventure-badniks.js;
+ * tools/pack-badniks.py cuts them) -- each doing what it does in its own game.
  *
  * The fighting is Sonic Battle's, every move off the runner's own sheet. That game puts its
  * attacks on B and its specials on R; here they are three buttons:
@@ -47,6 +53,22 @@
  *   Shadow    the fastest in Sonic Battle, skating on his Air Shoes; Chaos Control: Space in
  *             the air teleports him ahead, twice a jump, drifting down. Z in the air is his
  *             Homing Attack. Spin Dash; Chaos Spear (his shot) and Chaos Burst.
+ *   Cream     the highest jump; flies on her ears (Space again in the air, tapped), and Cheese
+ *             the Chao does her fighting, in every blow and special. Spin Dash.
+ *   Chaos     water itself: swims, a stroke for each Space, and never needs air; a double tap
+ *             melts him into Chaos Dive, nothing touching him; Chaos Flight, a little more height.
+ *   Gamma     walks slowly; a double tap is Drive Mode, fast and steerable while held; Flight
+ *             Mode in the air, sinking slowly; Devastator charges while C is held; Meltdown
+ *             (Up + C) costs him a heart.
+ *   Eggman    his Egg Mobile hovers off the ground; Egg Hover holds him up a while in the air,
+ *             then he sinks slowly. The Death Egg Cannon, missiles, bombs.
+ *   Metal     the fastest after Shadow; his jet in the air, a burst ahead and a hover; the
+ *             Black Shield (Up + C) lets nothing through. Spin Dash.
+ *   Mighty    Shell Launch, straight up, and a wall jump off any wall (Knuckles' Chaotix);
+ *             curled, spikes can't hurt him; Hammer Drop (Up + C in the air) breaks rock and
+ *             sends a shockwave both ways (Sonic Mania Plus). Spin Dash.
+ *   Silver    the Air Psycho Dash: ahead, a hover, then Space held floats him down; Psycho
+ *             Knife, Surge and Orb. Spin Dash.
  *
  * Stages are drawn as text in adventure-stages.js (tools/genstages.py draws them): a grid of
  * one-metre tiles 32 rows tall, read left to right. The legend is there. Clearing a stage opens the next; each hides three
@@ -107,6 +129,46 @@
       moves: "Chaos Control",
       grades: { Speed: "S", Jump: "A", Air: "A", Power: "A" },
       text: "Chaos Control: Space in the air teleports him ahead, twice a jump. Z in the air is a Homing Attack; C a Chaos Spear." },
+    /* The second seven. Cream, Chaos and Chaos Gamma are Sonic Battle's own; Eggman, Metal
+       Sonic, Mighty and Silver are drawn in its style by TheKnucklesMainG4. Their moves are
+       the ones their sheets and Sonic Battle give them; their moving is their own games'. */
+    { id: "cream", name: "Cream", w: 0.54, h: 0.98, run: 12.3, accel: 19, airAccel: 15, jump: 13.2,
+      spinDash: true, air: "fly", flyTime: 4, flyK: 0.7, from: "Cream the Rabbit",
+      moves: "Flight · Cheese the Chao",
+      grades: { Speed: "C", Jump: "S", Air: "S", Power: "C" },
+      text: "The highest jump. Space again in the air: she flies on her ears, tapping to climb. Cheese the Chao does her fighting." },
+    { id: "chaos", name: "Chaos", w: 0.6, h: 1.12, run: 10.6, accel: 15, airAccel: 11, jump: 12.0,
+      air: "float", swims: true, dashK: 1.55, dashT: 0.5, dashInv: true, from: "Chaos (Chaos 0)",
+      moves: "Chaos Dive · swims",
+      grades: { Speed: "C", Jump: "C", Air: "C", Power: "B" },
+      text: "Water itself: he swims, Space for each stroke, and never runs out of air. A double tap melts him into Chaos Dive, untouchable." },
+    { id: "gamma", name: "Chaos Gamma", w: 0.66, h: 1.2, run: 10.8, accel: 14, airAccel: 10, jump: 12.2,
+      air: "hover", flyTime: 2.4, sink: 1.2, flyK: 1.25, dashK: 1.7, dashT: 0.75, steer: true, from: "Chaos Gamma",
+      moves: "Drive Mode · Flight Mode",
+      grades: { Speed: "C", Jump: "B", Air: "A", Power: "S" },
+      text: "Walks slowly; a double tap is Drive Mode, fast and steerable. Space in the air: Flight Mode. Hold C to charge Devastator." },
+    /* the Egg Mobile is a hovercraft: it floats `lift` metres off the ground, bobbing, its
+       shadow on the floor under it (his body is that much taller to things over him) */
+    { id: "eggman", name: "Dr. Eggman", w: 0.92, h: 1.6, lift: 0.42, run: 12.5, accel: 17, airAccel: 13, jump: 12.4,
+      air: "hover", flyTime: 2.2, sink: 0, glides: true, flyK: 0.9, from: "Dr. Ivo \"Eggman\" Robotnik",
+      moves: "Egg Hover · Death Egg Cannon",
+      grades: { Speed: "B", Jump: "B", Air: "A", Power: "A" },
+      text: "In his Egg Mobile. Space in the air holds him up a while, then he sinks slowly; Down lets go. Missiles, bombs and a cannon." },
+    { id: "metal", name: "Metal Sonic", w: 0.56, h: 1.04, run: 15.0, accel: 23, airAccel: 15, jump: 12.4,
+      spinDash: true, air: "jet", dashK: 1.4, from: "Metal Sonic",
+      moves: "Spin Dash · Jet",
+      grades: { Speed: "S", Jump: "B", Air: "A", Power: "A" },
+      text: "Built to outrun Sonic. Space in the air fires his jet: a burst ahead and a moment's hover. Up + C raises the Black Shield." },
+    { id: "mighty", name: "Mighty", w: 0.58, h: 1.04, run: 13.6, accel: 20, airAccel: 13, jump: 12.2,
+      spinDash: true, air: "launch", from: "Mighty the Armadillo",
+      moves: "Shell Launch · Hammer Drop",
+      grades: { Speed: "A", Jump: "B", Air: "B", Power: "S" },
+      text: "Space in the air: Shell Launch, straight up; against a wall, a wall jump. Curled, spikes can't hurt him. Up + C in the air: Hammer Drop." },
+    { id: "silver", name: "Silver", w: 0.58, h: 1.12, run: 13.9, accel: 21, airAccel: 15, jump: 12.2,
+      spinDash: true, air: "psy", from: "Silver the Hedgehog",
+      moves: "Psychokinesis",
+      grades: { Speed: "A", Jump: "B", Air: "A", Power: "A" },
+      text: "Space in the air: an Air Psycho Dash ahead, a hover, then hold Space to float down. Psycho Knife, Psycho Surge, Psycho Orb." },
   ];
   const castOf = id => CAST.find(c => c.id === id) || CAST[0];
 
@@ -122,7 +184,28 @@
     amy:      { atk1: [27, 0.65, 2], atk2: [27, 0.7, 2.2], atk3: [25, 0.8, 3], heavy: [24, 1.65, 3], upper: [20, 1.1, 0], airatk: [20, 1.15, 0] },
     rouge:    { heavy: [24, 1.1, 4.5], dashatk: [20, 1.05, 0] },
     shadow:   { atk1: [25, 0.7, 2.4], atk2: [25, 0.8, 2.6], atk3: [24, 0.9, 3.6], heavy: [26, 1.1, 4] },
+    /* Cheese does Cream's hitting, out in front of her (Chao Arch, Winder, Salom, Tornado ...);
+       Chaos's arms stretch; Gamma's and Eggman's machines are slow and long; Eggman's arms,
+       drill and wrecking ball reach furthest of all */
+    cream:    { atk1: [22, 1.1, 1], atk2: [22, 1.1, 1.2], atk3: [22, 1.2, 1.6], heavy: [24, 1.35, 1], upper: [16, 1.0, 0.5],
+                dashatk: [12, 1.2, 0], airatk: [12, 1.1, 0], aim: [12, 1.2, 2] },
+    chaos:    { atk1: [28, 0.95, 2], atk2: [28, 1.0, 2.2], atk3: [26, 1.15, 3], heavy: [24, 1.3, 3], upper: [24, 1.0, 1],
+                dashatk: [16, 1.1, 0], airatk: [20, 1.1, 0], aim: [20, 1.1, 2] },
+    gamma:    { atk1: [34, 0.95, 2], atk2: [24, 1.0, 2.2], atk3: [30, 1.15, 3], heavy: [36, 1.35, 2.5], upper: [34, 1.0, 1],
+                dashatk: [26, 1.3, 0], airatk: [22, 1.1, 0], aim: [30, 1.2, 2] },
+    eggman:   { atk1: [30, 1.3, 1.5], atk2: [22, 1.4, 1.8], atk3: [20, 1.5, 2.5], heavy: [26, 1.6, 2.5], upper: [22, 1.4, 0.5],
+                dashatk: [22, 2.0, 0], airatk: [26, 2.0, 0], aim: [24, 1.5, 2] },
+    metal:    { atk1: [24, 0.75, 2.4], atk2: [28, 0.8, 2.6], atk3: [24, 0.95, 3.6], heavy: [26, 1.35, 3], upper: [26, 0.9, 1.2],
+                dashatk: [18, 1.5, 0], airatk: [20, 0.95, 0] },
+    mighty:   { atk1: [24, 0.75, 2.4], atk2: [24, 0.8, 2.6], atk3: [22, 0.95, 3.6], heavy: [26, 1.15, 3.5], upper: [22, 0.9, 1.2],
+                dashatk: [20, 1.05, 0] },
+    silver:   { atk1: [22, 0.75, 2], atk2: [22, 0.8, 2.4], atk3: [22, 1.1, 3.2], heavy: [22, 1.3, 3], upper: [26, 0.9, 1],
+                dashatk: [18, 1.05, 0], airatk: [20, 1.0, 0] },
   };
+  /* What Cheese does in each of Cream's blows: Chao Arch, Chao Winder, Chao Salom, Chao Tornado,
+     Chao Upper (and Chao Dunk), Chao Dash (and Chao Circle) */
+  const CHEESE = { atk1: "fx.cheese1", atk2: "fx.cheese2", atk3: "fx.cheese3", heavy: "fx.cheese4", upper: "fx.cheese5", aim: "fx.cheese5",
+                   dashatk: "fx.cheese6", airatk: "fx.cheese6" };
   const blow = (c, name) => { const b = (BLOWS[c.id] || {})[name] || BLOWS.base[name]; return { fps: b[0], reach: b[1], step: b[2] }; };
   /* How a blow lands, by its row: the freeze-frame when it connects (seconds), the jolt through
      the picture, the size of the hit spark (metres), and the knock it gives what it hits (m/s
@@ -139,8 +222,10 @@
     airatk:  { stop: 0.05,  shake: 0.1,  spark: 1.2,  kick: [10, 2] },
     aim:     { stop: 0.06,  shake: 0.12, spark: 1.3,  kick: [11, 6],  heavy: true },
   };
-  const HIT_C = { sonic: 0x9ad4ff, tails: 0xfff070, knuckles: 0xff9030, amy: 0xff80c0, rouge: 0xff70d0, shadow: 0xff4060 };
-  const hitWeight = (c, name) => c.id === "knuckles" ? 1.3 : c.id === "amy" && /^(heavy|upper|airatk)$/.test(name) ? 1.25 : 1;
+  const HIT_C = { sonic: 0x9ad4ff, tails: 0xfff070, knuckles: 0xff9030, amy: 0xff80c0, rouge: 0xff70d0, shadow: 0xff4060,
+                  cream: 0x8ad8ff, chaos: 0x70c8ff, gamma: 0xff6040, eggman: 0xffc040, metal: 0x6a90ff, mighty: 0xff4a4a, silver: 0x70f0d0 };
+  const hitWeight = (c, name) => c.id === "knuckles" || c.id === "mighty" ? 1.3 : c.id === "gamma" || c.id === "eggman" ? 1.2 :
+                                 c.id === "amy" && /^(heavy|upper|airatk)$/.test(name) ? 1.25 : 1;
 
   /* How hard each lands: `charge` is the colour of the energy gathered while the move winds up;
      `pow` what its release does (a flash of that colour and size, a jolt through the picture,
@@ -221,6 +306,108 @@
       airpower: { body: "airpower", fps: 24, at: 0, dive: "burst", pow: { c: 0xff70a0, flash: 5, shake: 0.4, stop: 0.1 } }, // Air Chaos Burst: drops, then bursts
       trap:     { body: "trap", fps: 20, at: 5, trap: "orbit" },                                                // Roaming Chaos: circles him
       airtrap:  { body: "airtrap", fps: 20, at: 4, trap: "orbit" } },
+    cream: {
+      /* Cheese does it all: Chao Cannon, Cheese wrapped in energy and flown at what's ahead;
+         Chao Rush, a whirlwind round Cheese; Cream Cracker, an Omochao that flies off to hunt */
+      shot:     { body: "shot", fps: 22, at: 3, fly: "fx.shot", speed: 15, life: 0.75, k: 1.2, trail: 0x8ad8ff,
+                  muzzle: [0.55, 0.55], charge: 0x8ad8ff, pow: { c: 0x8ad8ff, flash: 2, shake: 0.1 } },
+      airshot:  { body: "airshot", fps: 14, at: 1, fly: "fx.airshot", speed: 15, down: 0.5, life: 0.65, k: 1.2, trail: 0x8ad8ff,
+                  pow: { c: 0x8ad8ff, flash: 2, shake: 0.1 } },
+      power:    { body: "power", fps: 20, at: 4, area: "fx.power", ax: 1.7, ay: 1.0, w: 2.4, h: 2.6, k: 1.3,
+                  charge: 0x8ad8ff, pow: { c: 0x8ad8ff, flash: 3, shake: 0.2, stop: 0.05 } },
+      airpower: { body: "airpower", fps: 14, at: 1, area: "fx.power", ax: 1.6, ay: 0.6, w: 2.4, h: 2.6, k: 1.3,
+                  pow: { c: 0x8ad8ff, flash: 3, shake: 0.2, stop: 0.05 } },
+      trap:     { body: "trap", fps: 18, at: 6, trap: "chase", flies: true },
+      airtrap:  { body: "airtrap", fps: 14, at: 1, trap: "chase", flies: true } },
+    chaos: {
+      /* Chaos Shot, a ball of water that bursts; Chaos Crush, his arm along the ground (from the
+         air, down it: a column of water); Chaos Splash, a puddle that throws up tentacles */
+      shot:     { body: "shot", fps: 20, at: 4, fly: "fx.shot", speed: 14, life: 0.7, k: 1.15, trail: 0x9ad8ff,
+                  muzzle: [0.7, 0.55], gfrom: 1, charge: 0x70c8ff, pow: { c: 0x9ad8ff, flash: 2, shake: 0.1 } },
+      airshot:  { body: "airshot", fps: 20, at: 4, fly: "fx.shot", speed: 14, down: 0.5, life: 0.6, k: 1.15, trail: 0x9ad8ff,
+                  muzzle: [0.7, 0.55], pow: { c: 0x9ad8ff, flash: 2, shake: 0.1 } },
+      power:    { body: "power", fps: 20, at: 4, area: "fx.power", ax: 2.0, ay: 0.75, w: 3.4, h: 1.7, k: 1.3,
+                  charge: 0x70c8ff, pow: { c: 0x9ad8ff, flash: 2.6, shake: 0.2, stop: 0.05 } },
+      airpower: { body: "airpower", fps: 18, at: 4, area: "fx.airpower", ax: 0.55, ay: -0.5, w: 1.3, h: 3.4, k: 1.1,
+                  pow: { c: 0x9ad8ff, flash: 2.6, shake: 0.2, stop: 0.05 } },
+      trap:     { body: "trap", fps: 14, at: 4, trap: "mine" },
+      airtrap:  { body: "airtrap", fps: 16, at: 4, trap: "mine", toss: true } },
+    gamma: {
+      /* Devastator, out of his arm cannon; held, it charges -- the charging frames, only while
+         the button is down -- and lets go bigger and further. Meltdown: his reactor goes up,
+         and him with it (a heart of his own). Blinker: a mine, blinking. */
+      shot:     { body: "shot", fps: 16, at: 4, fly: "fx.shot", speed: 21, life: 0.6, loop: true, k: 1.3, trail: 0xc0b0ff,
+                  muzzle: [1.0, 0.62], gfrom: 1, charge: 0xc0b0ff, pow: { c: 0xc0b0ff, flash: 2.4, shake: 0.14, recoil: 2 },
+                  charged: { at: 2, body: "shotcharge", max: 1.2, release: "shotfull", rat: 8 } },
+      airshot:  { body: "airshot", fps: 16, at: 3, fly: "fx.shot", speed: 21, down: 0.4, life: 0.6, loop: true, k: 1.3, trail: 0xc0b0ff,
+                  muzzle: [1.0, 0.5], gfrom: 1, charge: 0xc0b0ff, pow: { c: 0xc0b0ff, flash: 2.4, shake: 0.14, recoil: 2 },
+                  charged: { at: 2, body: "airshotcharge", max: 1.2, release: "airshotfull", rat: 7 } },
+      power:    { body: "power", fps: 8, at: 3, blast: true, w: 5.4, h: 4.4, k: 3.2, charge: 0xff6040,
+                  pow: { c: 0xffa040, flash: 7, shake: 0.6, stop: 0.12 } },
+      airpower: { body: "airpower", fps: 8, at: 3, blast: true, w: 5.4, h: 4.4, k: 3.2, charge: 0xff6040,
+                  pow: { c: 0xffa040, flash: 7, shake: 0.6, stop: 0.12 } },
+      trap:     { body: "trap", fps: 22, at: 8, trap: "mine" },
+      airtrap:  { body: "airtrap", fps: 18, at: 5, trap: "mine", toss: true } },
+    eggman: {
+      /* (his muzzles are where they are with the Egg Mobile off the ground) the Death Egg Cannon
+         out of the Egg Mobile's front, a ball of fire; Missile Launch, a
+         missile that goes off where it hits; Bomb Drop, a bomb out of the bottom, its fuse lit */
+      shot:     { body: "shot", fps: 18, at: 7, fly: "fx.shot", speed: 17, life: 0.75, loop: true, k: 1.45, trail: 0xff7040,
+                  muzzle: [0.95, 0.87], gfrom: 3, charge: 0xff7040, pow: { c: 0xff9050, flash: 3, shake: 0.2, recoil: 3 } },
+      airshot:  { body: "airshot", fps: 18, at: 7, fly: "fx.shot", speed: 17, down: 0.45, life: 0.7, loop: true, k: 1.45, trail: 0xff7040,
+                  muzzle: [0.95, 0.87], gfrom: 3, charge: 0xff7040, pow: { c: 0xff9050, flash: 3, shake: 0.2, recoil: 3 } },
+      power:    { body: "power", fps: 14, at: 3, fly: "fx.power", range: [0, 7], speed: 13, life: 1.1, k: 1.4, trail: 0xc8c8c8,
+                  muzzle: [0.8, 0.77], bursts: 1.6, boom: 1.4, land: { c: 0xffa040, flash: 3, shake: 0.26, stop: 0.04 } },
+      airpower: { body: "airpower", fps: 14, at: 3, fly: "fx.power", range: [0, 7], speed: 13, down: 0.35, life: 1.0, k: 1.4, trail: 0xc8c8c8,
+                  muzzle: [0.8, 0.77], bursts: 1.6, boom: 1.4, land: { c: 0xffa040, flash: 3, shake: 0.26, stop: 0.04 } },
+      trap:     { body: "trap", fps: 10, at: 2, trap: "mine" },
+      airtrap:  { body: "airtrap", fps: 10, at: 2, trap: "mine", toss: true } },
+    metal: {
+      /* Electric Bolt; Black Shield, a crystal round him that nothing gets through and that
+         breaks what it meets; Plasma Grenade, thrown */
+      shot:     { body: "shot", fps: 20, at: 6, fly: "fx.shot", speed: 24, life: 0.55, loop: true, k: 1.25, trail: 0xfff070,
+                  muzzle: [0.6, 0.6], charge: 0x80c0ff, pow: { c: 0xfff070, flash: 2.4, shake: 0.14, recoil: 2.5 } },
+      airshot:  { body: "airshot", fps: 20, at: 5, fly: "fx.shot", speed: 24, down: 0.55, life: 0.5, loop: true, k: 1.25, trail: 0xfff070,
+                  muzzle: [0.6, 0.6], charge: 0x80c0ff, pow: { c: 0xfff070, flash: 2.4, shake: 0.14, recoil: 2.5 } },
+      power:    { body: "power", fps: 10, at: 1, shield: true, pow: { c: 0x9ad4ff, flash: 3, shake: 0.18 } },
+      airpower: { body: "airpower", fps: 10, at: 1, shield: true, pow: { c: 0x9ad4ff, flash: 3, shake: 0.18 } },
+      trap:     { body: "trap", fps: 18, at: 5, trap: "mine", toss: true, far: 5.5 },
+      airtrap:  { body: "airtrap", fps: 16, at: 3, trap: "mine", toss: true, far: 4.5 } },
+    mighty: {
+      /* Mighty Cyclone, a tornado along the ground (a ring of fire from the air); Hammer Spin,
+         curled and spinning on, three times round; Hammer Drop (Sonic Mania Plus), straight
+         down, through cracked rock, a shockwave both ways where he lands; Peacemaker */
+      shot:     { body: "shot", fps: 24, at: 7, wave: "fx.shot", speed: 11, life: 1.0, k: 1.15, trail: 0xffc080,
+                  pow: { c: 0xffa060, flash: 2.2, shake: 0.14, recoil: 2 } },
+      airshot:  { body: "airshot", fps: 22, at: 2, fly: "fx.airshot", speed: 14, down: 0.5, life: 0.75, k: 1.2, trail: 0xff8040,
+                  pow: { c: 0xffa060, flash: 2.2, shake: 0.14, recoil: 2 } },
+      power:    { body: "power", fps: 18, at: 4, tornado: [5, 8], pow: { c: 0xff4a4a, flash: 2.2, shake: 0.1 } },
+      airpower: { body: "airpower", fps: 20, at: 0, dive: "hammer", bits: 0, pow: { c: 0xffa060, flash: 4.5, shake: 0.42, stop: 0.08, bits: 0 } },
+      trap:     { body: "trap", fps: 18, at: 6, trap: "mine" },
+      airtrap:  { body: "airtrap", fps: 18, at: 3, trap: "mine", toss: true } },
+    silver: {
+      /* Psycho Knife, a blade of psychokinesis, gone in a moment; Psycho Surge, a whirlwind of
+         it round him; Psycho Orb, sent ahead to hang in the air -- one at a time */
+      shot:     { body: "shot", fps: 20, at: 4, fly: "fx.shot", speed: 19, life: 0.45, k: 1.15, trail: 0x70f0d0,
+                  muzzle: [0.6, 0.65], charge: 0x70f0d0, pow: { c: 0x70f0d0, flash: 2.2, shake: 0.12, recoil: 2 } },
+      airshot:  { body: "airshot", fps: 18, at: 3, fly: "fx.shot", speed: 19, down: 0.45, life: 0.45, k: 1.15, trail: 0x70f0d0,
+                  muzzle: [0.6, 0.65], pow: { c: 0x70f0d0, flash: 2.2, shake: 0.12, recoil: 2 } },
+      power:    { body: "power", fps: 18, at: 4, area: "fx.power", ax: 0, ay: 0.95, w: 3.4, h: 3.2, around: true, k: 1.3,
+                  charge: 0x70f0d0, pow: { c: 0x70f0d0, flash: 4, shake: 0.32, stop: 0.08 } },
+      airpower: { body: "airpower", fps: 18, at: 3, area: "fx.power", ax: 0, ay: 0.8, w: 3.4, h: 3.2, around: true, k: 1.3,
+                  pow: { c: 0x70f0d0, flash: 4, shake: 0.32, stop: 0.08 } },
+      trap:     { body: "trap", fps: 18, at: 4, trap: "float", one: true },
+      airtrap:  { body: "airtrap", fps: 18, at: 3, trap: "float", one: true } },
+  };
+  /* How a runner's trap looks: `from` the frame it starts on, `loop` the frames it then goes
+     round (else all of them), `k` its size; `boom` its own blast (from frame `bfrom`, `bk` its
+     size, `bmid` about its middle) in place of the explosion */
+  const TRAP_LOOK = {
+    cream:  { from: 2, loop: [5, 6], boom: "fx.trapboom", bmid: true, bk: 1.6 },     // an Omochao flies off; the Cream Cracker
+    chaos:  { loop: [0, 3], boom: "fx.trap", bfrom: 4, bk: 1.7 },                    // a puddle, that throws up tentacles
+    eggman: { from: 2, loop: [4, 10] },                                              // his bomb, the fuse burning down
+    mighty: { k: 1.8 },
+    silver: { loop: [5, 11] },                                                       // the orb gathers, then hangs there
   };
 
   // ---------------------------------------------------------------- the sprites
@@ -275,7 +462,9 @@
     const go = () => {
       const g = cv.getContext("2d"), f = (A.f[frame || "portrait"] || A.f.idle)[0];
       g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = false;
-      g.drawImage(img, f[0], f[1], f[2], f[3], Math.round((cv.width - f[2] * k) / 2), cv.height - f[3] * k, f[2] * k, f[3] * k);
+      /* a portrait taller than the card (Eggman's, Silver's) shows its top: a bust, the face in */
+      const dy = f[3] * k > cv.height ? 0 : cv.height - f[3] * k;
+      g.drawImage(img, f[0], f[1], f[2], f[3], Math.round((cv.width - f[2] * k) / 2), dy, f[2] * k, f[3] * k);
     };
     if (img.complete && img.naturalWidth) go(); else img.addEventListener("load", go, { once: true });
   }
@@ -334,6 +523,56 @@
     akatento:  { act: "walk", speed: 2.6 },
     aotento:   { act: "liftoff", speed: 2.2, see: 3.4 },
     condor:    { act: "dive", air: true, speed: 2.4, range: 5, see: 5 },
+    /* The second seven's stages have TheKnucklesMainG4's Modern Sonic Badniks, each doing what
+       it does in the game it comes from (Sonic Retro):
+         motobug     a ladybird on a wheel, driving to and fro (Sonic 1)
+         buzzbomber  a wasp: flies over, stops, fires down at 45 degrees, flies on (Sonic 1);
+         buzzer      its Sonic 2 cousin, the same
+         crabmeat    walks sideways, stops, fires a ball up out of each claw (Sonic 1)
+         chopper     a piranha that leaps up out of the water (Sonic 1)
+         jawz        a shark, swimming to and fro (Sonic 1's Jaws)
+         orbinaut    spike balls going round it; come near and it fires them at you, one by one
+                     (Sonic 1's Unidus); starnaut the gold one
+         nebula      hovers on its propeller; drops a bomb when you pass under (Sonic 2)
+         balkiry     a jet: waits ahead, then comes straight at you, fast, and is gone (Sonic 2)
+         snail       Snail Blaster: its shell shut, nothing hurts it; it opens it to fire twice (Sonic 3)
+         butterdroid flies to and fro, and comes after you when you come close (Sonic & Knuckles)
+         spiny       crawls; lobs a spiked ball up at you (Sonic 2)
+         slicer      a mantis: throws its two blades, that home in on you a while (Sonic 2)
+         asteron     a starfish: flashes when you come near and bursts, its five points flying (Sonic 2)
+         grabber     a spider on a thread: drops on you when you pass under (Sonic 2)
+         grounder    behind a wall till you come near: out through the bricks, and at you (Sonic 2)
+         rhinobot    sees you ahead and charges, skids and turns (Sonic 3)
+         crawl       holds a bumper out in front: hit it from behind or above (Sonic 2)
+         spinner     hovers; spots you and comes after you (Sonic Adventure)
+         espinner    the Electro Spinner: crackles with electricity now and then -- don't touch
+         mspinner    the Metal Spinner: armoured; only a jump on it, or a ball, breaks it
+         klagen      a jellyfish robot, drifting after you (Sonic Heroes); eklagen the electric one
+       `k` draws one smaller (the sheet's Jawz is a big shark). */
+    motobug:     { act: "walk", speed: 2.2 },
+    buzzbomber:  { act: "fly", air: true, speed: 2.4, range: 4, every: 2.2, see: 7, fire: 0.3, dur: 0.75, shot: "diag" },
+    buzzer:      { act: "fly", air: true, speed: 2.8, range: 4.5, every: 2.0, see: 7, fire: 0.3, dur: 0.7, shot: "diag" },
+    crabmeat:    { act: "walkshoot", speed: 1.0, every: 2.6, see: 9, fire: 0.35, dur: 0.75, shot: "claws" },
+    chopper:     { act: "leap", every: 1.6, jump: 11 },
+    jawz:        { act: "fly", air: true, speed: 1.4, range: 3.5, wave: 0.12, k: 0.62 },
+    orbinaut:    { act: "orbit", speed: 0.5, see: 5, every: 0.9, shot: "orb" },
+    starnaut:    { act: "orbit", speed: 0.5, see: 5, every: 0.9, shot: "orb" },
+    nebula:      { act: "fly", air: true, speed: 1.2, range: 3, every: 1.8, see: 4, fire: 0.35, dur: 0.8, shot: "drop" },
+    balkiry:     { act: "jet", air: true, speed: 10, see: 16 },
+    snail:       { act: "shell", speed: 0.6, every: 2.8, see: 8, fire: 0.6, dur: 1.5, shot: "pair", armor: "shell" },
+    butterdroid: { act: "flutter", air: true, speed: 1.1, range: 3, see: 5 },
+    spiny:       { act: "walkshoot", speed: 0.9, every: 2.2, see: 7, fire: 0.2, dur: 0.5, shot: "lob" },
+    slicer:      { act: "walkshoot", speed: 0.8, every: 3.6, see: 7, fire: 0.25, dur: 1.2, shot: "blades" },
+    asteron:     { act: "burst", air: true, see: 3.4, shot: "points" },
+    grabber:     { act: "grab", air: true, see: 1.4 },
+    grounder:    { act: "wall", speed: 2.4, see: 4.5 },
+    rhinobot:    { act: "charge", speed: 1.2, dash: 9, see: 9 },
+    crawl:       { act: "walk", speed: 0.9, armor: "front" },
+    spinner:     { act: "chase", air: true, speed: 2.0, see: 6 },
+    espinner:    { act: "chase", air: true, speed: 1.8, see: 6, zap: true },
+    mspinner:    { act: "chase", air: true, speed: 3.0, see: 7, armor: "ball" },
+    klagen:      { act: "chase", air: true, speed: 1.1, see: 5 },
+    eklagen:     { act: "chase", air: true, speed: 1.0, see: 5, zap: true },
   };
   /* What a shot is: the frames it shows (its own badnik's "shot", or a borrowed one), how it
      falls, whether it goes off where it lands, how big it hurts. */
@@ -348,6 +587,13 @@
     beam:     { g: 0, r: 0.25 },
     down:     { g: 0, r: 0.22 },
     trumpet:  { g: 7, r: 0.22, boom: true },
+    diag:     { g: 0, r: 0.22 },                         // Buzz Bomber's, Buzzer's: down at 45 degrees
+    orb:      { g: 0, r: 0.3, k: 0.7 },                  // an Orbinaut's spike ball, flung at you
+    drop:     { g: 20, r: 0.3, boom: true },             // Nebula's bomb
+    pair:     { g: 0, r: 0.22 },                         // Snail Blaster's two
+    lob:      { g: 20, r: 0.25 },                        // Spiny's spiked ball
+    blades:   { g: 0, r: 0.25, home: 1.6 },              // Slicer's, homing in a while
+    points:   { g: 0, r: 0.22 },                         // Asteron's five points
   };
   let BAD_M = null;
   function badMats() {
@@ -444,7 +690,7 @@
           if (e.t > B.dur) setMode(e, "walk");
         } else {
           fly(); e.face = e.dir;
-          if (B.shot && near && e.t > B.every && (B.shot !== "down" && B.shot !== "coin" || Math.abs(dx) < 1.6) && dy < 0.5) { setMode(e, "shoot"); e.face = sgn(dx) || e.face; }
+          if (B.shot && near && e.t > B.every && (B.shot !== "down" && B.shot !== "coin" && B.shot !== "drop" || Math.abs(dx) < 1.6) && dy < 0.5) { setMode(e, "shoot"); e.face = sgn(dx) || e.face; }
         }
         break;
       case "guardshoot":                                   // Mirror: spins shut, opens to fire
@@ -502,6 +748,74 @@
           if (near && e.t > 1) setMode(e, "fly");
         }
         break;
+      case "leap":                                         // Chopper: up out of the water, and back down
+        if (e.mode === "jump") { e.vy -= 24 * dt; e.y += e.vy * dt; if (e.y <= e.y0 && e.vy < 0) { e.y = e.y0; setMode(e, "walk"); } }
+        else { e.y = e.y0; if (e.t > B.every) { setMode(e, "jump"); e.vy = B.jump; } }
+        e.face = sgn(dx) || e.face;
+        break;
+      case "orbit": {                                      // Orbinaut: its spike balls go round; near, it fires them
+        if (e.balls == null) e.balls = 4;
+        e.spin = (e.spin || 0) + dt * 2.4;
+        walkOn(e, B.speed, dt); e.face = e.dir;
+        if (near && e.balls > 0 && e.t > B.every) { e.t = 0; e.balls--; badShot(e, p); }
+        if (!p.dead && p.star <= 0 && !(p.c.id === "mighty" && p.curl)) for (let k = 0; k < e.balls; k++) {
+          const a = e.spin + k * PI / 2, bx = e.x + Math.cos(a) * 0.8, by = e.y + e.h / 2 + Math.sin(a) * 0.8;
+          if (Math.abs(p.x - bx) < p.c.w / 2 + 0.2 && by > p.y - 0.2 && by < p.y + p.hh + 0.2) hurt(p, bx);
+        }
+        break;
+      }
+      case "flutter": case "chase": {                      // Butterdroid, the Spinners, Klagen: near, they come after you
+        if (e.hx == null) { e.hx = e.x0; e.hy = e.y0; }
+        if (B.zap) {                                       // the electric ones crackle now and then: don't touch
+          if (e.mode === "zap") { e.guard = true; if (e.t > 1.1) { setMode(e, "walk"); e.guard = false; } }
+          else if (e.t > 2.6 && near) { setMode(e, "zap"); SFX.charge(0.4); }
+        }
+        if (near && e.mode !== "zap") {
+          const tx = clamp(p.x, e.hx - 6, e.hx + 6), ty = clamp(p.y + 0.2, e.hy - 3, e.hy + 2);
+          e.x += clamp(tx - e.x, -1, 1) * B.speed * dt; e.y += clamp(ty - e.y, -1, 1) * B.speed * 0.6 * dt;
+          e.face = sgn(dx) || e.face; e.x0 = e.x; e.y0 = e.y; e.ph = 0;
+        } else if (B.act === "flutter") { fly(); e.face = e.dir; }
+        else { e.y = e.y0 + Math.sin(e.t * 2.2 + e.hx) * 0.15; e.face = sgn(dx) || e.face; }          // hovering, bobbing
+        break;
+      }
+      case "shell":                                        // Snail Blaster: shut, nothing hurts it; open, it fires
+        if (e.mode === "open") {
+          if (!e.fired && e.t > B.fire) { e.fired = true; badShot(e, p); }
+          if (e.t > B.dur) setMode(e, "walk");
+        } else {
+          walkOn(e, B.speed, dt); e.face = e.dir;
+          if (near && e.t > B.every) { setMode(e, "open"); e.face = sgn(dx) || e.face; }
+        }
+        break;
+      case "burst":                                        // Asteron: near, it flashes, and goes off in five points
+        if (e.mode === "flash") {
+          if (e.t > 0.6) {
+            badShot(e, p); e.alive = false; e.m.visible = false;
+            burst(e.x, e.y + e.h / 2, [0xff8040, 0xffd060, 0xffffff], 10, 4); SFX.boom();
+          }
+        } else if (near && e.t > 0.5) setMode(e, "flash");
+        break;
+      case "jet":                                          // Balkiry: waits ahead; then straight at you, fast, and gone
+        e.face = -1;
+        if (e.mode === "go") { e.x -= B.speed * dt; if (e.x < e.x0 - 32) { e.alive = false; e.m.visible = false; } }
+        else { e.y = e.y0 + Math.sin(e.t * 3) * 0.08; if (dx < 0 && -dx < B.see && e.t > 0.5) setMode(e, "go"); }
+        break;
+      case "grab":                                         // Grabber: down its thread when you pass under, and back up
+        if (e.mode === "drop") { e.y = Math.max(e.ty, e.y - 9 * dt); if (e.t > 1.2) setMode(e, "rise"); }
+        else if (e.mode === "rise") { e.y = Math.min(e.y0, e.y + 3 * dt); if (e.y >= e.y0) setMode(e, "walk"); }
+        else { e.y = e.y0; if (Math.abs(dx) < B.see && p.y < e.y0 - 0.5 && e.t > 1) { setMode(e, "drop"); e.ty = Math.max(p.y + 0.3, e.y0 - 7); } }
+        e.face = sgn(dx) || e.face;
+        break;
+      case "wall":                                         // Grounder: behind its wall; out through the bricks, and at you
+        if (!e.out) {
+          e.hidden = true; e.face = sgn(dx) || -1;
+          if (near && Math.abs(dx) < B.see) {
+            e.out = true; e.hidden = false; setMode(e, "pop");
+            burst(e.x, e.y + 0.6, [0xb85a3a, 0x8a3a2a, 0xd8a080, 0x6a6a6a], 16, 6); SFX.breakIt();
+          }
+        } else if (e.mode === "pop") { if (e.t > 0.45) setMode(e, "drive"); }
+        else { e.dir = sgn(dx) || e.dir; walkOn(e, B.speed, dt); e.face = e.dir; }
+        break;
       case "dive":                                         // Condor
         if (e.mode === "dive") {
           const tx = e.tx - e.x, ty = e.ty - e.y, d = Math.hypot(tx, ty) || 1;
@@ -520,7 +834,9 @@
   /* What it fires, from where, and which way. */
   function badShot(e, p) {
     const B = e.B, s = SHOTS[B.shot], f = e.face, at = (vx, vy, ox, oy) =>
-      world.eshots.push({ key: BADS.f[e.key].shot ? e.key : "kiki", x: e.x + (ox || 0) * f, y: e.y + (oy == null ? e.h * 0.6 : oy), vx, vy, g: s.g, r: s.r, boom: s.boom, burst: s.burst, t: 0, m: null });
+      world.eshots.push({ key: BADS.f[e.key].shot ? e.key : "kiki", x: e.x + (ox || 0) * f, y: e.y + (oy == null ? e.h * 0.6 : oy), vx, vy, g: s.g, r: s.r, boom: s.boom, burst: s.burst,
+                          k: s.k, home: s.home, fi: fi, t: 0, m: null });
+    let fi = null;
     const dx = p.x - e.x, dy = p.y + 0.5 - (e.y + e.h * 0.6);
     switch (B.shot) {
       case "claws": at(-3.2, 9.5, -0.6 * f, 0.7); at(3.2, 9.5, 0.6 * f, 0.7); break;
@@ -533,6 +849,15 @@
       case "beam": at(f * 7, 0, 0.5, e.h * 0.5); break;
       case "down": at(0, -6.5, 0, 0); break;
       case "trumpet": at(f * 6, 1.6, 0.45, 0.85); break;
+      case "diag": at(sgn(dx || f) * 5, -5, 0.3, 0.1); break;
+      case "orb": { const d = Math.hypot(dx, dy) || 1; at(dx / d * 6, dy / d * 6, 0, e.h / 2); break; }
+      case "drop": at(0, -1, 0, 0); break;
+      case "pair": { const a = Math.atan2(dy, dx); for (const da of [-0.22, 0.22]) at(Math.cos(a + da) * 6, Math.sin(a + da) * 6, 0.4, 0.5); break; }
+      case "lob": at(clamp(dx * 0.75, -5.5, 5.5), 9.5, 0, 0.6); break;
+      case "blades": { const d = Math.hypot(dx, dy) || 1; at(dx / d * 4, dy / d * 4 + 2.5, 0.3, 0.9); at(dx / d * 4, dy / d * 4 - 1, -0.3, 0.8); break; }
+      case "points":                                     // a star's five: up, and out and down both ways
+        for (const [deg, k] of [[90, 0], [162, 2], [18, 2], [-54, 2], [-126, 2]]) { fi = k; at(Math.cos(deg * PI / 180) * 7, Math.sin(deg * PI / 180) * 7, 0, e.h / 2); }
+        break;
     }
     SFX.shot();
   }
@@ -541,6 +866,10 @@
     for (const s of w.eshots) {
       if (s.gone) continue;
       s.t += dt; s.vy -= s.g * dt; s.x += s.vx * dt; s.y += s.vy * dt;
+      if (s.home > 0 && !p.dead) {                       // Slicer's blades come after you a while
+        s.home -= dt; const hx = p.x - s.x, hy = p.y + 0.6 - s.y, hd = Math.hypot(hx, hy) || 1;
+        s.vx += (hx / hd * 5 - s.vx) * dt * 2.5; s.vy += (hy / hd * 5 - s.vy) * dt * 2.5;
+      }
       if (!s.m) { s.m = badCard(); s.m.castShadow = false; w.group.add(s.m); }
       if (s.burst && s.vy < 0) { badBoom(s.x, s.y, "hanabii", 1.1); s.gone = true; }
       else if (solid(tile(Math.floor(s.x), Math.floor(s.y))) || s.y < -3 || s.t > 6) { if (s.boom) badBoom(s.x, s.y + 0.2, "kiki", 0.75); s.gone = true; }
@@ -581,25 +910,51 @@
       case "mallet": anim = e.mode === "raise" ? "raise" : e.mode === "smash" ? "smash" : "walk"; i = 0; break;
       case "liftoff": anim = e.mode === "fly" ? "fly" : "walk"; i = Math.floor(e.at * 10); break;
       case "dive": anim = e.mode === "dive" ? "dive" : "fly"; i = Math.floor(e.at * 10); break;
+      case "leap": anim = "jump"; i = Math.floor(e.at * 10); break;
+      case "flutter": case "chase": anim = e.mode === "zap" ? "zap" : "fly"; i = Math.floor(e.at * (e.mode === "zap" ? 14 : 12)); break;
+      case "jet": anim = "fly"; i = Math.floor(e.at * 12); break;
+      case "shell": anim = e.mode === "open" ? "open" : "walk"; i = e.mode === "open" ? Math.min(4, Math.floor(e.t * 10)) : Math.floor(e.at * 5); break;
+      case "burst": anim = e.mode === "flash" && Math.floor(e.t * 14) % 2 ? "flash" : "walk"; i = Math.floor(T * 4); break;
+      case "grab": anim = e.mode === "drop" ? "grab" : "walk"; i = Math.floor(e.at * (e.mode === "drop" ? 10 : 6)); break;
+      case "wall": anim = e.mode === "pop" ? "pop" : "walk"; i = e.mode === "pop" ? Math.min(2, Math.floor(e.t * 7)) : Math.floor(e.at * 10); break;
+      case "orbit": anim = "walk"; i = Math.floor(T * 4); break;
     }
-    setBad(e.m, k, anim, i, e.face, e.x, e.y);
+    setBad(e.m, k, anim, i, e.face, e.x, e.y, B.k);
+    e.m.visible = !(B.act === "wall" && !e.out);                // Grounder, behind its wall
+    if (B.act === "orbit") {                               // Orbinaut's spike balls, the ones it still has
+      if (!e.orbs) { e.orbs = [0, 1, 2, 3].map(() => { const m = badCard(); world.group.add(m); return m; }); }
+      e.orbs.forEach((m, n) => {
+        m.visible = e.alive && !e.fling && n < (e.balls == null ? 4 : e.balls);
+        const a = (e.spin || 0) + n * PI / 2;
+        setBad(m, k, "shot", 0, 1, e.x + Math.cos(a) * 0.8, e.y + e.h / 2 + Math.sin(a) * 0.8 - 0.21, 0.7);
+      });
+    }
+    if (B.act === "grab") {                                // Grabber's thread, up to where it hangs from
+      if (!e.thread) { e.thread = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 1), new THREE.MeshBasicMaterial({ color: 0xdedede })); world.group.add(e.thread); }
+      const len = e.y0 - e.y + 0.9; e.thread.visible = e.alive && !e.fling;
+      e.thread.scale.y = len; e.thread.position.set(e.x, e.y + e.h * 0.8 + len / 2, 0.02);
+    }
   }
   function drawEnemyShots() {
     const w = world;
-    for (const s of w.eshots) if (!s.gone && s.m) setBad(s.m, s.key, "shot", Math.floor(s.t * 10), sgn(s.vx) || 1, s.x, s.y - 0.2);
+    for (const s of w.eshots) if (!s.gone && s.m) setBad(s.m, s.key, "shot", s.fi != null ? s.fi : Math.floor(s.t * 10), sgn(s.vx) || 1, s.x, s.y - 0.2 * (s.k || 1), s.k);
     for (const b of w.booms) if (!b.gone) setBad(b.m, b.key, "boom", Math.floor(b.t * 14), 1, b.x, b.y - (b.key === "hanabii" ? 1.05 : 0.5));
   }
 
-  // ---------------------------------------------------------------- the six places
+  // ---------------------------------------------------------------- the thirteen places
   /* Each stage is one runner's own ground, as Sonic Battle gives each fighter a home arena:
      Sonic's seaside, Tails' workshop, Amy's home, Knuckles' ruins in the snow, Rouge's club,
-     Shadow's highway -- each built here as a place of its own. A theme is its sky, its light,
-     what its ground, blocks and ledges are made of, what stands in it and who lives there.
+     Shadow's highway, Cream's museum, Chaos's springs, Mighty's canyon, Silver's ruined city,
+     Gamma's depot, Metal Sonic's racecourse, Eggman's station -- each built here as a place of
+     its own. A theme is its sky, its light, what its ground, blocks and ledges are made of,
+     what stands in it and who lives there.
        blocks   = tiles: stone, steel (riveted plate), books (spines on a shelf), carved
-                  (old carved stone), glass (dark tile, neon edged), concrete
+                  (old carved stone), glass (dark tile, neon edged), concrete, marble, mossy
+                  (carved stone under moss), sandstone, ruin (cracked, fire in the cracks), hull
        planks   - tiles: wood, grate, shelf, rail (gold), girder
-       hurdle   h: brush, barrier, books, cairn, rope
-       tree     T: palm, windsock, plant, pillar, lamp, streetlamp
+       hurdle   h: brush, barrier, books, cairn, rope, stones, crate
+       tree     T: palm, windsock, plant, pillar, lamp, streetlamp, column, lantern, cactus,
+                   crates, console
        foes     who lives there: the badnik each of k, r, b, n, p in a stage stands for (BADNIKS)
        far      the backdrop (buildFar) */
   const THEMES = {
@@ -645,6 +1000,61 @@
       block: [0xb0aaa2, 0x9c968e], blocks: "concrete", plank: 0xc03a2e, planks: "girder", water: 0x3a6a8a, crack: 0x8a847e, back: 0x2a2428,
       tufts: [], flowers: [], lanes: true, hurdle: "barrier", tree: "streetlamp",
       foes: { k: "akatento", r: "aotento", b: "condor" }, far: "city", music: "finale", tint: 0xffe6d4 },
+    /* Cream: a natural history hall -- white marble, dark wood, a velvet rope to keep you off
+       the exhibits, the great skeletons standing about */
+    museum: {
+      sky: [0xd8ccb4, 0xf6efe0], fog: [0xf2ead8, 50, 240], sun: [0xfff4e2, 0.82, [10, 30, 24]], hemi: [0xfffaf0, 0xc8b89a, 0.72],
+      top: [0xeee8dc, 0xf6f2ea, 0xe4ddce], drip: 0xc8a050, soil: [0xe0d8c8, 0xd2c8b4, 0xe8e0d0], deep: 0xa89a82,
+      block: [0xf2eee6, 0xdcd4c8], blocks: "marble", plank: 0x7a4a2a, planks: "wood", water: 0x6ab8e0, crack: 0xd8ccb0, back: 0xb8a888,
+      checker: 0xb4a088, tufts: [], flowers: [], hurdle: "rope", tree: "column",
+      foes: { k: "snail", r: "motobug", b: "butterdroid", n: "buzzbomber" }, far: "museum", music: "school", balloon: [0xff9a40, 0x7ac8f0] },
+    /* Chaos: the springs under the old shrine, at night -- mossy carved stone, clear water
+       everywhere, stone lanterns lit, the moon */
+    springs: {
+      sky: [0x0e1a34, 0x3a6a8a], fog: [0x1e3a52, 40, 220], sun: [0xd8e8ff, 0.62, [-8, 30, 20]], hemi: [0xc8e0ff, 0x2a4a3a, 0.72],
+      top: [0x3e8a4a, 0x4a9a54, 0x367a42], drip: 0x2e6a3a, soil: [0x5a6260, 0x4e5654, 0x66706c], deep: 0x2e3634,
+      block: [0x8a948c, 0x76807a], blocks: "mossy", plank: 0x7a5a3a, planks: "wood", water: 0x2ab4c8, crack: 0x8a948a, back: 0x24302e,
+      tufts: [0x4a9a54, 0x5aaa60], flowers: [0x9ad8ff, 0xffffff], hurdle: "stones", tree: "lantern",
+      foes: { k: "crabmeat", r: "orbinaut", b: "jawz", n: "chopper" }, far: "springs", music: "home_night", tint: 0xe6f0f8 },
+    /* Mighty: canyon country -- red rock in bands, sand on top, cacti, the mesas going on for ever */
+    canyon: {
+      sky: [0x2e7ad0, 0xf6dcae], fog: [0xf2d8b0, 60, 320], sun: [0xfff0d0, 1.0, [14, 34, 18]], hemi: [0xfff4e0, 0xc08a5a, 0.6],
+      top: [0xe8b878, 0xf0c488, 0xdcaa68], drip: 0xd8984e, soil: [0xc8643c, 0xb05232, 0xd47a4c], deep: 0x7a3420,
+      block: [0xd8885a, 0xc06a40], blocks: "sandstone", plank: 0x8a6440, planks: "wood", water: 0x3a9ad0, crack: 0xc89a6a, back: 0x6a3020,
+      tufts: [0xb8a050, 0x9a8a40], flowers: [0xff6a5a, 0xf2d040], hurdle: "brush", tree: "cactus",
+      foes: { k: "rhinobot", r: "spiny", b: "asteron", n: "motobug" }, far: "canyon", music: "training_senior" },
+    /* Silver: his city two hundred years on, burning -- cracked roads, black concrete lit by
+       the fires in it, rusted girders, the sky red, embers coming down */
+    ruins: {
+      sky: [0x1a0a0e, 0xc8482a], fog: [0x6a2a1e, 40, 220], sun: [0xffa070, 0.85, [-14, 24, 20]], hemi: [0xffc0a0, 0x3a2020, 0.6],
+      top: [0x4a4246, 0x544a4e, 0x403a3e], drip: 0x8a3a24, soil: [0x5a504c, 0x4a4240, 0x645a56], deep: 0x2a2224,
+      block: [0x58504e, 0x4a4240], blocks: "ruin", plank: 0x8a4a2a, planks: "girder", water: 0x3a6070, crack: 0x7a6a62, back: 0x1e1618,
+      tufts: [], flowers: [], snowfall: 0xffa050, hurdle: "barrier", tree: "streetlamp", lanes: true,
+      foes: { k: "rhinotank", r: "grounder", b: "spinner", n: "espinner", p: "klagen" }, far: "ruins", music: "setback", tint: 0xffe0d0 },
+    /* Chaos Gamma: a storage depot deep in Eggman's hideout -- steel floors striped for the
+       forklifts, grating, belts, crates by the thousand, lamps hanging in the dark */
+    depot: {
+      sky: [0x0c1016, 0x2a3440], fog: [0x1a222c, 40, 200], sun: [0xe8f0ff, 0.7, [8, 30, 22]], hemi: [0xdce8f6, 0x2a3038, 0.72],
+      top: [0x5e6874, 0x687280, 0x56606a], drip: 0xf2c030, soil: [0x3a424c, 0x343c44, 0x424a54], deep: 0x22282e,
+      block: [0x7a8696, 0x667282], blocks: "steel", plank: 0x6a7684, planks: "grate", water: 0x2a7aa0, crack: 0x8a8e94, back: 0x1a2028, indoors: 10,
+      tufts: [], flowers: [], hurdle: "crate", tree: "crates",
+      foes: { k: "crawl", r: "grounder", b: "grabber", n: "rhinobot" }, far: "depot", music: "rival", tint: 0xe4eaf2 },
+    /* Metal Sonic: a racecourse out among the stars -- dark track lit blue and white, gold
+       rails, lane lines, the planets going by */
+    stars: {
+      sky: [0x02020a, 0x161040], fog: [0x0e0a26, 60, 320], sun: [0xe0e8ff, 0.75, [6, 30, 24]], hemi: [0xd0d8ff, 0x1a1830, 0.72],
+      top: [0x22223a, 0x2a2a44, 0x1c1c32], drip: 0x7ad8ff, soil: [0x2a2a3e, 0x24243a, 0x30304a], deep: 0x14142a,
+      block: [0x1e2240, 0x2a3060], blocks: "glass", neon: [0xffffff, 0x7ad8ff], plank: 0xe8c050, planks: "rail", water: 0x3a5ad8, crack: 0x6a6a8a, back: 0x0a0a1a,
+      tufts: [], flowers: [], stars: true, lanes: true, hurdle: "barrier", tree: "lamp",
+      foes: { k: "starnaut", r: "crawl", b: "nebula", n: "balkiry" }, far: "stars", music: "race_g1", tint: 0xe6e8ff },
+    /* Dr. Eggman: his station in orbit -- grey hull plating, warning lights, grating over the
+       machinery, consoles, and out of the windows the world turning below: the last stage */
+    station: {
+      sky: [0x020208, 0x0e1430], fog: [0x0a0e20, 60, 300], sun: [0xf0f4ff, 0.8, [10, 32, 22]], hemi: [0xe0e8ff, 0x2a2a38, 0.7],
+      top: [0x8a909c, 0x949aa6, 0x7e848e], drip: 0xe84a3a, soil: [0x5a606c, 0x50565e, 0x646a76], deep: 0x2e3238,
+      block: [0x9aa0aa, 0x80868e], blocks: "hull", plank: 0x5a6068, planks: "grate", water: 0x3a7ad8, crack: 0x8a8e96, back: 0x1a1c24, indoors: 10,
+      tufts: [], flowers: [], stars: true, hurdle: "crate", tree: "console",
+      foes: { k: "slicer", r: "crawl", b: "mspinner", n: "eklagen", p: "grabber" }, far: "station", music: "rival_final", tint: 0xeef0fa },
   };
 
   // ---------------------------------------------------------------- reading a stage
@@ -733,9 +1143,36 @@
         if (front && (GLYPHS[hash2(i, j) % GLYPHS.length] >> (sy * 4 + sx)) & 1) return (hash2(j, i) & 3) === 0 ? 0x4ab87a : mulC(B[1], 0.62);
         return sx === 0 || sy === 0 ? mulC(B[1], 0.86) : jit(rnd, pick(rnd, B), 0.04);
       }
-      case "glass": {                                    // dark tile, neon round the face
-        if (front && (sx === 0 || sy === 0 || sx === 3 || sy === 3)) return (i + j) & 1 ? 0xff5ac8 : 0x7ad8ff;
+      case "glass": {                                    // dark tile, neon round the face (pink and blue; white and blue among the stars)
+        if (front && (sx === 0 || sy === 0 || sx === 3 || sy === 3)) return (T.neon || [0xff5ac8, 0x7ad8ff])[(i + j) & 1 ? 0 : 1];
         return jit(rnd, pick(rnd, B), 0.04);
+      }
+      case "marble": {                                   // white marble, grey veins, a gilt band along a top that is stood on
+        if (open && sy === 3 && front) return 0xd8b050;
+        if (((sx * 3 + sy * 5 + i * 7 + j * 11) % 13) === 0) return 0xbab6ae;
+        return sx === 0 || sy === 0 ? mulC(B[1], 0.96) : jit(rnd, B[0], 0.02);
+      }
+      case "mossy": {                                    // the old carved stone, moss over its top and down its face
+        if (open && sy === 3) return jit(rnd, (hash2(i * 4 + sx, j) & 3) ? 0x4a9a54 : 0x3a7a44, 0.04);
+        if (open && sy === 2 && front && (hash2(i * 4 + sx, j) & 1)) return 0x3e8a4a;
+        if (front && (GLYPHS[hash2(i, j) % GLYPHS.length] >> (sy * 4 + sx)) & 1) return (hash2(j, i) & 3) === 0 ? 0x5ad8e8 : mulC(B[1], 0.62);
+        return sx === 0 || sy === 0 ? mulC(B[1], 0.86) : jit(rnd, pick(rnd, B), 0.04);
+      }
+      case "sandstone": {                                // red rock laid down in bands
+        const band = (j * 4 + sy) % 7;
+        return jit(rnd, band < 2 ? mulC(B[1], 0.9) : band === 4 ? 0xe8a070 : B[0], 0.04);
+      }
+      case "ruin": {                                     // black concrete, cracked, the fire glowing in the cracks
+        const k = hash2(i * 4 + sx, j * 4 + sy);
+        if (front && k % 23 === 0) return 0xff8a3a;
+        if (front && k % 23 === 1) return 0xd84a20;
+        if (sy === 0 || (front && sx === 0)) return mulC(B[1], 0.8);
+        return jit(rnd, pick(rnd, B), 0.05);
+      }
+      case "hull": {                                     // hull plating: panel seams, a light now and then, a warning stripe along a top
+        if (open && sy === 3 && front) return ((i * 4 + sx) & 3) < 2 ? 0xe84a3a : 0x3a3c44;
+        if (front && sx === 1 && sy === 1 && hash2(i, j) % 5 === 0) return hash2(j, i) & 1 ? 0x7ad8ff : 0xffb040;
+        return sx === 0 || sy === 0 ? mulC(B[1], 0.82) : jit(rnd, B[0], 0.025);
       }
       case "concrete": {
         if (sy === 0 || (front && sx === 0)) return mulC(B[1], 0.82);
@@ -821,6 +1258,7 @@
               col = jit(rnd, 0x6a4a30, 0.06);
             } else if ((topHere && (open || c !== "#")) && !wet) {
               col = jit(rnd, pick(rnd, T.top), 0.06);
+              if (T.checker && (((i * 4 + sx) >> 2) + ((z - ZDEEP) >> 2)) & 1) col = jit(rnd, T.checker, 0.03);   // a marble floor laid in squares
               /* a road: white dashes down the middle, a solid line along the far side */
               if (T.lanes && (z === -5 && ((i * 4 + sx) & 7) < 4 || z === ZDEEP + 2)) col = z === -5 ? 0xf2f0e8 : 0xe8c040;
             } else if (z === ZF && sy >= 2 && open && depth === 0 && !wet && rnd() < 0.55) {
@@ -1013,7 +1451,8 @@
   }
   /* h: something across the course to jump, or smash. */
   const HURDLE_C = { brush: [0x3a7e32, 0x2a6a2a, 0xf6f6f2], barrier: [0xd8303a, 0xf6f6f2, 0x8a8a92], books: BOOKS.slice(0, 4),
-                     cairn: [0x8a8478, 0x6a645a, 0xf4f8fc], rope: [0xb01e3a, 0xe8c050, 0x7a1428] };
+                     cairn: [0x8a8478, 0x6a645a, 0xf4f8fc], rope: [0xb01e3a, 0xe8c050, 0x7a1428],
+                     stones: [0x7e786c, 0x5a544a, 0x4a9a54], crate: [0xc8904a, 0x8a5a2c, 0xe0b070] };
   function hurdleVox(v, kind) {
     switch (kind) {
       case "barrier":                                  // a road barrier: striped boards on white trestles, a lamp at each end
@@ -1036,6 +1475,23 @@
             const edge = y % 3 === 2 && (Math.abs(z) + layer * 3) % 7 === 0;
             v.set(x, y, z, y >= 13 ? 0xf4f8fc : edge ? 0x5a544a : ((x + z + y) % 5 === 0 ? 0x9a9488 : 0x7e786c));
           }
+        }
+        return;
+      case "stones":                                   // stones piled up by the old shrine, moss on the top
+        for (let y = 0; y < 15; y++) {
+          const layer = Math.floor(y / 3), rz = 18 - layer * 2, rx = 3 - (layer > 2 ? 1 : 0);
+          for (let z = -rz; z <= rz; z++) for (let x = -rx; x <= rx; x++) {
+            const edge = y % 3 === 2 && (Math.abs(z) + layer * 3) % 7 === 0;
+            v.set(x, y, z, y >= 13 ? ((x + z) & 1 ? 0x4a9a54 : 0x3e8a4a) : edge ? 0x5a544a : ((x + z + y) % 5 === 0 ? 0x9a9488 : 0x7e786c));
+          }
+        }
+        return;
+      case "crate":                                    // crates stacked, two and one: smash them
+        for (const [y0, y1, z0, z1] of [[0, 10, -18, -1], [0, 10, 0, 17], [11, 18, -9, 8]]) {
+          v.box(-3, y0, z0, 3, y1, z1, 0xc8904a);
+          v.box(-3, y0, z1, 3, y0, z1, 0x8a5a2c); v.box(-3, y1, z1, 3, y1, z1, 0x8a5a2c);
+          for (let y = y0; y <= y1; y++) { v.set(-3, y, z1, 0x8a5a2c); v.set(3, y, z1, 0x8a5a2c); v.set(0, y, z1, 0xa8743a); }
+          v.box(-3, y1, z0, 3, y1, z1, 0xd8a060);
         }
         return;
       case "rope":                                     // a velvet rope between brass posts
@@ -1087,6 +1543,44 @@
         v.box(-6, 38, -6, 5, 41, 5, 0xa89e88); v.box(-6, 42, -6, 5, 43, 5, 0xf4f8fc); v.box(-4, 44, -4, 3, 44, 3, 0xfafcff);
         return;
       }
+      case "column": {                                 // a marble column, fluted, a gilt band at its head
+        v.box(-7, 0, -7, 6, 3, 6, 0xdcd4c8); v.box(-6, 4, -6, 5, 5, 5, 0xe8e2d8);
+        for (let y = 6; y < 44; y++) for (let x = -5; x <= 4; x++) for (let z = -5; z <= 4; z++) {
+          const r = Math.hypot(x + 0.5, z + 0.5); if (r > 5.2 || r < 3.6) continue;
+          v.set(x, y, z, Math.round(Math.atan2(z + 0.5, x + 0.5) * 4) & 1 ? 0xe4ded2 : 0xf4f0e8);
+        }
+        v.box(-6, 44, -6, 5, 45, 5, 0xd8b050); v.box(-7, 46, -7, 6, 48, 6, 0xf2eee6);
+        return;
+      }
+      case "lantern": {                                // a stone lantern of the old shrine, lit, moss on its roof
+        v.box(-5, 0, -5, 4, 2, 4, 0x7a827c); v.box(-2, 3, -2, 1, 16, 1, 0x8a928c); v.box(-5, 17, -5, 4, 18, 4, 0x7a827c);
+        v.box(-4, 19, -4, 3, 25, 3, 0x8a928c); v.box(-3, 20, 3, 2, 24, 3, 0xffe8a0); v.box(-3, 20, -4, 2, 24, -4, 0xffe8a0);
+        v.box(-7, 26, -7, 6, 27, 6, 0x6a726c); v.box(-5, 28, -5, 4, 29, 4, 0x4a8a54); v.box(-1, 30, -1, 0, 32, 0, 0x7a827c);
+        return;
+      }
+      case "cactus": {                                 // a saguaro, an arm up either side
+        for (let y = 0; y < 40; y++) v.box(-2, y, -2, 2, y, 2, y % 3 ? 0x4a8a3a : 0x3a7a2e);
+        v.box(-1, 40, -1, 1, 41, 1, 0x5a9a48);
+        for (const [sd, y0, h] of [[-1, 14, 14], [1, 20, 12]]) {
+          for (let x = 3; x <= 6; x++) v.box(sd * x - 1, y0, -1, sd * x + 1, y0 + 2, 1, 0x4a8a3a);
+          for (let y = y0; y < y0 + h; y++) v.box(sd * 6 - 1, y, -1, sd * 6 + 1, y, 1, y % 3 ? 0x4a8a3a : 0x3a7a2e);
+        }
+        return;
+      }
+      case "crates": {                                 // crates stacked up, stencilled
+        for (const [cx, cy, cz] of [[0, 0, 0], [12, 0, 0], [6, 11, 0], [-12, 0, -2]]) {
+          v.box(cx - 5, cy, cz - 5, cx + 5, cy + 10, cz + 5, 0xb07e40);
+          v.box(cx - 5, cy, cz + 5, cx + 5, cy, cz + 5, 0x7a522a); v.box(cx - 5, cy + 10, cz + 5, cx + 5, cy + 10, cz + 5, 0x7a522a);
+          v.box(cx - 2, cy + 4, cz + 6, cx + 2, cy + 6, cz + 6, 0x2a2a2a);
+        }
+        return;
+      }
+      case "console": {                                // a console, its screen lit, its buttons
+        v.box(-8, 0, -5, 7, 14, 4, 0x6a707a); v.box(-8, 15, -5, 7, 16, 0, 0x5a606a);
+        v.box(-7, 17, -5, 6, 30, -3, 0x4a505a); v.box(-6, 18, -2, 5, 29, -2, 0x3ad8a0);
+        for (let k = 0; k < 4; k++) v.set(-6 + k * 3, 15, 3, [0xe84a3a, 0xf2c030, 0x7ad8ff, 0x6ac06a][k]);
+        return;
+      }
       case "lamp": case "streetlamp": {                // a lamp: ornate on the strip, tall and plain on the road
         if (T.tree === "lamp") {
           v.box(-3, 0, -3, 2, 2, 2, 0x2a2430); v.box(-1, 3, -1, 0, 34, 0, 0x2a2430);
@@ -1115,7 +1609,7 @@
     }
   }
   /* Where a lamp's light hangs, in metres from its foot (twelve grains a metre), for its glow. */
-  const LAMP_AT = { lamp: [0, 38 / 12], streetlamp: [12 / 12, 56 / 12] };
+  const LAMP_AT = { lamp: [0, 38 / 12], streetlamp: [12 / 12, 56 / 12], lantern: [0, 22 / 12] };
 
   // ---------------------------------------------------------------- far away
   /* What stands behind each stage, built coarse and set back so the perspective camera
@@ -1239,6 +1733,88 @@
         skyline(group, W, -85, 0x2e2230, 0.5, 30, 0.9);
         overpass(group, W, -32);
         group.userData.anim.push(traffic(group, W, -32));
+        break;
+      }
+      case "museum": {
+        /* the hall, from its floor: marble running back to the far wall, tall arched windows in
+           it full of daylight and banners between; the great skeletons on their plinths, glass
+           cases of fossils, a whale's skeleton hung from the ceiling */
+        const base = topOf0;
+        plane(0xcbbda2, base - 0.02, -5, 64);
+        museumWall(group, W, base, -66);
+        let k = 0;
+        for (let x = 10; x < W + 20; x += 36 + Math.floor(rnd() * 10)) {
+          if (k % 3 === 2) displayCases(group, x, base, -24); else skeleton(group, x, base, -36 - rnd() * 8, k % 2);
+          k++;
+        }
+        for (let x = 40; x < W; x += 150) whale(group, x, base + 24, -50);
+        break;
+      }
+      case "springs": {
+        /* the springs at night: still water running back to the cliffs, waterfalls down them,
+           the old shrine at the top of its steps, stone lanterns, fireflies, the moon */
+        plane(0x1e6a7a, -0.3, -5, 400);
+        band(3, -120, -110, 26, 10, 0.02, [0x3a4a48, 0x3e7a4a], 81);
+        band(4, -200, -190, 44, 16, 0.012, [0x2a3634, 0x2e5a3a], 82);
+        for (let x = 20; x < W; x += 70 + rnd() * 40) waterfall(group, x, -107.5, 16 + Math.floor(rnd() * 8));
+        for (let x = 60; x < W; x += 170) shrineSteps(group, x + rnd() * 30, -64);
+        trees(-14, Math.round(W / 26), 0);
+        disc(group, W * 0.4, 62, -262, 13, 0xeef6ff, 0xc8e0ff);
+        group.userData.anim.push(fireflies(group, W, rnd));
+        break;
+      }
+      case "canyon": {
+        /* canyon country: sand running back to red mesas laid down in bands, buttes standing
+           alone, the far rims pale in the heat; cacti; the sun high */
+        plane(0xe0aa70, 0, -5, 400);
+        band(4, -240, -228, 46, 14, 0.008, [0xd8a07a, 0xe8bc94], 91);
+        band(3, -150, -140, 28, 12, 0.014, [0xb8603a, 0xd88a5a], 92);
+        band(2, -84, -78, 12, 6, 0.03, [0xa84e30, 0xc87a4a], 93);
+        for (let x = 30; x < W; x += 90 + rnd() * 60) butte(group, x, -112 - rnd() * 18, 14 + Math.floor(rnd() * 12), rnd);
+        trees(-12, Math.round(W / 18), 0);
+        disc(group, W * 0.7, 74, -290, 12, 0xfff6d8, 0xffd890);
+        clouds(0.3);
+        break;
+      }
+      case "ruins": {
+        /* the city burning: towers broken off against a red sky, the fires in them, and pieces
+           of the city hanging in the air -- his power holding them up */
+        plane(0x2a2224, 0, -5, 400);
+        disc(group, W * 0.5, 26, -300, 22, 0xff9a50, 0xff5a20);
+        skyline(group, W, -240, 0x3a1e1e, 0.0, 70, 1.6);
+        skyline(group, W, -150, 0x2a1616, 0.15, 50, 1.2);
+        brokenBlocks(group, W, -72, rnd);
+        group.userData.anim.push(fires(group, W, rnd));
+        group.userData.anim.push(floaters(group, W, rnd));
+        break;
+      }
+      case "depot": {
+        /* the depot: the floor running back under racks of crates three high to the wall,
+           steel columns, lamps hanging on chains */
+        const base = topOf0;
+        plane(0x4a525c, base - 0.02, -5, 70);
+        depotWall(group, W, base, -72);
+        for (let x = 0; x < W + 40; x += 26) rack(group, x + rnd() * 4, base, -36 - rnd() * 6, rnd);
+        for (let x = 10; x < W; x += 22) hangLamp(group, x, base + 20, -16 - rnd() * 10);
+        break;
+      }
+      case "stars": {
+        /* the course out among the stars: a ringed planet, a nebula's glow, the track's other
+           turns floating far off in ribbons of light, grandstands lit up, rocks drifting by */
+        nebula(group, W);
+        ringedPlanet(group, W * 0.3, 44, -300);
+        for (let x = -100; x < W + 200; x += 170) trackRibbon(group, x, -150 - rnd() * 40, rnd);
+        for (let x = 40; x < W; x += 120) grandstand(group, x + rnd() * 30, -60, rnd);
+        group.userData.anim.push(asteroids(group, W, rnd));
+        break;
+      }
+      case "station": {
+        /* his station in orbit: the hull's inner wall with great windows in it, and through them
+           the world turning far below; pipes, and warning lights going round */
+        group.userData.anim.push(worldBelow(group, W));
+        plane(0x3a3e48, topOf0 - 0.02, -5, 36);                   // the deck, back to the wall: the world is out of the windows
+        stationWall(group, W, topOf0, -40);
+        group.userData.anim.push(warnLights(group, W, topOf0, -39));
         break;
       }
     }
@@ -1489,6 +2065,235 @@
     }
     return t => { for (const c of cars) { const x = ((c.off + t * c.sp * c.dir) % (W + 200) + (W + 200)) % (W + 200) - 100; c.m.position.x = x; c.s.position.set(x + (c.dir > 0 ? 4 : 0), 14.2, c.m.position.z + 1.6); } };
   }
+  /* ---- the second seven's backdrops */
+  function disc(group, x, y, z, r, color, glow) {       // the sun or the moon, and its glow
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshBasicMaterial({ color, fog: false })); m.position.set(x, y, z); group.add(m);
+    const s = new THREE.Sprite(glowMat(glow, 0.6)); s.scale.set(r * 5, r * 5, 1); s.position.set(x, y, z + 1); group.add(s);
+  }
+  function museumWall(group, W, base, z) {             // the far wall: cream stone, arched windows full of daylight, banners
+    for (let x0 = -60; x0 < W + 60; x0 += 120) {
+      const v = new Vox(), gl = new Vox();
+      for (let X = 0; X < 120; X++) {
+        const wx = (((X + x0) % 30) + 30) % 30;
+        for (let y = 0; y < 40; y++) {
+          const top = 26 + (wx >= 13 && wx <= 17 ? 2 : 0) + (wx === 15 ? 1 : 0);
+          if (wx >= 11 && wx <= 19 && y >= 8 && y <= top) { gl.set(X, y, 0, (y % 6 === 0 || wx === 15) ? 0xa89a82 : ((wx + y) % 7 === 0 ? 0xffffff : 0xd8eef8)); continue; }
+          v.set(X, y, 0, y < 2 ? 0xb8a888 : y > 36 ? 0xd8c8a8 : (wx <= 2 || wx >= 28) ? 0xf2eadc : y === 31 ? 0xc8b48c : 0xe8dcc4);
+        }
+        if (wx === 5 || wx === 6 || wx === 24 || wx === 25) for (let y = 13; y < 28; y++) v.set(X, y, 1, y > 25 ? 0xd8b050 : ((X + x0) % 60 + 60) % 60 < 30 ? 0xf08a3a : 0x5aa0e0);
+      }
+      group.add(voxMesh(v, 1, x0, base, z)); group.add(voxMesh(gl, 1, x0, base, z, materials().glow));
+    }
+  }
+  function skeleton(group, x, base, z, kind) {         // a dinosaur's skeleton on its plinth: a long-neck, or a tyrant
+    const v = new Vox(), B = 0xf2ead6, D = 0xc8bc9c;
+    v.box(-15, 0, -4, 15, 2, 4, 0x6a3e22); v.box(-14, 3, -3, 14, 3, 3, 0xd8b050);
+    const ribs = (s, y, n) => { for (let r = 1; r < n; r++) { v.set(s, y - r, -2, B); v.set(s, y - r, 2, B); } v.set(s, y - n, -1, D); v.set(s, y - n, 1, D); };
+    if (kind) {                                          // the long-neck: four legs, the neck going up and up
+      for (const lx of [-7, -4, 5, 8]) { v.box(lx, 4, -2, lx, 12, -2, B); v.box(lx, 4, 2, lx, 12, 2, B); }
+      for (let sx = -24; sx <= 22; sx++) {
+        const y = Math.round(sx < 0 ? 15 + sx * 0.4 : sx < 8 ? 15 + sx * 0.12 : 16 + (sx - 8) * 1.25);
+        v.set(sx, y, 0, B); if (sx >= -8 && sx <= 8 && !(sx & 1)) ribs(sx, y, 5);
+      }
+      v.box(21, 34, -1, 25, 36, 1, B); v.set(24, 35, 2, 0x3a3020);
+    } else {                                             // the tyrant: two great legs, little arms, the skull
+      for (const [lx, z0] of [[-2, -2], [3, 2]]) { for (let y = 4; y < 15; y++) v.set(lx + Math.round((y - 4) * 0.25), y, z0, B); v.box(lx - 1, 4, z0, lx + 3, 4, z0, B); }
+      for (let sx = -22; sx <= 10; sx++) {
+        const y = Math.round(sx < 0 ? 17 + sx * 0.3 : 17 + sx * 0.35);
+        v.set(sx, y, 0, B); if (sx >= -6 && sx <= 8 && !(sx & 1)) ribs(sx, y, 5);
+      }
+      v.box(10, 20, -2, 18, 25, 2, B); v.box(11, 17, -1, 18, 19, 1, D); v.set(15, 23, 3, 0x3a3020); v.set(15, 23, -3, 0x3a3020);
+      for (let x2 = 11; x2 <= 18; x2 += 2) v.set(x2, 19, 2, 0xffffff);
+      v.box(8, 13, 2, 9, 14, 2, B); v.box(9, 12, 2, 9, 12, 2, B);
+    }
+    group.add(voxMesh(v, 0.5, x, base, z));
+  }
+  function displayCases(group, x, base, z) {          // glass cases on dark wood, a fossil in each
+    const v = new Vox(), gl = new Vox();
+    for (let c = 0; c < 3; c++) {
+      const cx = c * 9;
+      v.box(cx, 0, 0, cx + 7, 6, 4, 0x6a3e22); v.box(cx, 7, 0, cx + 7, 7, 4, 0xd8b050);
+      for (let X = cx; X <= cx + 7; X++) for (let y = 8; y <= 13; y++) gl.set(X, y, 0, (X + y) % 5 === 0 ? 0xffffff : 0xcfe8f0);
+      v.box(cx, 14, 0, cx + 7, 14, 4, 0x6a3e22); v.box(cx, 8, 4, cx, 13, 4, 0xd8b050); v.box(cx + 7, 8, 4, cx + 7, 13, 4, 0xd8b050);
+      const f = [0xd8c8a0, 0xe8a070, 0xb8c8d8][c];       // an ammonite, a trilobite, a bone
+      v.box(cx + 2, 8, 2, cx + 5, 10, 2, f); v.box(cx + 3, 11, 2, cx + 4, 11, 2, f);
+    }
+    group.add(voxMesh(v, 0.5, x, base, z)); group.add(voxMesh(gl, 0.5, x, base, z, materials().glow));
+  }
+  function whale(group, x, y, z) {                     // a whale's skeleton, hung from the ceiling on wires
+    const v = new Vox(), B = 0xf2ead6;
+    for (let sx = 0; sx < 60; sx++) {
+      const yy = Math.round(Math.sin(sx / 60 * PI) * 3); v.set(sx, yy, 0, B);
+      if (sx > 12 && sx < 42 && sx % 3 === 0) for (let r = 1; r < 6 - Math.abs(sx - 27) / 6; r++) { v.set(sx, yy - r, -2, B); v.set(sx, yy - r, 2, B); }
+    }
+    v.box(0, -3, -2, 9, 1, 2, B); v.box(52, -1, -4, 58, 0, 4, B);
+    for (const sx of [14, 44]) v.box(sx, 2, 0, sx, 34, 0, 0x8a8a8a);
+    group.add(voxMesh(v, 0.5, x, y, z));
+  }
+  function waterfall(group, x, z, h) {                 // a waterfall down the cliff, foaming at its foot
+    const v = new Vox();
+    for (let y = 0; y < h; y++) for (let X = 0; X < 4; X++) v.set(X, y, 0, (X + y * 2) % 5 === 0 ? 0xffffff : (X === 0 || X === 3) ? 0x7ad0e0 : 0xb8ecf6);
+    for (let X = -2; X < 6; X++) v.set(X, 0, 1, 0xffffff);
+    group.add(voxMesh(v, 1, x, 0, z, materials().glow));
+  }
+  function shrineSteps(group, x, z) {                  // the old shrine: stone steps up to it, a red gate at their foot
+    const v = new Vox();
+    for (let k = 0; k < 18; k++) v.box(k * 2, 0, 0, k * 2 + 1, k, 6, k % 2 ? 0x7a827c : 0x8a928c);
+    const tx = 37, ty = 18;
+    v.box(tx, 0, 0, tx + 15, ty, 6, 0x6a726c);
+    for (const px of [tx + 2, tx + 13]) v.box(px, ty + 1, 1, px, ty + 7, 1, 0xc83a2a);
+    v.box(tx + 3, ty + 1, 2, tx + 12, ty + 6, 5, 0x6a4a32); v.box(tx + 6, ty + 1, 1, tx + 9, ty + 4, 1, 0xffd890);
+    for (let k = 0; k < 4; k++) v.box(tx - 2 + k * 2, ty + 8 + k, 0, tx + 17 - k * 2, ty + 8 + k, 6, k ? 0x2a3040 : 0x3a4252);
+    for (const px of [-5, 5]) v.box(px, 0, 3, px, 11, 3, 0xc83a2a);
+    v.box(-7, 11, 3, 7, 11, 3, 0xc83a2a); v.box(-8, 12, 3, 8, 12, 3, 0x2a2a2a); v.box(-6, 9, 3, 6, 9, 3, 0xc83a2a);
+    group.add(voxMesh(v, 1, x, -0.3, z));
+  }
+  function fireflies(group, W, rnd) {                  // fireflies over the water, blinking
+    const fl = [];
+    for (let k = 0; k < Math.round(W / 8); k++) {
+      const s = new THREE.Sprite(glowMat(0xc8ff90, 0.8)); s.scale.set(0.6, 0.6, 1); group.add(s);
+      fl.push({ s, x: rnd() * W, y: 1 + rnd() * 9, z: -4 - rnd() * 22, p: rnd() * 10 });
+    }
+    return t => { for (const f of fl) { f.s.position.set(f.x + Math.sin(t * 0.5 + f.p) * 2, f.y + Math.sin(t * 0.8 + f.p * 2), f.z); f.s.material.opacity = 0.45 + 0.45 * Math.sin(t * 3 + f.p); } };
+  }
+  function butte(group, x, z, h, rnd) {                // a butte standing alone, red rock in bands
+    const v = new Vox(), w = 5 + Math.floor(rnd() * 5);
+    for (let y = 0; y < h; y++) {
+      const ww = w - Math.max(0, y - h + 3);
+      for (let X = -ww; X <= ww; X++) for (let Z = -3; Z <= 3; Z++) v.set(X, y, Z, y % 5 < 2 ? 0xb8603a : y % 5 === 4 ? 0xe8a070 : 0xd07a4a);
+    }
+    group.add(voxMesh(v, 1.5, x, 0, z));
+  }
+  function brokenBlocks(group, W, z, rnd) {            // the near ruins: towers broken off, girders bent out of them
+    for (let x0 = -60; x0 < W + 60; x0 += 100) {
+      const v = new Vox(), gl = new Vox(); let X = 0;
+      while (X < 100) {
+        const bw = 6 + Math.floor(rnd() * 10), bh = 8 + Math.floor(rnd() * 22);
+        for (let i = 0; i < bw; i++) {
+          const top = bh - Math.floor(Math.abs(Math.sin(i * 1.7 + bh)) * 5);
+          for (let y = 0; y < top; y++) for (let Z = 0; Z < 3; Z++) v.set(X + i, y, Z, (y % 4 === 0 || i % 4 === 0) ? 0x2e2426 : 0x3a3032);
+          for (let y = 2; y < top - 1; y += 3) if (i % 3 === 1 && rnd() < 0.25) gl.set(X + i, y, 3, rnd() < 0.5 ? 0xff7a30 : 0xffb050);
+        }
+        if (rnd() < 0.5) for (let k = 0; k < 6; k++) v.set(X + bw - 1 + k, bh - 3 + (k >> 1), 1, 0x8a4a2a);
+        X += bw + 2 + Math.floor(rnd() * 4);
+      }
+      group.add(voxMesh(v, 1, x0, 0, z)); group.add(voxMesh(gl, 1, x0, 0, z, materials().glow));
+    }
+  }
+  function fires(group, W, rnd) {                      // the fires burning in the city, flickering
+    const fl = [];
+    for (let k = 0; k < Math.round(W / 14); k++) {
+      const s = new THREE.Sprite(glowMat(rnd() < 0.5 ? 0xff7a30 : 0xffa040, 0.8)); group.add(s);
+      fl.push({ s, x: rnd() * (W + 100) - 50, y: 3 + rnd() * 22, z: -70 - rnd() * 90, r: 5 + rnd() * 9, p: rnd() * 10 });
+    }
+    return t => { for (const f of fl) { const k = 1 + Math.sin(t * 7 + f.p) * 0.12 + Math.sin(t * 13 + f.p * 3) * 0.08; f.s.scale.set(f.r * k, f.r * k * 1.2, 1); f.s.position.set(f.x, f.y, f.z); } };
+  }
+  function floaters(group, W, rnd) {                   // pieces of the city, held up in the air, bobbing, in his light
+    const fl = [], M = materials();
+    for (let k = 0; k < Math.round(W / 24); k++) {
+      const v = new Vox(), n = 2 + Math.floor(rnd() * 4);
+      for (let a = 0; a < n; a++) for (let b = 0; b < 2 + (a & 1); b++) v.set(a, b, 0, (a + b) & 1 ? 0x4a4042 : 0x5a5052);
+      const m = voxMesh(v, 1, 0, 0, 0, M.vox); group.add(m);
+      const s = new THREE.Sprite(glowMat(0x70f0d0, 0.35)); s.scale.set(n + 3, 5, 1); group.add(s);
+      fl.push({ m, s, x: rnd() * W, y: 8 + rnd() * 16, z: -20 - rnd() * 30, p: rnd() * 10, n });
+    }
+    return t => { for (const f of fl) { const y = f.y + Math.sin(t * 0.7 + f.p) * 0.8; f.m.position.set(f.x, y, f.z); f.m.rotation.z = Math.sin(t * 0.4 + f.p) * 0.12; f.s.position.set(f.x + f.n / 2, y + 1, f.z + 0.5); } };
+  }
+  function depotWall(group, W, base, z) {              // the depot's far wall: steel, ribbed, a hazard stripe along its foot
+    for (let x0 = -60; x0 < W + 60; x0 += 120) {
+      const v = new Vox();
+      for (let X = 0; X < 120; X++) for (let y = 0; y < 32; y++)
+        v.set(X, y, 0, y < 2 ? (((X >> 1) & 1) ? 0xf2c030 : 0x2a2a30) : X % 12 === 0 ? 0x4a525c : y % 8 === 0 ? 0x3e464e : 0x343c44);
+      for (let X = 3; X < 120; X += 40) for (let y = 14; y < 26; y++) for (let i = 0; i < 6; i++) v.set(X + i, y, 1, y > 23 || i === 0 || i === 5 ? 0x6a2a20 : 0xc83a2a);   // banners
+      group.add(voxMesh(v, 1, x0, base, z));
+    }
+  }
+  function rack(group, x, base, z, rnd) {              // a storage rack, three shelves high, crates on every one
+    const v = new Vox();
+    for (const px of [0, 15]) v.box(px, 0, 0, px, 23, 0, 0xe86a20), v.box(px, 0, 4, px, 23, 4, 0xe86a20);
+    for (const y of [0, 8, 16]) {
+      v.box(0, y + 7, 0, 15, y + 7, 4, 0x2e66b0);
+      for (let c = 0; c < 3; c++) if (rnd() < 0.85) {
+        const cx = 1 + c * 5, h = 4 + Math.floor(rnd() * 3), col = rnd() < 0.6 ? 0xb07e40 : 0x7a8696;
+        v.box(cx, y + 7 - h, 1, cx + 3, y + 6, 3, col); v.box(cx, y + 6, 3, cx + 3, y + 6, 3, mulC(col, 0.75));
+      }
+    }
+    group.add(voxMesh(v, 0.5, x, base, z));
+  }
+  function hangLamp(group, x, y, z) {                  // a lamp hanging on its chain, lit
+    const v = new Vox();
+    v.box(0, 1, 0, 0, 14, 0, 0x5a5a62); v.box(-2, 0, -2, 2, 0, 2, 0x3a3a42); v.box(-1, -1, -1, 1, -1, 1, 0xfff2c8);
+    group.add(voxMesh(v, 0.25, x, y, z));
+    const s = new THREE.Sprite(glowMat(0xfff0c8, 0.5)); s.scale.set(4, 4, 1); s.position.set(x, y - 0.3, z + 0.2); group.add(s);
+  }
+  function nebula(group, W) {                          // the glow of a nebula across the sky
+    for (let k = 0; k < 6; k++) {
+      const s = new THREE.Sprite(glowMat([0x7a3ad8, 0x3a7ad8, 0xd83a9a][k % 3], 0.35)); s.scale.set(220, 120, 1);
+      s.position.set((W + 200) * k / 6 - 100, 60 + (k % 2) * 30, -310); group.add(s);
+    }
+  }
+  function ringedPlanet(group, x, y, z) {              // a ringed planet, far off
+    const m = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshBasicMaterial({ color: 0xd89a6a, fog: false })); m.position.set(x, y, z); group.add(m);
+    const sh = new THREE.Mesh(new THREE.CircleGeometry(30, 48, -PI * 0.15, PI), new THREE.MeshBasicMaterial({ color: 0x8a5a3a, fog: false })); sh.position.set(x, y, z + 0.2); group.add(sh);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(38, 50, 64), new THREE.MeshBasicMaterial({ color: 0xe8d0a8, fog: false, side: THREE.DoubleSide, transparent: true, opacity: 0.8 }));
+    ring.position.set(x, y, z + 0.5); ring.scale.y = 0.28; ring.rotation.z = 0.25; group.add(ring);
+  }
+  function trackRibbon(group, x, z, rnd) {             // the track's far turns, a ribbon of light hanging in space
+    const v = new Vox(), y0 = 10 + Math.floor(rnd() * 30);
+    for (let X = 0; X < 160; X++) {
+      const y = y0 + Math.round(Math.sin(X * 0.04) * 8);
+      v.set(X, y, 0, X % 6 < 3 ? 0x7ad8ff : 0xffffff); v.set(X, y - 1, 0, 0x2a2a44);
+    }
+    group.add(voxMesh(v, 1, x, 0, z, materials().glow));
+  }
+  function grandstand(group, x, z, rnd) {              // a grandstand floating in space, every seat lit
+    const v = new Vox(), gl = new Vox();
+    for (let k = 0; k < 8; k++) for (let X = k; X < 36 - k; X++) { v.set(X, k, k, 0x3a3a52); if (rnd() < 0.6) gl.set(X, k + 1, k, [0xff5ac8, 0x7ad8ff, 0xf2d040, 0xffffff][Math.floor(rnd() * 4)]); }
+    for (let X = 0; X < 36; X++) v.set(X, -1, 3, 0x2a2a3a);
+    group.add(voxMesh(v, 0.5, x, 6 + rnd() * 8, z)); group.add(voxMesh(gl, 0.5, x, 6 + rnd() * 8, z, materials().glow));
+  }
+  function asteroids(group, W, rnd) {                  // rocks drifting past, turning
+    const fl = [];
+    for (let k = 0; k < Math.round(W / 30); k++) {
+      const v = new Vox(), r = 2 + Math.floor(rnd() * 3);
+      for (let a = -r; a <= r; a++) for (let b = -r; b <= r; b++) for (let c = -r; c <= r; c++) if (Math.hypot(a, b, c) <= r + rnd() * 0.6) v.set(a, b, c, rnd() < 0.3 ? 0x5a5a6a : 0x7a7a8a);
+      const m = voxMesh(v, 0.8, 0, 0, 0); group.add(m);
+      fl.push({ m, x: rnd() * W, y: 4 + rnd() * 30, z: -30 - rnd() * 60, p: rnd() * 10, sp: 0.6 + rnd() });
+    }
+    return t => { for (const f of fl) { f.m.position.set(((f.x + t * f.sp) % (W + 40) + W + 40) % (W + 40) - 20, f.y + Math.sin(t * 0.3 + f.p), f.z); f.m.rotation.set(t * 0.2 + f.p, t * 0.3, 0); } };
+  }
+  function worldBelow(group, W) {                      // the world, turning far below the station's windows
+    const c = document.createElement("canvas"); c.width = 256; c.height = 128;
+    const g = c.getContext("2d"), r = mulberry32(77);
+    g.fillStyle = "#2a6ad0"; g.fillRect(0, 0, 256, 128);
+    for (let k = 0; k < 26; k++) { g.fillStyle = r() < 0.6 ? "#4a9a4a" : "#b89a5a"; g.beginPath(); g.ellipse(r() * 256, 20 + r() * 88, 8 + r() * 26, 5 + r() * 14, r() * PI, 0, PI * 2); g.fill(); }
+    for (let k = 0; k < 40; k++) { g.fillStyle = "rgba(255,255,255,.75)"; g.beginPath(); g.ellipse(r() * 256, r() * 128, 6 + r() * 20, 2 + r() * 4, 0, 0, PI * 2); g.fill(); }
+    const tex = new THREE.CanvasTexture(c); tex.wrapS = THREE.RepeatWrapping;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(260, 48, 24), new THREE.MeshBasicMaterial({ map: tex, fog: false }));
+    m.position.set(W / 2, -250, -420); group.add(m);
+    const s = new THREE.Sprite(glowMat(0x6ab0ff, 0.5)); s.scale.set(800, 160, 1); s.position.set(W / 2, 6, -300); group.add(s);
+    return t => { m.rotation.y = t * 0.01; };
+  }
+  function stationWall(group, W, base, z) {            // the station's inner wall: plating, great windows, pipes along it
+    for (let x0 = -60; x0 < W + 60; x0 += 120) {
+      const v = new Vox(), gl = new Vox();
+      for (let X = 0; X < 120; X++) {
+        const wx = (((X + x0) % 40) + 40) % 40;
+        for (let y = 0; y < 34; y++) {
+          if (wx >= 8 && wx <= 32 && y >= 6 && y <= 24) { if (wx === 8 || wx === 32 || y === 6 || y === 24 || wx === 20) v.set(X, y, 1, 0x4a505a); continue; }   // a window
+          v.set(X, y, 0, y === 3 || y === 28 ? 0x5a606a : X % 10 === 0 ? 0x6a707a : 0x7e848e);
+        }
+        v.set(X, 27, 2, 0x9a6a3a); v.set(X, 29, 2, 0x5a8a9a);                                   // pipes
+        if (wx === 2) for (let y = 8; y < 22; y++) gl.set(X, y, 1, y % 4 === 0 ? 0xffd040 : 0x2a2a30);   // a lit strip
+      }
+      group.add(voxMesh(v, 1, x0, base, z)); group.add(voxMesh(gl, 1, x0, base, z, materials().glow));
+    }
+  }
+  function warnLights(group, W, base, z) {             // warning lights over the doors, going round
+    const ls = [];
+    for (let x = 20; x < W; x += 40) { const s = new THREE.Sprite(glowMat(0xff3a2a, 0.8)); s.scale.set(3, 3, 1); s.position.set(x, base + 30, z); group.add(s); ls.push(s); }
+    return t => { ls.forEach((s, k) => { s.material.opacity = 0.2 + 0.7 * Math.max(0, Math.sin(t * 4 + k)); }); };
+  }
   function torii(group, x, z) {                       // a red gate out on a rock in the sea
     const v = new Vox(), r = mulberry32(x | 0);
     for (let y = 0; y < 5; y++) { const w = 7 - Math.floor(y / 2); v.box(-w, y, -4, w, y, 4, jit(r, y === 4 ? 0x7a7468 : 0x8a8478, 0.06)); }
@@ -1693,7 +2498,7 @@
           if (!key || !BADS || !BADS.f[key]) break;
           const B = BADNIKS[key], box = BADS.f[key].box, m = badCard(); group.add(m);
           const y0 = B.air ? y + 0.4 : y;
-          w.enemies.push({ key, B, x, y: y0, x0: x, y0, w: box[0] * PX * 0.82, h: box[1] * PX * 0.88, m, alive: true,
+          w.enemies.push({ key, B, x, y: y0, x0: x, y0, w: box[0] * PX * 0.82 * (B.k || 1), h: box[1] * PX * 0.88 * (B.k || 1), m, alive: true,
                            ph: e.i * 1.3, t: (e.i % 7) * 0.3, at: 0, mode: "walk", dir: -1, face: -1, vx: 0, vy: 0, reach: 0 });
           break;
         }
@@ -1714,7 +2519,7 @@
     }
     // updraft columns: drifting motes
     for (const d of w.drafts) {
-      const geo = vox(v => v.box(0, 0, 0, 0, 1, 0, T.snowfall ? 0xffffff : 0xd8f0d0));
+      const geo = vox(v => v.box(0, 0, 0, 0, 1, 0, typeof T.snowfall === "number" ? T.snowfall : T.snowfall ? 0xffffff : 0xd8f0d0));
       d.motes = [];
       for (let k = 0; k < 7; k++) { const m = new THREE.Mesh(geo, M.glow); m.position.set(d.x0 + Math.random(), d.y0 + Math.random() * 8, 0.3); group.add(m); d.motes.push(m); }
     }
@@ -1730,7 +2535,7 @@
       const n = LOW_POWER ? 200 : 500, pos = new Float32Array(n * 3);
       for (let k = 0; k < n; k++) { pos[k * 3] = Math.random() * 40 - 20; pos[k * 3 + 1] = Math.random() * 20; pos[k * 3 + 2] = Math.random() * 14 - 4; }
       const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      w.snow = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0.9, depthWrite: false }));
+      w.snow = new THREE.Points(geo, new THREE.PointsMaterial({ color: typeof T.snowfall === "number" ? T.snowfall : 0xffffff, size: 0.12, transparent: true, opacity: 0.9, depthWrite: false }));
       scene.add(w.snow);
     }
     shoeN = 0;
@@ -1782,7 +2587,7 @@
   const surfaceAt = (x, y) => tile(Math.floor(x), Math.floor(y - 0.05));
   /* the runner's whole body hurts what it touches: curled, rolling, gliding, diving, in the
      live frames of a blow, or with the rainbow's shine */
-  const BODY_HITS = { roll: 1, charge: 1, homing: 1, glide: 1, dive: 1, tornado: 1 };
+  const BODY_HITS = { roll: 1, charge: 1, homing: 1, glide: 1, dive: 1, tornado: 1, jet: 1 };
   const attacking = p => p.star > 0 || !!BODY_HITS[p.state] || (p.state === "atk" && p.mv.live) ||
                          (p.curl && !p.ground && p.state !== "hurt");
   /** The ground under (x, y), slopes and planks included, within a metre or so; or null. */
@@ -1853,7 +2658,8 @@
     for (const e of world.enemies) if (e.alive && !e.hidden && e.x + e.w / 2 > x0 && e.x - e.w / 2 < x1 && e.y + e.h > y0 && e.y < y1) {
       at(e.x - e.w / 2, e.x + e.w / 2, e.y, e.y + e.h);
       /* a blow (not a blast) glances off spikes, a spin, Pierrot's ball and Gao-gao's face */
-      if (!(kick && kick.r) && (e.guard || e.B.armor === "ball" || (e.B.armor === "front" && sgn((x0 + x1) / 2 - e.x) === e.face))) { glance(e); continue; }
+      if (!(kick && kick.r) && (e.guard || e.B.armor === "ball" || (e.B.armor === "shell" && e.mode !== "open") ||
+                                (e.B.armor === "front" && sgn((x0 + x1) / 2 - e.x) === e.face))) { glance(e); continue; }
       defeat(e, kick); n++;
     }
     for (let i = Math.floor(x0); i <= Math.floor(x1 - 0.01); i++) for (let j = Math.floor(y0); j <= Math.floor(y1 - 0.01); j++) {
@@ -1870,7 +2676,9 @@
      ground under the next stretch of slope is a hand-width or two over the feet, because a
      runner moves along before the ground lifts them -- the more, the faster they go). Every
      tile step in a stage is a whole metre, so no real wall is ever a lip. */
-  const isLip = (p, i, j) => j + 1 - p.y <= 0.5 && !solid(tile(i, j + 1));
+  /* (a wide runner -- Eggman's Egg Mobile -- reaches the next tile sooner, while the ground is
+     still further from lifting them: their lip is that much higher) */
+  const isLip = (p, i, j) => j + 1 - p.y <= 0.5 + Math.max(0, p.c.w / 2 - 0.3) && !solid(tile(i, j + 1));
   function moveX(p, dx) {
     p.x += dx;
     const hb = p.hh;
@@ -1889,7 +2697,7 @@
       }
       if (hit) {
         p.x = dx > 0 ? i - p.c.w / 2 - 1e-3 : i + 1 + p.c.w / 2 + 1e-3;
-        if (p.state === "homing" || p.state === "seek" || p.state === "dash") { p.state = "run"; p.st = 0; }
+        if (p.state === "homing" || p.state === "seek" || p.state === "dash" || p.state === "jet" || p.state === "psy") { p.state = "run"; p.st = 0; }
         if (p.state === "glide" && p.c.climb) { startClimb(p, sgn(dx)); return; }
         p.vx = 0;
         if (p.state === "roll") p.state = "run";
@@ -1915,7 +2723,7 @@
     SFX.breakIt();
   }
 
-  const AIR_STATES = { homing: 1, fly: 1, glide: 1, teleport: 1, seek: 1, climb: 1 };
+  const AIR_STATES = { homing: 1, fly: 1, glide: 1, teleport: 1, seek: 1, climb: 1, jet: 1, psy: 1 };
   function land(p, hit) {
     if (!p.ground && p.vy < -14 && !(p.state === "dive" && p.diveS && p.diveS.bits === 0)) burst(p.x, p.y, [0xd8d0c0, 0xc8c0b0], 5, 2);
     if (!p.ground && p.vy < -4) p.landT = 0.14;
@@ -1972,17 +2780,17 @@
     const under = p.ground ? (p.onTile ? tile(p.onTile.i, p.onTile.j) : surfaceAt(p.x, p.y)) : null;
     const ice = under === "I", mud = under === "m";
     // breath
-    if (headTile === "~") {
+    if (headTile === "~" && !c.swims) {                  // (Chaos is water: he never runs out of air)
       p.air -= dt;
       if (p.air < 6 && w.t > p.warnAt) { SFX.warn(); p.warnAt = w.t + 1; }
       if (p.air <= 0) { die(p, "air"); return; }
     } else p.air = AIR;
     let top = c.run * (p.star > 0 ? 1.22 : 1), acc = p.ground ? c.accel : c.airAccel, fr = p.ground ? 30 : 4;
-    if (p.inWater) { top *= 0.62; acc *= 0.6; fr = 8; }
+    if (p.inWater) { if (c.swims) { acc *= 1.2; fr = 12; } else { top *= 0.62; acc *= 0.6; fr = 8; } }
     if (mud) top *= 0.5;
     if (ice) { acc *= 0.32; fr = 2.2; }
     p.st -= dt;
-    p.hh = (p.state === "crouch" || p.state === "roll" || p.state === "charge") ? 0.72 : c.h;
+    p.hh = (p.state === "crouch" || p.state === "roll" || p.state === "charge") && !c.lift ? 0.72 : c.h;
     if (p.state === "ledge") { stepLedge(p, dt); interact(p, dt); return; }
 
     // what they are in the middle of
@@ -2012,8 +2820,9 @@
         if (!p.ground && !(p.driveT > 0)) p.state = "run";
         break;
       case "dash":                                         // a double tap: each runner's own burst
-        if (c.id !== "knuckles" && dir && dir !== p.face) { p.state = "run"; break; }
-        p.vx = p.face * Math.max(Math.abs(p.vx), c.run * (c.id === "shadow" ? 1.45 : 1.25));
+        if (c.id !== "knuckles" && dir && dir !== p.face) { if (c.steer) p.face = dir; else { p.state = "run"; break; } }
+        if (c.steer && dir && (p.driveT2 = (p.driveT2 || 0) + dt) < 2.5) p.st = Math.max(p.st, 0.08);   // Drive Mode: on while held
+        p.vx = p.face * Math.max(c.steer ? 0 : Math.abs(p.vx), c.run * dashK(c));
         if (p.st <= 0) p.state = "run";
         break;
       case "atk": stepBlow(p, dt); break;
@@ -2025,6 +2834,10 @@
       case "erupt": stepErupt(p, dt); break;
       case "climb": stepClimb(p, dir); break;
       case "teleport": if (p.st <= 0) p.state = "run"; break;
+      case "jet": case "psy":                              // Metal's jet, Silver's Psycho Dash: a burst ahead, easing off
+        p.vx = p.face * Math.max(Math.abs(p.vx) - (p.state === "psy" ? 14 : 8) * dt, c.run * 0.9);
+        if (p.st <= 0) { if (p.state === "psy") p.floatT = 1.6; p.state = "run"; }
+        break;
       case "recoil":                                       // thrown back by his own blast, braking
         p.vx = Math.abs(p.vx) <= 16 * dt ? 0 : p.vx - sgn(p.vx) * 16 * dt;
         if (p.st <= 0) p.state = "run";
@@ -2033,6 +2846,7 @@
         p.flyLeft -= dt;
         if (input.D) { p.state = "run"; p.catchT = 0.3; }        // Rouge Catch: lets go
         else if (p.inWater && c.id !== "tails") p.state = "run";
+        else if (c.air === "hover" && p.flyLeft <= 0 && !c.glides) p.state = "run";   // Gamma's Flight Mode runs out
         break;
       case "glide":
         if (!input.J || p.ground) { p.state = "run"; break; }
@@ -2042,7 +2856,7 @@
     }
     // running, and steering in the air
     if (p.state === "run" || p.state === "fly" || p.state === "teleport") {
-      const t2 = p.state === "fly" ? Math.min(top, c.run * (c.id === "rouge" ? 0.8 : 0.66)) : top;
+      const t2 = p.state === "fly" ? Math.min(top * 1.3, c.run * (c.flyK || (c.id === "rouge" ? 0.8 : 0.66))) : top;
       if (dir) {
         if (sgn(p.vx) !== dir && Math.abs(p.vx) > 0.4) p.vx += dir * acc * (ice ? 1 : 2.4) * dt;
         else if (Math.abs(p.vx) < t2) p.vx = clamp(p.vx + dir * acc * dt, -t2, t2);
@@ -2056,13 +2870,13 @@
 
     // the buttons
     const free = p.state === "run" || p.state === "crouch" || p.state === "fly" || p.state === "glide" || p.state === "dash" ||
-                 p.state === "roll" || p.state === "teleport";
+                 p.state === "roll" || p.state === "teleport" || p.state === "jet" || p.state === "psy";
     if (p.ground) p.coyote = 0.1; else p.coyote -= dt;
     if (input.jp && free) {
       const onPlank = p.ground && p.onTile === null && !p.on && tile(Math.floor(p.x), Math.floor(p.y - 0.1)) === "-";
       if (input.D && onPlank) { p.drop = true; p.ground = false; p.y -= 0.12; p.state = "run"; }
       else if (input.D && p.ground && c.spinDash && p.state !== "roll") startCharge(p);
-      else if (input.D && p.ground && !c.spinDash) { /* no Spin Dash (Rouge): Down + Space does nothing */ }
+      else if (input.D && p.ground && !c.spinDash) { /* no Spin Dash (Rouge, Chaos, Gamma, Eggman): Down + Space does nothing */ }
       else if ((p.ground || p.coyote > 0) && p.state !== "fly" && p.state !== "glide") jump(p, mud);
       else airAction(p);
     }
@@ -2080,21 +2894,30 @@
 
     // gravity
     let g = GRAV, maxFall = 22;
-    if (p.inWater) { g *= 0.45; maxFall = 6; }
+    if (p.inWater) { g *= c.swims ? 0.3 : 0.45; maxFall = c.swims ? 4 : 6; }
     switch (p.state) {
       case "homing": case "seek": case "climb": case "dive": g = 0; break;
       case "fly":
-        if (p.flyLeft > 0) { g *= 0.3; maxFall = 2.4; }
+        if (c.air === "hover") {                                   // Gamma and Eggman: no climbing, held up, sinking
+          if (p.flyLeft > 0) { g = 0; p.vy = lerp(p.vy, -(c.sink || 0), Math.min(1, dt * 5)); }
+          else { g *= 0.25; maxFall = 1.8; }                       // Eggman, out of it, sinks slowly
+        } else if (p.flyLeft > 0) { g *= 0.3; maxFall = 2.4; }
         else if (c.glides) { g *= 0.25; maxFall = 1.6; }           // Rouge, tired, glides down on her wings
         else { g *= 0.5; maxFall = 4; }
         break;
       case "glide": if (p.vy > -1.5) g *= 0.5; else { p.vy = p.inWater ? -1 : -1.5; g = 0; } break;
       case "teleport": g *= 0.25; maxFall = 2; break;
+      case "jet": g *= 0.15; maxFall = 0.8; break;
+      case "psy": g = 0; p.vy = lerp(p.vy, 0, Math.min(1, dt * 10)); break;
       case "atk": if (p.mv.air) g *= 0.6; break;
       case "special": if (p.sp.air) { g *= 0.3; maxFall = 2.5; } break;
       case "tornado": if (p.tor.air) { g *= 0.15; maxFall = 1.2; } break;
     }
     // an updraft lifts anyone in it; one flying or gliding goes up it fastest
+    /* Silver, after his Psycho Dash, floats down while Space is held; Mighty's Shell Launch is
+       curled on the way up and uncurls at the top */
+    if (p.floatT > 0) { p.floatT -= dt; if (p.state === "run" && !p.ground && input.J && p.vy < 0) maxFall = Math.min(maxFall, 2.4); }
+    if (p.launchT > 0) { p.launchT -= dt; if (p.launchT <= 0 && p.state === "run") p.curl = false; }
     const floaty = p.state === "fly" || p.state === "glide";
     for (const d of w.drafts) if (p.x > d.x0 - 0.25 && p.x < d.x1 + 0.25 && p.y > d.y0 - 0.5 && p.y < d.y1 && p.state !== "climb") {
       p.vy = Math.min(p.vy + (floaty ? 60 : 46) * dt, floaty ? 8 : 4.5); p.ground = false;
@@ -2123,6 +2946,11 @@
   /** Space again in the air: the runner's air action. */
   function airAction(p) {
     const c = p.c;
+    if (p.inWater && c.swims) {                          // Chaos swims: a stroke for every press, as long as he likes
+      p.vy = Math.max(p.vy, 6.5); p.jumping = false; p.curl = false; SFX.flap();
+      burst(p.x, p.y + 0.2, [0xffffff, mixC(world.T.water, 0xffffff, 0.6)], 4, 2);
+      return;
+    }
     switch (c.air) {
       case "ballet": {                                     // Sonic Ballet: a second jump that homes on what's near
         if (p.airUses) return;
@@ -2153,6 +2981,42 @@
         if (p.airUses >= 2) return;
         p.airUses++; chaosControl(p);
         break;
+      case "float":                                        // Chaos Flight: a little more height, once
+        if (p.airUses) return;
+        p.airUses = 1; p.vy = Math.max(p.vy, 8.5); p.jumping = true; p.curl = false; SFX.double();
+        burst(p.x, p.y + 0.1, [0x9ad8ff, 0xffffff], 7, 2);
+        break;
+      case "hover":                                        // Gamma's Flight Mode, Eggman's Egg Hover
+        if (p.state === "fly" || p.flyLeft <= 0 || p.inWater) return;
+        p.state = "fly"; p.curl = false; p.jumping = false; p.vy = Math.max(p.vy, c.sink ? 0 : 1.5); SFX.flap();
+        break;
+      case "jet":                                          // Metal Sonic: a burst of his jet, and a moment's hover
+        if (p.airUses) return;
+        p.airUses = 1; p.state = "jet"; p.st = 0.42; p.curl = false; p.jumping = false;
+        p.vx = p.face * Math.max(Math.abs(p.vx), 18); p.vy = Math.max(p.vy, 1.2);
+        burst(p.x - p.face * 0.4, p.y + 0.55, [0x80c0ff, 0xffffff, 0xfff070], 9, 3); SFX.dash();
+        break;
+      case "psy":                                          // Silver's Air Psycho Dash: ahead, a hover, then he floats down
+        if (p.airUses) return;
+        p.airUses = 1; p.state = "psy"; p.st = 0.5; p.curl = false; p.jumping = false;
+        p.vx = p.face * Math.max(Math.abs(p.vx), 15.5); p.vy = Math.max(p.vy, 0.5);
+        burst(p.x, p.y + 0.6, [0x70f0d0, 0xffffff], 9, 3); SFX.dash();
+        break;
+      case "launch": {                                     // Mighty
+        /* against a wall, a wall jump (Knuckles' Chaotix): off it and up, the launch his again */
+        for (const d of [p.face, -p.face]) {
+          const wi = Math.floor(p.x + d * (c.w / 2 + 0.12));
+          if (solid(tile(wi, Math.floor(p.y + 0.4))) && solid(tile(wi, Math.floor(p.y + 0.9)))) {
+            p.face = -d; p.vx = -d * 9; p.vy = 12; p.jumping = true; p.curl = false; p.launchT = 0; p.airUses = 0; SFX.jump();
+            burst(p.x + d * c.w / 2, p.y + 0.5, [0xffffff, 0xd8d0c0], 6, 3);
+            return;
+          }
+        }
+        if (p.airUses) return;                             // Shell Launch: curled, straight up
+        p.airUses = 1; p.vy = Math.max(p.vy, 12); p.vx *= 0.35; p.curl = true; p.launchT = 0.42; p.jumping = false; SFX.double();
+        burst(p.x, p.y + 0.2, [0xff4a4a, 0xffffff], 6, 2);
+        break;
+      }
     }
   }
   /* Shadow vanishes and is a few metres on: never through a wall, and nothing touches him in between. */
@@ -2172,12 +3036,13 @@
     SFX.teleport();
   }
   function startCharge(p) { p.state = "charge"; p.curl = true; p.rev = 0.15; SFX.rev(0.1); }
+  const dashK = c => c.dashK || (c.id === "shadow" ? 1.45 : 1.25);
   function startDash(p, d) {
     const c = p.c;
-    p.state = "dash"; p.face = d; p.st = c.id === "knuckles" ? 0.42 : 0.3;
-    p.vx = d * c.run * (c.id === "shadow" ? 1.45 : 1.25);
+    p.state = "dash"; p.face = d; p.st = c.dashT || (c.id === "knuckles" ? 0.42 : 0.3); p.driveT2 = 0;
+    p.vx = d * c.run * dashK(c);
     if (c.id === "sonic" || c.id === "tails") { p.vy = 4.5; p.ground = false; p.on = null; }    // Sonic Dash and Tails Hop are hops
-    if (c.id === "shadow") p.inv = Math.max(p.inv, 0.3);                                      // he is gone while he dashes
+    if (c.id === "shadow" || c.dashInv) p.inv = Math.max(p.inv, p.st);                        // gone while he dashes; Chaos a puddle
     SFX.dash();
   }
   function startClimb(p, wall) { p.state = "climb"; p.wall = wall; p.face = wall; p.vx = 0; p.vy = 0; p.curl = false; p.grabT = 0.14; SFX.grab(); }
@@ -2246,6 +3111,11 @@
     p.mv = { name, t: 0, fps: b.fps, n, reach: b.reach, step: b.step, h0, h1, live: false, queue: null, air: !p.ground, struck: false,
              speed: Math.max(Math.abs(p.vx), p.c.run * 0.9) };
     if (name === "airatk") p.vy = Math.max(p.vy, 4);
+    /* Cream's blows are Cheese's: out in front of her, keeping time with her */
+    if (CHEESE[name] && framesOf(p.c.id, CHEESE[name])) {
+      const nm = CHEESE[name], up = name === "upper" ? 0.95 : 0.55;
+      effect(p.c.id, nm, p.x + p.face * 0.8, p.y + up, p.face, framesOf(p.c.id, nm).length * b.fps / n, true, "fx", 1, 0, { p, ox: 0.8, oy: up });
+    }
     SFX.swing(name === "heavy" || name === "dashatk" || name === "upper");
   }
   function stepBlow(p, dt) {
@@ -2350,6 +3220,7 @@
     const s = p.sp;
     s.t += dt;
     if (s.windup) return stepWindup(p, s, dt);
+    if (s.charged && stepCharged(p, s, dt)) return;
     const i = Math.floor(s.t * s.fps);
     if (!s.air) p.vx = s.step ? p.face * s.step : p.vx * Math.pow(0.001, dt);
     if (!s.fired && s.charge && s.at > 1) {
@@ -2358,14 +3229,37 @@
       if (s.glow <= 0 && s.bits !== 0 && i >= (s.gfrom || 0)) { s.glow = s.muzzle ? 0.02 : 0.03; gather(p, s.charge, s); }
     }
     if (!s.fired && i >= s.at) { s.fired = true; fire(p, s); if (p.state !== "special") { p.sp = null; return; } }
+    if (s.shield && s.fired) strike(p.x - 1.0, p.x + 1.0, p.y - 0.1, p.y + 1.9, { r: 10, cx: p.x, cy: p.y + 0.9 });   // the Black Shield breaks what it meets
     if (i >= s.n) {
       p.sp = null; p.state = "run";
+      if (s.shield) effect(p.c.id, "fx.power", p.x, p.y + 0.9, p.face, 14, true, "fx", 1.3);                   // and breaks up
       if (s.drive) {
         p.state = "roll"; p.curl = true; p.vx = p.face * 19; p.driveT = 0.42; SFX.roll();
         if (p.ground) effect(p.c.id, "fx.dust", p.x - p.face * 0.6, p.y, -p.face, 22, false);
         impact(p.x - p.face * 0.3, p.y + 0.4, { c: 0x9ad4ff, flash: 1.8, shake: 0.12 });
       }
     }
+  }
+  /* Gamma's Devastator, held: past its `at` frame with the button still down he charges -- the
+     charging frames, round and round, energy gathering at the cannon -- till it is let go or
+     full; then the charged release, bigger and further the longer it was held. */
+  function stepCharged(p, s, dt) {
+    const H = s.charged;
+    if (!s.phase) {
+      if (s.fired || Math.floor(s.t * s.fps) < H.at || !input.C) return false;
+      s.phase = "charge"; s.ct = 0; s.body = H.body; s.t = 0; SFX.charge(H.max);
+    }
+    if (s.phase !== "charge") return false;              // the release plays as any special does
+    s.ct += dt;
+    p.vx *= Math.pow(0.001, dt); if (s.air) p.vy = Math.max(p.vy, -0.5);
+    s.glow = (s.glow || 0) - dt;
+    if (s.glow <= 0) { s.glow = 0.025; gather(p, s.charge || 0xffffff, { muzzle: s.muzzle, t: Math.min(s.ct, H.max), fps: 1, at: H.max }); }
+    if (!input.C || s.ct >= H.max) {
+      const k = 1 + Math.min(1, s.ct / H.max) * 0.8;
+      s.phase = "release"; s.body = H.release; s.t = 0; s.at = H.rat; s.n = framesOf(p.c.id, H.release).length;
+      s.k = (s.k || 1) * k; s.life *= k; s.speed *= 1.1; s.pow = Object.assign({}, s.pow, { flash: s.pow.flash * k, shake: s.pow.shake * k });
+    }
+    return true;
   }
   /* A special that winds up (Sonic Wave, Sonic Storm): he spins in place, the spin speeding up
      from a turn to a blur, dust kicking up and then sparks; at the top of it, the blast, a flash
@@ -2476,7 +3370,7 @@
     const who = p.c.id, f = p.face;
     // the release: a flash at the hand, a jolt, and a push back
     const mz = s.muzzle;
-    if (s.pow && !s.dive) {
+    if (s.pow && !s.dive && !s.blast) {
       if (mz) impact(p.x + f * mz[0], p.y + mz[1], Object.assign({ cone: f, down: s.air ? s.down || 0 : 0 }, s.pow));
       else impact(p.x + f * 0.75, p.y + p.hh * 0.55, s.pow);
       if (s.pow.recoil) { p.vx = -f * s.pow.recoil; if (s.air) p.vy = Math.max(p.vy, 2.5); }
@@ -2488,7 +3382,8 @@
       const held = s.hold && input.C ? s.hold : 0;
       shoot(who, { fx: s.fly, x: mz ? p.x + f * (mz[0] + 0.3 * k) : p.x + f * (0.6 + (s.ahead || 0)), y: mz ? p.y + mz[1] : p.y + p.hh * 0.55,
                    vx: f * s.speed, vy: -(s.down || 0) * s.speed,
-                   life: s.life + held, loop: s.loop, mid: true, w: 0.8 * k, h: 0.8 * k, k, face: f, ghost: s.ghost, trail: s.trail });
+                   life: s.life + held, loop: s.loop, mid: true, w: 0.8 * k, h: 0.8 * k, k, face: f, ghost: s.ghost, trail: s.trail,
+                   range: s.range, bursts: s.bursts, boom: s.boom, land: s.land });
       if (!s.ghost) SFX.shot();
     } else if (s.lob) {
       shoot(who, { fx: s.lob, x: p.x + f * 0.5, y: p.y + p.hh + 0.5, vx: f * s.speed, vy: s.rise, g: 26, life: 3, loop: true, mid: true,
@@ -2505,18 +3400,26 @@
     } else if (s.dive) { p.diveS = s; startDive(p, s.dive); }
     else if (s.tornado) { p.state = "tornado"; p.tor = { t: s.t, from: s.tornado[0], to: s.tornado[1], left: 1.4, body: s.body, fps: s.fps, air: s.air }; SFX.swing(true); }
     else if (s.trap) setTrap(p, s);
+    else if (s.blast) {                                    // Gamma's Meltdown: his reactor goes up, and him with it
+      const by = p.y + 1.0;
+      effect(who, "fx.boom", p.x, by, f, 16, true, "fx", s.k);
+      impact(p.x, by, s.pow); burst(p.x, by, [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 30, 9);
+      strike(p.x - s.w / 2, p.x + s.w / 2, p.y - 0.6, p.y + s.h, { r: 14, cx: p.x, cy: p.y + 0.4 });
+      if (p.hearts > 1) { p.hearts--; flashHud(); }
+      p.inv = Math.max(p.inv, 1.2); SFX.boom(); SFX.impact();
+    } else if (s.shield) { p.inv = Math.max(p.inv, (s.n - s.at) / s.fps + 0.2); SFX.set(); }   // Metal's Black Shield: nothing gets through
   }
   /* Air powers that dive: Sonic Meteor (curled, down and ahead), Spiral Dive (Rouge, drills
      straight down through rock), Major Eruption (Knuckles: dives, burrows, bursts out) and
      Air Chaos Burst (Shadow drops, then bursts). */
   function startDive(p, kind) {
-    p.state = "dive"; p.dive = kind; p.diveT = 0; p.curl = kind === "meteor";
+    p.state = "dive"; p.dive = kind; p.diveT = 0; p.curl = kind === "meteor" || kind === "hammer";
     p.vx = kind === "meteor" ? p.face * 11 : 0;
     SFX.dive();
   }
   function stepDive(p, dt) {
     p.diveT += dt;
-    p.vy = p.dive === "burst" ? -24 : p.dive === "meteor" ? -14 : -17;
+    p.vy = p.dive === "burst" || p.dive === "hammer" ? -24 : p.dive === "meteor" ? -14 : -17;
     if (p.dive !== "meteor") p.vx = 0;
     // through cracked rock and crates on the way down
     for (let i = Math.floor(p.x - p.c.w / 2 + 0.05); i <= Math.floor(p.x + p.c.w / 2 - 0.05); i++) {
@@ -2533,6 +3436,12 @@
       impact(p.x, p.y + 0.3, p.diveS && p.diveS.pow);
       if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.5, p.y, -1, 22, false); effect(p.c.id, "fx.dust", p.x + 0.5, p.y, 1, 22, false); }
       p.state = "run"; p.vy = 6; p.ground = false; SFX.stomp(); SFX.impact();
+    } else if (kind === "hammer") {                       // Mighty's Hammer Drop: a shockwave both ways, then he uncurls
+      effect(p.c.id, "fx.power", p.x, p.y, p.face, 20, false, "fx", 1.35);
+      impact(p.x, p.y + 0.3, p.diveS && p.diveS.pow);
+      strike(p.x - 2.4, p.x + 2.4, p.y - 0.2, p.y + 1.3, { r: 12, cx: p.x, cy: p.y });
+      SFX.boom(); SFX.impact(); p.curl = false;
+      p.state = "erupt"; p.vx = 0; p.er = { t: 0, body: "airpower", from: 3, to: 8, at: 99, fps: 18, fired: true };
     } else {
       p.state = "erupt"; p.vx = 0;
       p.er = kind === "erupt" ? { t: 0, body: "airpower", from: 4, to: 16, at: 10, fps: 18, r: 1.9, fired: false }
@@ -2561,11 +3470,12 @@
     if (i >= T.from) {
       T.left -= dt;
       p.vx = p.face * (T.air ? 3.5 : 4.5);
-      if (strike(p.x - 0.9, p.x + 0.9, p.y + 0.05, p.y + p.hh + 0.2, { vx: p.face * 10, vy: 8 })) { impact(p.x + p.face * 0.6, p.y + 0.6, { c: 0xff80c0, flash: 1.4, shake: 0.08 }); hitStop(0.03); SFX.hit(); }
+      const col = HIT_C[p.c.id] || 0xff80c0;
+      if (strike(p.x - 0.9, p.x + 0.9, p.y + 0.05, p.y + p.hh + 0.2, { vx: p.face * 10, vy: 8 })) { impact(p.x + p.face * 0.6, p.y + 0.6, { c: col, flash: 1.4, shake: 0.08 }); hitStop(0.03); SFX.hit(); }
       T.whirl = (T.whirl || 0) - dt;
       if (T.whirl <= 0) {                                  // the wind of the swing, round and round
         T.whirl = 0.035; const a = T.t * 18;
-        world.parts.list.push({ x: p.x + Math.cos(a) * 0.9, y: p.y + 0.5 + Math.sin(a) * 0.25, z: Math.sin(a) * 0.6, vx: -Math.sin(a) * 4, vy: 2, vz: 0, life: 0.22, s: 0.07, c: Math.random() < 0.5 ? 0xffa0d0 : 0xffffff });
+        world.parts.list.push({ x: p.x + Math.cos(a) * 0.9, y: p.y + 0.5 + Math.sin(a) * 0.25, z: Math.sin(a) * 0.6, vx: -Math.sin(a) * 4, vy: 2, vz: 0, life: 0.22, s: 0.07, c: Math.random() < 0.5 ? mixC(col, 0xffffff, 0.3) : 0xffffff });
       }
       if ((T.swish = (T.swish || 0) - dt) <= 0) { T.swish = 0.18; SFX.swing(true); }
       if (T.left <= 0) { p.state = "run"; p.tor = null; }
@@ -2579,25 +3489,28 @@
     world.shots.push(Object.assign({ card, who, t: 0, life0: o.life, gone: false }, o));
   }
   /** An effect that only shows: plays once where it is put. */
-  function effect(who, name, x, y, face, fps, mid, kind, k) {
+  function effect(who, name, x, y, face, fps, mid, kind, k, from, follow) {
     const card = makeCard(who, kind === "body" ? "body" : "fx"); world.group.add(card);
-    world.fx.push({ card, name, x, y, face, fps, mid, k, t: 0, n: framesOf(who, name).length });
+    world.fx.push({ card, name, x, y, face, fps, mid, k, t: 0, from: from || 0, n: framesOf(who, name).length - (from || 0), follow });
   }
   function setTrap(p, s) {
     const live = world.traps.filter(t => !t.gone);
-    if (live.length >= 2) boomTrap(live[0]);
-    const f = p.face, card = makeCard(p.c.id, s.faint ? "faint" : "fx"); world.group.add(card);
-    world.traps.push({ card, who: p.c.id, kind: s.trap, x: p.x + f * 0.7, y: p.y + (s.flies ? 1.0 : 0), vx: s.toss ? f * 3 : 0, vy: s.toss ? 2 : 0,
-                       t: 0, life: s.trap === "orbit" ? 6 : 9, a: 0, flies: !!s.flies, grounded: !s.toss && !s.flies && s.trap !== "orbit", gone: false, face: f });
+    if (s.one) live.forEach(boomTrap);                   // Psycho Orb: one at a time
+    else if (live.length >= 2) boomTrap(live[0]);
+    const f = p.face, card = makeCard(p.c.id, s.faint ? "faint" : "fx"), float = s.trap === "float"; world.group.add(card);
+    world.traps.push({ card, who: p.c.id, kind: s.trap, x: p.x + f * 0.7, y: p.y + (s.flies || float ? 1.0 : 0), vx: float ? f * 7 : s.toss ? f * (s.far || 3) : 0, vy: s.toss ? 2 : 0,
+                       t: 0, life: s.trap === "orbit" ? 6 : 9, a: 0, flies: !!s.flies || float, grounded: !s.toss && !s.flies && !float && s.trap !== "orbit", gone: false, face: f });
     SFX.set();
   }
   function boomTrap(t) {
     if (t.gone) return;
     t.gone = true; world.group.remove(t.card); t.card.geometry.dispose();
     const by = t.y + (t.flies || t.kind === "orbit" ? 0 : 0.5), knux = t.who === "knuckles";   // his Mole Bomb: the blast alone
-    effect(t.who, "fx.boom", t.x, by, 1, 22, true, "fx", 1.6);
-    if (!knux) burst(t.x, by, [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 24, 7);
-    impact(t.x, by, { c: 0xffb040, flash: 3.6, shake: 0.28, stop: 0.05, bits: knux ? 0 : 1 });
+    const L = TRAP_LOOK[t.who] || {}, col = L.boom ? HIT_C[t.who] : 0xffb040;
+    if (L.boom) effect(t.who, L.boom, t.x, L.bmid ? by : t.y, 1, 18, !!L.bmid, "fx", L.bk || 1.4, L.bfrom);   // Cream Cracker, Chaos Splash
+    else effect(t.who, "fx.boom", t.x, by, 1, 22, true, "fx", 1.6);
+    if (!knux) burst(t.x, by, L.boom ? [col, 0xffffff, mixC(col, 0xffffff, 0.5)] : [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 24, 7);
+    impact(t.x, by, { c: col, flash: 3.6, shake: 0.28, stop: 0.05, bits: knux ? 0 : 1 });
     strike(t.x - 1.5, t.x + 1.5, t.y - 0.6, t.y + 1.8, { r: 11, cx: t.x, cy: by - 0.4 });
     SFX.boom(); SFX.impact();
   }
@@ -2647,6 +3560,7 @@
     for (const e of w.fx) {
       if (e.gone) continue;
       e.t += dt;
+      if (e.follow) { e.x = e.follow.p.x + e.face * e.follow.ox; e.y = e.follow.p.y + e.follow.oy; }
       if (Math.floor(e.t * e.fps) >= e.n) { e.gone = true; w.group.remove(e.card); e.card.geometry.dispose(); }
     }
     if (w.fx.length > 30) w.fx = w.fx.filter(e => !e.gone);
@@ -2656,6 +3570,11 @@
       t.t += dt; t.life -= dt;
       if (t.kind === "orbit") {                            // Roaming Chaos keeps to Shadow
         t.a += dt * 4; t.x = p.x + Math.cos(t.a) * 1.2; t.y = p.y + 0.3 + Math.sin(t.a) * 0.8;
+      } else if (t.kind === "float") {                     // Silver's Psycho Orb: ahead, slowing, then hangs there
+        t.vx *= Math.pow(0.03, dt);
+        const nx = t.x + t.vx * dt;
+        if (solid(tile(Math.floor(nx), Math.floor(t.y)))) t.vx = 0; else t.x = nx;
+        t.y += Math.sin(t.t * 3) * 0.35 * dt;
       } else if (t.flies) {                                // Bat Cracker hunts
         const e = nearestEnemy(t.x, t.y, 9);
         if (e) { const dx = e.x - t.x, dy = e.y + e.h / 2 - t.y, d = Math.hypot(dx, dy) || 1; t.x += dx / d * 3.5 * dt; t.y += dy / d * 3.5 * dt; t.face = sgn(dx) || t.face; }
@@ -2676,7 +3595,8 @@
   }
   /* A lobbed rock comes down (Knuckles'): no dust, only its light, the jolt and the freeze. */
   function boomAt(x, y, r, s) {
-    if (s && s.bits !== 0) burst(x, y, [0x9a7a62, 0x7a5a44, 0xd8c8a8, 0xb08a5a], 22, 7);
+    if (s && s.boom) { effect(s.who, "fx.boom", x, y, 1, 22, true, "fx", s.boom); burst(x, y, [0xfff3a0, 0xf08a24, 0xffffff], 14, 6); }   // Eggman's missile
+    else if (s && s.bits !== 0) burst(x, y, [0x9a7a62, 0x7a5a44, 0xd8c8a8, 0xb08a5a], 22, 7);
     if (s && s.land) impact(x, y, s.land);
     strike(x - r, x + r, y - r * 0.6, y + r, { r: 9, cx: x, cy: y - 0.5 });
     SFX.breakIt(); if (s && s.land) SFX.impact();
@@ -2784,7 +3704,8 @@
     }
     if (w.goal && p.x >= w.goal.x && mode === "play") finish(p);
     // thorns
-    for (const z of w.hazards) if (bx1 > z.x0 && bx0 < z.x1 && by0 < z.y1 && by1 > z.y0) hurt(p, p.x + p.face);
+    const shell = p.c.id === "mighty" && p.curl;             // Mighty's shell shrugs off spikes (Sonic Mania Plus)
+    for (const z of w.hazards) if (bx1 > z.x0 && bx0 < z.x1 && by0 < z.y1 && by1 > z.y0 && !shell) hurt(p, p.x + p.face);
     // badniks
     for (const e of w.enemies) {
       if (!e.alive || e.hidden) continue;
@@ -2796,10 +3717,14 @@
       if (bx1 < ex0 || bx0 > ex1 || by1 < ey0 || by0 > ey1) continue;
       const stomp = p.vy < -0.5 && by0 > ey0 + e.h * 0.4;
       if (e.guard && p.star <= 0) {                         // spikes out, or spinning: it hurts, whatever touches it
-        glance(e); if (p.state !== "teleport") hurt(p, e.x);
+        glance(e);
+        if (shell) { p.vx = (sgn(p.x - e.x) || -p.face) * 6; p.vy = Math.max(p.vy, 7); p.ground = false; }
+        else if (p.state !== "teleport") hurt(p, e.x);
         continue;
       }
-      const armoured = p.star <= 0 && (e.B.armor === "ball" ? !(stomp || p.curl) : e.B.armor === "front" ? !stomp && sgn(p.x - e.x) === e.face : false);
+      const armoured = p.star <= 0 && (e.B.armor === "ball" ? !(stomp || p.curl) : e.B.armor === "front" ? !stomp && sgn(p.x - e.x) === e.face :
+                                         e.B.armor === "shell" ? e.mode !== "open" : false);
+      if (armoured && stomp && e.B.armor === "shell") { glance(e); p.vy = input.J ? 12 : 9; p.ground = false; continue; }   // a shut shell: off it
       /* a blow that meets it lands -- in its wind-up too, so a heavy's step never carries the
          runner into a hurt -- and so does the aim attack's dash */
       const swinging = p.state === "seek" || (p.state === "atk" && p.mv && Math.floor(p.mv.t * p.mv.fps) <= p.mv.h1);
@@ -3009,7 +3934,7 @@
       case "homing": name = "spin"; fps = 30; break;
       case "charge": name = "rev"; fps = 14 + p.rev * 22; break;              // Sonic's Spin Dash, in their colours
       case "roll": name = "spin"; fps = 12 + sp * 1.4; break;
-      case "dash": name = "dash"; fps = 16; loop = false; break;
+      case "dash": name = "dash"; fps = 16; loop = !!c.steer; break;              // Gamma's Drive Mode rolls on
       case "crouch": {                                     // the landing frames, down to the deepest, held
         const L = framesOf(id, "land"); let k = 0;
         L.forEach((f, j) => { if (f[3] < L[k][3]) k = j; });
@@ -3025,12 +3950,16 @@
       case "glide": name = "glide"; pick = t => t * 12 < 2 ? Math.floor(t * 12) : 2 + Math.floor(t * 10) % 3; break;
       case "fly":
         if (id === "tails") { name = "fly"; pick = t => 1 + Math.floor(t * (p.flyLeft > 0 ? 16 : 7)) % 4; }
+        else if (id === "cream") { name = "fly"; pick = t => p.flyLeft > 0 ? 2 + Math.floor(t * 12) % 3 : 5; }   // her ears flap; tired, held out
+        else if (framesOf(id, "fly")) { name = "fly"; fps = id === "gamma" ? 14 : 10; }                            // Flight Mode, the Egg Mobile's jets
         else { name = "fall"; fps = p.flyLeft > 0 ? 14 : 6; }
         break;
+      case "jet": name = "jet"; fps = 14; break;
+      case "psy": name = "airdash"; pick = t => Math.min(count("airdash") - 1, Math.floor(t * 18)); break;
       case "teleport": name = "teleport"; fps = 20; loop = false; break;
       case "dive":
         if (p.dive === "meteor") { name = "ball"; fps = 30; }
-        else { name = "airpower"; pick = t => p.dive === "drill" ? Math.floor(t * 22) % count("airpower") : Math.floor(t * 20) % 4; }
+        else { name = "airpower"; pick = t => p.dive === "drill" ? Math.floor(t * 22) % count("airpower") : Math.floor(t * 20) % (p.dive === "hammer" ? 3 : 4); }
         break;
       case "erupt": name = p.er.body; pick = () => Math.min(p.er.from + Math.floor(p.er.t * p.er.fps), p.er.to); break;
       case "tornado": {
@@ -3040,7 +3969,9 @@
       }
       default:
         if (!p.ground) {
-          if (p.dblT > 0) { name = "double"; fps = 12; loop = false; }
+          if (p.launchT > 0 && framesOf(id, "launch")) { name = "launch"; pick = t => t < 0.3 ? Math.floor(t * 20) % 3 : Math.min(5, 3 + Math.floor((t - 0.3) * 14)); }
+          else if (p.dblT > 0) { name = "double"; fps = 12; loop = false; }
+          else if (p.floatT > 0 && input.J && p.vy < 0 && framesOf(id, "airdash")) { name = "airdash"; pick = t => 5 + Math.floor(t * 8) % 4; }   // Silver floats down
           else if (p.balT > 0) { name = "spark"; fps = 16; loop = false; }
           else if (p.catchT > 0 && id === "rouge") { name = "catch"; fps = 8; loop = false; }
           else if (p.curl) { name = "spin"; fps = 12 + sp * 1.4; }          // out of a roll: the Spin Dash ball
@@ -3055,8 +3986,9 @@
     const key = name + "|" + p.state;
     if (a.key !== key) { a.key = key; a.t = 0; } else a.t += dt;
     const i = pick ? pick(a.t) : frameAt(count(name), a.t, fps, loop);
-    setFrame(p.spr, name, i, face, p.x, p.y);
-    p.spr.visible = !(p.inv > 0 && !p.dead && p.state !== "dash" && p.state !== "teleport" && Math.sin(world.t * 40) > 0.4);
+    const lift = c.lift && !p.dead ? c.lift + Math.sin(world.t * 3.4) * 0.05 : 0;          // Eggman's Egg Mobile, hovering
+    setFrame(p.spr, name, i, face, p.x, p.y + lift);
+    p.spr.visible = !(p.inv > 0 && !p.dead && p.state !== "dash" && p.state !== "teleport" && !(p.sp && p.sp.shield) && Math.sin(world.t * 40) > 0.4);
   }
   /* The dust behind a rev: Sonic Advance's spray, looping faster and swelling as the rev
      builds (each tap of Space kicks it up), at the runner's heels, trailing away from them. */
@@ -3077,10 +4009,11 @@
     const w = world;
     for (const s of w.shots) if (!s.gone) {
       const n = framesOf(s.who, s.fx).length;
-      const i = s.loop ? Math.floor(s.t * 16) % n : Math.min(n - 1, Math.floor((1 - s.life / s.life0) * n));
+      const i = s.range ? s.range[0] + Math.floor(s.t * 16) % (s.range[1] - s.range[0] + 1)          // a part of the row, round (Eggman's missile)
+              : s.loop ? Math.floor(s.t * 16) % n : Math.min(n - 1, Math.floor((1 - s.life / s.life0) * n));
       setFrame(s.card, s.fx, i, s.face, s.x, s.y, s.mid, 0.2, s.k || s.ghost);
     }
-    for (const e of w.fx) if (!e.gone) setFrame(e.card, e.name, Math.floor(e.t * e.fps), e.face, e.x, e.y, e.mid, e.mid ? 0.25 : 0.04, e.k);
+    for (const e of w.fx) if (!e.gone) setFrame(e.card, e.name, e.from + Math.floor(e.t * e.fps), e.face, e.x, e.y, e.mid, e.mid ? 0.25 : 0.04, e.k);
     for (const t of w.traps) if (!t.gone) {
       const n = framesOf(t.who, "fx.trap").length, k = Math.floor(t.t * 8);
       let name = "fx.trap", i = t.who === "amy" ? Math.min(k, n - 1) : t.who === "rouge" ? (k < 3 ? k : 3 + (k - 3) % (n - 3)) : k % n;
@@ -3091,7 +4024,9 @@
         if (since < n / 12) i = Math.min(Math.floor(since * 12), n - 1);
         else { name = "fx.trapset"; i = Math.floor(since * 8) % set.length; }
       }
-      setFrame(t.card, name, i, t.face, t.x, t.y, t.flies || t.kind === "orbit", 0.15);
+      const L = TRAP_LOOK[t.who];
+      if (L && !set) { const a = L.from || 0, lp = L.loop || [a, n - 1], j = a + k; i = j < lp[0] ? j : lp[0] + (j - lp[0]) % (lp[1] - lp[0] + 1); }
+      setFrame(t.card, name, i, t.face, t.x, t.y, t.flies || t.kind === "orbit", 0.15, L && L.k);
       t.card.visible = !(t.life < 1.6 && Math.sin(t.t * 30) > 0.3);
     }
   }
@@ -3420,7 +4355,7 @@
             `<b>&larr; &rarr;</b> run, twice to dash &middot; <b>Space</b> jump, again in the air &middot; <b>Z</b> light &middot; <b>X</b> heavy &middot; <b>C</b> special<br>
              <b>&uarr;</b> or <b>&darr;</b> with <b>X</b> or <b>C</b> for another move &middot; <b>&darr;</b> crouch &middot; <b>&darr; + Space</b> Spin Dash, or drop through &middot; <b>Enter</b> start, and pause<br>
              In the menus: <b>arrows</b> to choose &middot; <b>Z</b> to confirm &middot; <b>X</b> to go back`}</div>
-          <div class="adv-credit">Sonic, Tails, Knuckles, Amy, Rouge and Shadow belong to SEGA. Their sprites are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing and the Spin Dash rev, dust and blast effects are from Sonic Advance (2001), ripped by AsuharaMoon. The badniks are from Sonic Advance, Sonic Advance 2 and Sonic Advance 3, ripped by SpitfyaUK and Techokami, Fatazz and SkyLights. All from The Spriters Resource.</div>
+          <div class="adv-credit">Sonic and his friends, his rivals and Dr. Eggman belong to SEGA. Sonic, Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos and Chaos Gamma are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing and the Spin Dash rev, dust and blast effects are from Sonic Advance (2001), ripped by AsuharaMoon; all from The Spriters Resource. Dr. Eggman, Metal Sonic, Mighty and Silver are drawn in Sonic Battle's style by TheKnucklesMainG4 (DeviantArt). The badniks are from Sonic Advance, Sonic Advance 2 and Sonic Advance 3, ripped by SpitfyaUK and Techokami, Fatazz and SkyLights (The Spriters Resource), and from TheKnucklesMainG4's Modern Sonic Badniks sheet (DeviantArt).</div>
         </div>
       </div>`;
     ov.querySelectorAll(".adv-spr").forEach(cv => paintCard(cv, cv.dataset.who));
@@ -3543,7 +4478,7 @@
         </div>
         ${r.earned ? `<div class="adv-pay">${ico("carrot")}<b class="num">+${r.earned}</b> carrots to your stable</div>` : ""}
         <div class="adv-btns">
-          ${next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All six cleared</button>`}
+          ${next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All thirteen cleared</button>`}
           <button class="btn ghost" id="advAgain">Run it again</button>
           <button class="btn ghost" id="advSel">${ico("back")}Stage select</button>
         </div>
