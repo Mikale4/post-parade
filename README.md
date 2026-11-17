@@ -26,32 +26,13 @@ the art and music next to it.
 | `backgrounds/` | Scene backgrounds, only the files the game loads. |
 | `audio/` | The game's music (from the gamerip) and two CC0 crowd recordings in `audio/sfx/`. |
 
-In the hall stands an arcade cabinet, **Post Parade Adventure 2**: a voxel platformer and
-fighter in the Sonic games' look. Thirteen zones of two Acts each, one for each of Sonic,
-Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos, Chaos Gamma, Dr. Eggman, Metal Sonic,
-Mighty and Silver, end with a boss from the Sonic Advance games; it has a story mode of
-twenty chapters, Sonic Battle's fighting with health (one to four fighters, players or CPUs),
-training, and Emerl, who learns a move from every battle he wins. Everyone plays in Sonic
-Battle's sprites (or sprites drawn in its style), with that game's combos and specials on Z,
-X and C.
+The hall's arcade cabinet, where Sonic and his friends ran, has grown into a fan game of its
+own: **Red Ring Circuit** ([github.com/Mikale4/red-ring-circuit](https://github.com/Mikale4/red-ring-circuit),
+play it at https://mikale4.github.io/red-ring-circuit/). It took its history with it; the
+"Adventure 2" commits here are where it began.
 
 Umamusume: Pretty Derby, its characters, art and music belong to Cygames, Inc. This is a
 non-commercial fan project, not affiliated with Cygames, and will come down on request.
-Sonic the Hedgehog, his friends and rivals and Dr. Eggman belong to SEGA. In Post Parade
-Adventure 2, Sonic, Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos and Chaos Gamma are
-from SEGA's *Sonic Battle* (Game Boy Advance), ripped by QuadFactor, and Knuckles' climbing
-and the Spin Dash rev, dust and blast effects from *Sonic Advance*, ripped by AsuharaMoon;
-the first six stages' badniks are from *Sonic Advance*, *Sonic Advance 2* and *Sonic Advance
-3*, ripped by SpitfyaUK and Techokami, Fatazz and SkyLights; the monitors and shields are
-Sonic Advance 3's, ripped by SpitfyaUK and Techokami; the bosses, Gemerl and the capsule are
-from the three Advance games, ripped by SonicDash57, Flare, raidlandguy, SkyLights, Shade and
-Sonikku; and Emerl is Sonic Battle's, re-ripped by Dinoshi 64 (some rips by Mr. C) (all The
-Spriters Resource).
-Dr. Eggman, Metal Sonic, Mighty and Silver are sprite sheets in Sonic Battle's style by
-TheKnucklesMainG4 ([Eggman](https://www.deviantart.com/theknucklesmaing4/art/Dr.-Eggman-%28Sonic-Battle%29-Sprite-Sheet-896689723), [Metal Sonic](https://www.deviantart.com/theknucklesmaing4/art/Metal-Sonic-Sprite-Sheet-911313604), [Mighty](https://www.deviantart.com/theknucklesmaing4/art/Mighty-the-Armadillo-Sprite-Sheet-935708034),
-[Silver](https://www.deviantart.com/theknucklesmaing4/art/Silver-the-Hedgehog-%28Sonic-Battle%29-896294717)), and the last seven stages' badniks are from his
-[Modern Sonic Badniks](https://www.deviantart.com/theknucklesmaing4/art/Badniks-Sprite-Sheet-%28Modern-Sonic-Generations%29-914913506) sheet (which credits Dolphman/retrobunyjp, Techokami,
-SkyLights, Ren "Foxx" Ramos, Fatazz and Flare), all on DeviantArt, used with credit as he
-asks. Hatsune
+Sonic the Hedgehog belongs to SEGA (he runs here as a guest racer). Hatsune
 Miku is © Crypton Future Media, Inc. 2007, used under the Piapro Character License
 (non-commercial fan works).

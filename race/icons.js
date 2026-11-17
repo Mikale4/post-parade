@@ -104,7 +104,7 @@
       "...kkkkkk...",
       "............",
     ] },
-    // the Golden Horseshoes hidden in Post Parade Adventure 2's stages
+    // a Golden Horseshoe (once hidden in the arcade cabinet's stages; the cabinet is now Red Ring Circuit)
     goldshoe: { p: { k: "#7a4a00", a: "#f2b705", b: "#fff3c4", n: "#7a4a00" }, r: [
       "kkk......kkk",
       "kbk......kbk",
@@ -119,7 +119,7 @@
       "...kkkkkk...",
       "............",
     ] },
-    // the arcade cabinet in the hall (Post Parade Adventure 2)
+    // an arcade cabinet (the hall's, now its own game: Red Ring Circuit)
     arcade: { p: { k: K, a: "#e0403a", b: "#ff9a8a", s: "#4f5b53", c: "#2a5ab0", d: "#5a8ae0", e: "#f2b705" }, r: [
       "....kkkk....",
       "...kabaak...",

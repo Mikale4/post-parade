@@ -630,37 +630,9 @@
     c.box(-16.0625, t + 0.125, 4.0625, -16.0, t + 0.25, 4.125, 0xd8302a);
     c.box(-16.0, t + 0.125, 4.125, -15.9375, t + 0.3125, 4.1875, 0x2a2a3a);
   }
-  /* Post Parade Adventure 2 (adventure.js): an arcade cabinet against the right-hand wall,
-     between the dorm doors and the plant, a stage on its screen -- turf, sky, a runner and a
-     carrot -- a stick and two buttons on the panel, and a marquee lit gold. */
-  function arcadeCabinet(c) {
-    const x0 = 23.0, x1 = 24.0, z0 = 3.4375, z1 = 4.5625;
-    const BODY = 0x1e2a6a, SIDE = 0x2a3a8a, TRIM = 0xf2b705, DARK = 0x14183a;
-    const side = Z => Z < z0 + F || Z >= z1 - F;
-    c.box(x0 + 0.25, 0, z0, x1, 1.875, z1, (X, Y, Z) => side(Z) ? ((Y > 0.5 && Y < 0.5625) || (Y > 1.75) ? TRIM : SIDE) : BODY);
-    c.box(x0, 0, z0, x0 + 0.25, 0.9375, z1, (X, Y, Z) => side(Z) ? SIDE : (Y < 0.125 ? DARK : (Y > 0.375 && Y < 0.5 ? TRIM : BODY)));
-    c.box(x0 - 0.125, 0.9375, z0, x0 + 0.25, 1.0, z1, 0x2a2a34);                            // the panel
-    c.box(x0 - 0.0625, 1.0, 3.75, x0, 1.125, 3.8125, 0x3a3a46);                              // the stick
-    c.box(x0 - 0.0625, 1.125, 3.75 - F / 2 + 0.03125, x0 + F / 2, 1.1875, 3.8125 + 0.03125, 0xe0403a);
-    c.box(x0 - 0.0625, 1.0, 4.125, x0, 1.0625, 4.1875, 0xf2b705);                            // the buttons
-    c.box(x0 - 0.0625, 1.0, 4.3125, x0, 1.0625, 4.375, 0x3a7ae0);
-    // the screen: a stage, running
-    const s0 = z0 + 0.125;
-    c.box(x0 + 0.1875, 1.125, s0, x0 + 0.25, 1.625, z1 - 0.125, (X, Y, Z) => {
-      const u = Math.round((Z - s0) / F), v = Math.round((Y - 1.125) / F);
-      if (u >= 3 && u <= 4 && v >= 2 && v <= 5) return v >= 5 ? 0xd8d8e2 : v >= 4 ? 0xf8dcc8 : 0xc8282a;   // a runner
-      if (u === 10 && v >= 3 && v <= 4) return v === 4 ? 0x3f9a34 : 0xf08a24;                      // a carrot
-      if (v <= 1) return v === 1 ? 0x5fae3e : 0x8a5a36;
-      if (u >= 7 && u <= 8 && v === 3) return 0xe8e0cc;                                            // a block
-      return v >= 6 ? 0x5aa6e6 : 0x9ad0f0;
-    });
-    c.box(x0 + 0.1875, 1.6875, z0 + F, x0 + 0.25, 1.875, z1 - F, (X, Y) => Y < 1.75 ? 0xd8303a : TRIM);   // the marquee
-  }
-
   function hallProps() {
     const c = canvas(F, 2024);
     noticeBoard(c);
-    arcadeCabinet(c);
     bench(c, -5.5, -2.5, C.benchO);
     bench(c, 2.75, 5.75, C.benchY);
     vendingMachine(c, 6.25, -10.0625);
@@ -702,7 +674,6 @@
     howto:    { station: "howto", x: -15, z: 5.4, face: PI, ax: -15, ay: 2.4, az: 4 },
     cafe:     { label: "Cafeteria", sub: "Lunch is on", icon: "carrot", x: -22.4, z: -7.5, face: -PI / 2, ax: -23.8, ay: 3.9, az: -7.5,
                 door: "cafe", room: "cafe", arrive: "hall" },
-    adventure: { station: "adventure", x: 22.3, z: 4.0, face: PI / 2, ax: 23.5, ay: 2.55, az: 4.0 },
   };
   /* Where the others go when they are not just walking about. */
   const HALL_POIS = [
@@ -758,7 +729,6 @@
     [-5.6, -11, -2.4, -9.6], [2.65, -11, 5.85, -9.6],
     [-13.5, -11, -12.5, -9.7], [9.75, -11, 10.75, -9.7], [15.75, -11, 16.75, -9.7],
     [-23.6, 6, -22.4, 7.1], [22.4, 6, 23.6, 7.1],
-    [22.8, 3.35, 24, 4.65],                                              // the arcade cabinet
     [-17.9, 3.1, -12.1, 4.9],
     [-22.6, -11, -19.9, -10.6], [-16.1, -11, -13.9, -10.6],            // the bookcases by the library
   ];

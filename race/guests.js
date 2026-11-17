@@ -5,8 +5,8 @@
  * cannot be, so guests live here, hand-written, and say so: `guest: true`, a "Guest" tag in
  * the stable, never offered by the scout, no duplicates. Every trainer who has picked a
  * starter has them (Stable gives them out); they race, train and walk the academy like
- * anyone else. Sonic also runs in Post Parade Adventure 2 (adventure.js), the arcade
- * cabinet in the hall, with five of his friends.
+ * anyone else. (The hall's arcade cabinet, where Sonic ran with his friends, grew into a fan game
+ * of its own, Red Ring Circuit: github.com/Mikale4/red-ring-circuit.)
  *
  * What each guest is rests on their own canon, researched (November 2026):
  *
