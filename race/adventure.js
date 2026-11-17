@@ -2,10 +2,12 @@
  * Post Parade Adventure 2 -- the arcade cabinet in the hall.
  *
  * A side-on platformer in the race's own voxels: the same mesher, the same light, seen from
- * the side. Its runners are thirteen, each in their own 2D sprites in Sonic Battle's style: Sonic,
+ * the side. Its runners are fourteen, each in their own 2D sprites in Sonic Battle's style: Sonic,
  * Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos and Chaos Gamma from SEGA's Sonic Battle
  * (Game Boy Advance, 2003), ripped by QuadFactor (The Spriters Resource); Dr. Eggman, Metal
  * Sonic, Mighty and Silver drawn in its style by TheKnucklesMainG4 (DeviantArt).
+ * Emerl, the fourteenth, fights with the moves he has copied off the others (adventure-emerl.js,
+ * tools/pack-emerl.py): Sonic Battle's sheets of him, re-ripped by Dinoshi 64 (some rips by Mr. C).
  * adventure-sprites.js holds the frames, tools/pack-sonic-battle.py cuts them. Thirteen stages
  * run left to right to a winning post, each one runner's own ground, as Sonic Battle gives each
  * fighter a home arena -- Sonic's clifftops over the sea, Tails' workshop and airstrip, Amy's
@@ -69,6 +71,21 @@
  *             sends a shockwave both ways (Sonic Mania Plus). Spin Dash.
  *   Silver    the Air Psycho Dash: ahead, a hover, then Space held floats him down; Psycho
  *             Knife, Surge and Orb. Spin Dash.
+ *
+ * The main menu (after the title) has six: Story, Free Exhibition, Battle, Training, Options
+ * and Exit.
+ *   Story     The Golden Horseshoes (adventure-story.js): twenty chapters, each a scene of talk
+ *             between the cast in their Sonic Battle portraits, then a stage to run or a battle
+ *             to win as one of them, then the talk after, on thirteen stages of its own.
+ *   Free Exhibition  any runner on any stage opened: the thirteen stages, run for time, carrots,
+ *             grades and the Golden Horseshoes (clearing one opens the next).
+ *   Battle    Sonic Battle's fights with health: up to four fighters, players or CPUs (Easy,
+ *             Normal, Hard), everyone for themselves or Red against Blue, in any runner's
+ *             arena; a KO match or Survival, a time limit. Down guards, and held still heals.
+ *             Two players share the keyboard (Options sets their keys) or a pad each.
+ *   Training  The same fight on a dummy that stands, guards, walks, jumps or fights back.
+ *   Options   Music, sound, dialogue speed and screen shake (the game's own settings), and the
+ *             two players' keys.
  *
  * Stages are drawn as text in adventure-stages.js (tools/genstages.py draws them): a grid of
  * one-metre tiles 32 rows tall, read left to right. The legend is there. Clearing a stage opens the next; each hides three
@@ -164,6 +181,15 @@
       moves: "Shell Launch · Hammer Drop",
       grades: { Speed: "A", Jump: "B", Air: "B", Power: "S" },
       text: "Space in the air: Shell Launch, straight up; against a wall, a wall jump. Curled, spikes can't hurt him. Up + C in the air: Hammer Drop." },
+    /* Emerl, Sonic Battle's Gizoid: he copies what he sees. His move set is his own until he wins
+       fights, and every win teaches him one move of someone else's -- one of eight he has seen, at
+       random, never one he knows -- which he can then use in its slot in place of his own
+       (Emerl's Skills). What his CAST entry says is his own, before he has learned anything. */
+    { id: "emerl", name: "Emerl", w: 0.56, h: 1.04, run: 12.6, accel: 18, airAccel: 13, jump: 12.2,
+      air: "double", from: "Emerl (Gizoid)",
+      moves: "Copies the moves he wins",
+      grades: { Speed: "B", Jump: "B", Air: "B", Power: "B" },
+      text: "A Gizoid that copies what it sees. Each battle he wins teaches him one move of someone else's; set them in Emerl's Skills." },
     { id: "silver", name: "Silver", w: 0.58, h: 1.12, run: 13.9, accel: 21, airAccel: 15, jump: 12.2,
       spinDash: true, air: "psy", from: "Silver the Hedgehog",
       moves: "Psychokinesis",
@@ -171,6 +197,9 @@
       text: "Space in the air: an Air Psycho Dash ahead, a hover, then hold Space to float down. Psycho Knife, Psycho Surge, Psycho Orb." },
   ];
   const castOf = id => CAST.find(c => c.id === id) || CAST[0];
+  /** which runner a move of p's comes from: their own, or for Emerl whose he copied in that slot */
+  const srcOf = (p, slot) => (p.c.emerl && p.c.emerl[SLOT_OF[slot] || slot]) || p.c.id;
+  const SLOT_OF = { idle: "pose", run: "run", skid: "run", start: "run", dash: "dash", jump: "jump", fall: "jump", land: "jump", seek: "aim" };
 
   /* The attacks, per runner, by the sheet's own rows: fps, and how far in front the blow
      reaches (metres). The blow lands in the middle of the animation; `step` is how far it
@@ -223,7 +252,7 @@
     aim:     { stop: 0.06,  shake: 0.12, spark: 1.3,  kick: [11, 6],  heavy: true },
   };
   const HIT_C = { sonic: 0x9ad4ff, tails: 0xfff070, knuckles: 0xff9030, amy: 0xff80c0, rouge: 0xff70d0, shadow: 0xff4060,
-                  cream: 0x8ad8ff, chaos: 0x70c8ff, gamma: 0xff6040, eggman: 0xffc040, metal: 0x6a90ff, mighty: 0xff4a4a, silver: 0x70f0d0 };
+                  emerl: 0xffa030, cream: 0x8ad8ff, chaos: 0x70c8ff, gamma: 0xff6040, eggman: 0xffc040, metal: 0x6a90ff, mighty: 0xff4a4a, silver: 0x70f0d0 };
   const hitWeight = (c, name) => c.id === "knuckles" || c.id === "mighty" ? 1.3 : c.id === "gamma" || c.id === "eggman" ? 1.2 :
                                  c.id === "amy" && /^(heavy|upper|airatk)$/.test(name) ? 1.25 : 1;
 
@@ -416,11 +445,15 @@
      (assets/guests/sb-<who>.png); a card shows a frame by its own UVs. Body frames stand on
      their feet, effects on their middle. */
   const SHEETS = root.AdventureSprites || {};
+  /* the stage items -- Sonic Advance 3's monitors and shields (adventure-items.js,
+     tools/pack-items.py) -- drawn as cards the same way */
+  if (root.AdventureItems) SHEETS.items = root.AdventureItems;
+  const ITEMS = !!SHEETS.items;
   const PX = 1.1 / 33;                              // metres to a sprite pixel: Sonic's idle is 33 tall, about 1.1m
   const MATS = {};
   function sheetMats(who) {
     if (MATS[who]) return MATS[who];
-    const tex = new THREE.TextureLoader().load(SHEETS[who].url);
+    const tex = SHEETS[who].canvas ? new THREE.CanvasTexture(SHEETS[who].canvas) : new THREE.TextureLoader().load(SHEETS[who].url);
     tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
     return (MATS[who] = {
       mat: new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }),
@@ -458,15 +491,124 @@
   function paintCard(cv, who, frame, k) {
     const A = SHEETS[who]; if (!A) return;
     const img = IMGS[who] || (IMGS[who] = Object.assign(new Image(), { src: A.url }));
-    k = k || 2;
+    const k0 = k || 2;
     const go = () => {
       const g = cv.getContext("2d"), f = (A.f[frame || "portrait"] || A.f.idle)[0];
       g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = false;
+      let k = k0; while (k > 1 && f[2] * k > cv.width) k--;      // a wide one (Emerl's) at a size that shows him
       /* a portrait taller than the card (Eggman's, Silver's) shows its top: a bust, the face in */
-      const dy = f[3] * k > cv.height ? 0 : cv.height - f[3] * k;
+      /* (Emerl's is a bust under a tall crest: `faceY` drops the crop to his face) */
+      const fy = (!frame || frame === "portrait") && A.faceY ? A.faceY * k : 0;
+      const dy = f[3] * k > cv.height ? -Math.min(fy, f[3] * k - cv.height) : cv.height - f[3] * k;
       g.drawImage(img, f[0], f[1], f[2], f[3], Math.round((cv.width - f[2] * k) / 2), dy, f[2] * k, f[3] * k);
     };
     if (img.complete && img.naturalWidth) go(); else img.addEventListener("load", go, { once: true });
+  }
+
+  // ---------------------------------------------------------------- Emerl
+  /* Emerl's frames (adventure-emerl.js, tools/pack-emerl.py): his own sheet, and one for each of the
+     eight he copies, every move drawn as him. Which move is in each slot is his loadout (kept per
+     trainer); the runner the game makes of him is his own size, with each slot's move from its
+     source -- its numbers, its frames, its effects -- and one picture made of all of it, put together
+     here from the sheets (a card can show only one). */
+  const EM = root.AdventureEmerl || null;
+  const EM_SRC = ["tails", "knuckles", "amy", "rouge", "shadow", "cream", "chaos", "gamma"];
+  const EM_SLOTS = [["pose", "Fighting pose"], ["run", "Run"], ["dash", "Dash"], ["jump", "Jump"], ["air", "Air action"], ["atk1", "1st attack"],
+    ["atk2", "2nd attack"], ["atk3", "3rd attack"], ["heavy", "Heavy attack"], ["upper", "Upper attack"], ["dashatk", "Dash attack"],
+    ["airatk", "Air attack"], ["aim", "Pursuit attack"], ["shot", "Ground shot"], ["airshot", "Air shot"], ["power", "Ground power"],
+    ["airpower", "Air power"], ["trap", "Ground trap"], ["airtrap", "Air trap"]];
+  /* which of his frames each slot brings (the air action's are named as each runner's are drawn) */
+  const EM_NAMES = { pose: ["idle"], run: ["run", "skid"], dash: ["dash"], jump: ["jump", "fall", "land"], air: ["fly", "glide", "double", "teleport", "catch"],
+    atk1: ["atk1"], atk2: ["atk2"], atk3: ["atk3"], heavy: ["heavy"], upper: ["upper"], dashatk: ["dashatk"], airatk: ["airatk"], aim: ["seek", "aim"],
+    shot: ["sp.shot"], airshot: ["sp.airshot"], power: ["sp.power"], airpower: ["sp.airpower"], trap: ["sp.trap"], airtrap: ["sp.airtrap"] };
+  if (EM) { SHEETS.emerl = Object.assign({ faceY: 14 }, EM.emerl); for (const k of EM_SRC) if (EM[k]) SHEETS["emerl." + k] = EM[k]; }
+  /* every move he could learn: a slot of one of the eight's, with a name */
+  const emerlAll = () => EM ? EM_SRC.flatMap(src => EM_SLOTS.map(([slot]) => src + "." + slot).filter(k => EM.names[k.split(".")[0]][k.split(".")[1]])) : [];
+  function emerlSave() {
+    const e = saveData.emerl = saveData.emerl || {};
+    e.learned = e.learned || []; e.loadout = e.loadout || {};
+    for (const [slot] of EM_SLOTS) if (e.loadout[slot] && !e.learned.includes(e.loadout[slot] + "." + slot)) delete e.loadout[slot];
+    return e;
+  }
+  /** One move learned, after a win: at random, of those he does not know yet. Null when he knows them all. */
+  function emerlLearn() {
+    const e = emerlSave(), left = emerlAll().filter(k => !e.learned.includes(k));
+    if (!left.length) return null;
+    const k = left[Math.floor(Math.random() * left.length)];
+    e.learned.push(k); save(saveData);
+    const [src, slot] = k.split(".");
+    return { src, slot, name: EM.names[src][slot], slotName: EM_SLOTS.find(s => s[0] === slot)[1] };
+  }
+  const EM_IMGS = {};
+  function emerlImgs() {
+    if (!EM) return false;
+    let ok = true;
+    for (const k of ["emerl"].concat(EM_SRC)) {
+      const A = k === "emerl" ? EM.emerl : EM[k]; if (!A) continue;
+      const im = EM_IMGS[k] || (EM_IMGS[k] = Object.assign(new Image(), { src: A.url }));
+      if (!im.complete || !im.naturalWidth) ok = false;
+    }
+    return ok;
+  }
+  /* The runner made of Emerl's loadout: his size; each slot's numbers from the runner it copies;
+     and his frames put together into one picture. Without the sheets loaded yet, his own. */
+  const EM_BUILT = {};
+  function emerlCast() {
+    const base = castOf("emerl"), lo = (saveData && emerlSave().loadout) || {};
+    const from = {}; for (const [slot] of EM_SLOTS) from[slot] = lo[slot] || "emerl";
+    if (!emerlImgs()) for (const k in from) from[k] = "emerl";
+    const key = "emerl#" + EM_SLOTS.map(([s]) => from[s].slice(0, 3)).join("");
+    const c = Object.assign({}, base, { emerl: from, sheet: key, spinDash: false, climb: false, swims: false });
+    const of = slot => from[slot] === "emerl" ? null : castOf(from[slot]);
+    const r = of("run"), j = of("jump"), a = of("air"), d = of("dash");
+    if (r) Object.assign(c, { run: r.run, accel: r.accel });
+    if (j) Object.assign(c, { jump: j.jump, airAccel: j.airAccel });
+    if (a) Object.assign(c, { air: a.air, flyTime: a.flyTime, flyK: a.flyK, glides: a.glides, sink: a.sink });
+    if (d) Object.assign(c, { dashK: d.dashK, dashT: d.dashT, steer: d.steer, dashInv: d.dashInv, dashFrom: d.id });
+    else c.dashFrom = "emerl";
+    if (!EM_BUILT[key]) EM_BUILT[key] = emerlSheet(from);
+    SHEETS[key] = EM_BUILT[key];
+    return c;
+  }
+  /* one picture of the frames each slot brings, shelf-packed onto a canvas */
+  function emerlSheet(from) {
+    const want = [];
+    const add = (name, k, src) => { const A = k === "emerl" ? EM.emerl : EM[k]; const fs = A && A.f[src]; if (fs) want.push([name, k, fs]); };
+    for (const [slot] of EM_SLOTS) for (const nm of EM_NAMES[slot]) add(nm, from[slot], nm);
+    for (const nm of ["hit", "out", "portrait"]) add(nm, "emerl", nm);
+    add("spin", "emerl", "double"); add("ball", "emerl", "double");                 // curled: his own air action's spin
+    if (!want.some(w => w[0] === "fly") && from.air === "rouge") add("fly", "rouge", "fall");
+    const runF = want.find(w => w[0] === "run"); if (runF) want.push(["start", runF[1], [runF[2][0]]]);
+    const cv = document.createElement("canvas"); cv.width = 512;
+    let x = 1, y = 1, sh = 0; const place = [];
+    for (const [name, k, fs] of want) for (const f of fs) {
+      if (x + f[2] + 1 > 512) { x = 1; y += sh + 1; sh = 0; }
+      place.push([name, k, f, x, y]); x += f[2] + 1; sh = Math.max(sh, f[3]);
+    }
+    let H = 64; while (H < y + sh + 1) H *= 2;
+    cv.height = H;
+    const g = cv.getContext("2d"), table = {};
+    for (const [name, k, f, px, py] of place) {
+      g.drawImage(EM_IMGS[k], f[0], f[1], f[2], f[3], px, py, f[2], f[3]);
+      (table[name] = table[name] || []).push([px, py, f[2], f[3], f[4]]);
+    }
+    return { canvas: cv, url: EM.emerl.url, w: 512, h: H, f: table };
+  }
+  /* A special of Emerl's: the move in that slot -- his own (Sonic's, as Sonic Battle gives him
+     them) or the one he copied -- its data from the runner it is, its body his frames for it, timed
+     to them, and its effects from its source's sheet */
+  function emerlSpecial(p, slot) {
+    const src = p.c.emerl[slot] || "emerl", from = src === "emerl" ? "sonic" : src;
+    const S0 = SPECIALS[from][slot], S = Object.assign({}, S0, { body: "sp." + slot, fxWho: from });
+    delete S.charged;                                     // (no frames of his for Gamma's held charge)
+    const nE = (framesOf(p.c.sheet, "sp." + slot) || [0]).length, nO = (framesOf(from, S0.body) || [0]).length * (S0.loops || 1);
+    if (nE && nO && !S0.windup) {
+      const k = nE / nO;
+      S.fps = (S0.fps || 16) * k; S.at = Math.min(nE - 1, Math.round((S0.at || 0) * k));
+      if (S0.tornado) S.tornado = [Math.min(nE - 2, S0.tornado[0]), Math.min(nE - 1, S0.tornado[1])];
+      S.loops = 1;
+    }
+    return S;
   }
 
   // ---------------------------------------------------------------- the badniks
@@ -635,21 +777,32 @@
 
   /* A badnik's turn: walking (it turns at walls and edges and keeps to the ground, slopes
      too), and whatever its kind does. `p` is the runner. */
+  /** The ground's height at x, slopes and ledges included, from a little over y down; or null. */
+  function groundAt(x, y) {
+    const ci = Math.floor(x);
+    for (let j = Math.floor(y + 1.2); j >= Math.floor(y - 1.6); j--) {
+      const c = tile(ci, j);
+      if (c === "/" || c === "\\") return slopeY(c, ci, j, x);
+      if (solid(c) || c === "-") return j + 1;
+    }
+    return null;
+  }
+  /* A badnik walking: on along the ground, up and down slopes as it goes; it turns at a wall (a
+     step a whole tile high, or a hurdle) and at an edge. A slope is no wall: the ground under the
+     next step of a slope is not in its way. A wide one stands on the higher of its two halves,
+     so it never sinks into a slope it is on. */
   function walkOn(e, speed, dt) {
-    const ahead = e.x + e.dir * (e.w / 2 + 0.05);
-    const wall = solid(tile(Math.floor(ahead), Math.floor(e.y + 0.3))) || world.solids.some(b => b.alive && ahead > b.x0 && ahead < b.x1 && e.y < b.y1);
-    const fl = tile(Math.floor(ahead), Math.floor(e.y - 0.1)), fl2 = tile(Math.floor(ahead), Math.floor(e.y + 0.1));
-    const floor = solid(fl) || fl === "-" || "/\\".indexOf(fl) >= 0 || "/\\".indexOf(fl2) >= 0;
+    const ahead = e.x + e.dir * (e.w / 2 + 0.05), ai = Math.floor(ahead);
+    const slopeAhead = [-0.1, 0.4, 0.9, 1.4].some(d => { const c = tile(ai, Math.floor(e.y + d)); return c === "/" || c === "\\"; });
+    const ga = groundAt(ahead, e.y);
+    const wall = (!slopeAhead && solid(tile(ai, Math.floor(e.y + 0.3)))) || (ga !== null && ga - e.y > (slopeAhead ? 1.2 : 0.55)) ||
+                 world.solids.some(b => b.alive && ahead > b.x0 && ahead < b.x1 && e.y < b.y1);
+    const floor = ga !== null && ga > e.y - 1.1;
     if (wall || !floor) { e.dir = -e.dir; return false; }
     e.vx = e.dir * speed; e.x += e.vx * dt;
-    const ci = Math.floor(e.x);
-    let gy = null;
-    for (let j = Math.floor(e.y + 0.6); j >= Math.floor(e.y - 1.2); j--) {
-      const c = tile(ci, j);
-      if (c === "/" || c === "\\") { gy = slopeY(c, ci, j, e.x); break; }
-      if (solid(c) || c === "-") { gy = j + 1; break; }
-    }
-    if (gy !== null) e.y = gy; else e.y -= 6 * dt;
+    const g0 = groundAt(e.x - e.w * 0.25, e.y), g1 = groundAt(e.x + e.w * 0.25, e.y), gc = groundAt(e.x, e.y);
+    const gy = [g0, g1, gc].filter(g => g !== null && g <= e.y + 0.9).reduce((a, b) => Math.max(a, b), -1e9);
+    if (gy > -1e8) e.y = gy; else e.y -= 6 * dt;
     return true;
   }
   function setMode(e, mode) { e.mode = mode; e.t = 0; e.at = 0; e.fired = false; }
@@ -963,7 +1116,7 @@
       sky: [0x2a86ec, 0xd6f0fa], fog: [0xd8eef8, 60, 320], sun: [0xfff4dc, 0.9, [10, 32, 22]], hemi: [0xffffff, 0x94b88a, 0.6],
       top: [0x52b43a, 0x60c044, 0x48a632], drip: 0x44a02e, soil: [0xe4dac2, 0xc8ba9a, 0xd6c8aa], deep: 0xb2a282,
       block: [0xb4bec8, 0xa0aab6], blocks: "stone", plank: 0xc8965a, planks: "wood", water: 0x1ca8e0, crack: 0xa8a49a, back: 0x8a7e68,
-      tufts: [0x6cc84a, 0x7ad254], flowers: [0xffffff, 0xf2d040, 0x8aa8f0, 0xf08ac0], hurdle: "brush", tree: "palm",
+      tufts: [0x6cc84a, 0x7ad254], flowers: [0xffffff, 0xf2d040, 0x8aa8f0, 0xf08ac0], hurdle: "stones", tree: "palm",
       foes: { k: "gamigami", r: "rhinotank", b: "stinger", n: "kiki" }, far: "cape", music: "career" },
     /* Tails: the airfield grass, the workshop's riveted steel and grating, belts and fans */
     works: {
@@ -1021,7 +1174,7 @@
       sky: [0x2e7ad0, 0xf6dcae], fog: [0xf2d8b0, 60, 320], sun: [0xfff0d0, 1.0, [14, 34, 18]], hemi: [0xfff4e0, 0xc08a5a, 0.6],
       top: [0xe8b878, 0xf0c488, 0xdcaa68], drip: 0xd8984e, soil: [0xc8643c, 0xb05232, 0xd47a4c], deep: 0x7a3420,
       block: [0xd8885a, 0xc06a40], blocks: "sandstone", plank: 0x8a6440, planks: "wood", water: 0x3a9ad0, crack: 0xc89a6a, back: 0x6a3020,
-      tufts: [0xb8a050, 0x9a8a40], flowers: [0xff6a5a, 0xf2d040], hurdle: "brush", tree: "cactus",
+      tufts: [0xb8a050, 0x9a8a40], flowers: [0xff6a5a, 0xf2d040], hurdle: "stones", tree: "cactus",
       foes: { k: "rhinobot", r: "spiny", b: "asteron", n: "motobug" }, far: "canyon", music: "training_senior" },
     /* Silver: his city two hundred years on, burning -- cracked roads, black concrete lit by
        the fires in it, rusted girders, the sky red, embers coming down */
@@ -1062,7 +1215,7 @@
      for a low road, a high one and the sky over both. H is the stage being run. */
   let H = 32;
   const SOLIDS = "#=XBImC{}";
-  const ENTS = "PGKc*JHS>rbknphMVUOT^Qo";
+  const ENTS = "PGKEc*JHS>rbknphMVUOT^Qo";
   function parse(def) {
     const chunks = def.chunks.map(raw => {
       const lines = raw.split("\n");
@@ -1370,53 +1523,57 @@
     if (PROPS[key]) return PROPS[key];
     let g;
     switch (name) {
-      case "carrot": g = vox(v => {
-        for (let y = 0; y < 8; y++) { const r = y < 3 ? 0 : y < 6 ? 1 : 1; v.box(-r, y, -r, r, y, r, y % 3 === 0 ? 0xd8701c : 0xf08a24); }
-        v.box(0, -2, 0, 0, -1, 0, 0xe07a1c);
-        v.box(-1, 8, 0, -1, 10, 0, 0x3f9a34); v.box(1, 8, 0, 1, 11, 0, 0x5ab84a); v.box(0, 8, -1, 0, 9, 1, 0x3f9a34);
+      case "ring": g = vox(v => ringVox(v, 0, 6, 5, 3.6, [0xf2b705, 0xfff3a0, 0xd89a00])); break;   // a gold ring, as every Sonic stage strews them
+      case "redring": g = vox(v => {                   // a Red Star Ring: a big red ring, a gold star in it
+        ringVox(v, 0, 8, 7.5, 5.6, [0xe42630, 0xff8a8a, 0xa8141c]);
+        starVox(v, 0, 8, 3.6, 0xffd21a);
       }); break;
-      case "rainbow": g = vox(v => {
-        const C = [0xe8403a, 0xf08a24, 0xf2d040, 0x5ab84a, 0x3a8ae0, 0x8a5ad0];
-        for (let y = 0; y < 9; y++) { const r = y < 3 ? 0 : 1; v.box(-r, y, -r, r, y, r, C[Math.floor(y / 1.5) % 6]); }
-        v.box(0, -2, 0, 0, -1, 0, 0xe8403a);
-        v.box(-1, 9, 0, -1, 12, 0, 0xffffff); v.box(1, 9, 0, 1, 11, 0, 0xfff3a0);
+      case "monitor_ring": case "monitor_shield": case "monitor_star": case "monitor_speed": g = vox(v => monitorVox(v, name.slice(8))); break;
+      case "bird": g = vox(v => {                       // a little blue bird out of a badnik, as in the classic games
+        v.box(-2, 1, -1, 2, 4, 1, 0x3a8ae0); v.box(-1, 2, -1, 1, 3, 1, 0x5aa8f0); v.box(2, 3, -1, 3, 5, 1, 0x3a8ae0);
+        v.set(3, 5, 1, 0xffffff); v.set(4, 4, 0, 0xf2b705); v.box(-3, 2, -2, -1, 4, -2, 0x2a6ac0); v.box(-1, 0, 0, 0, 0, 0, 0xf2b705);
       }); break;
-      case "juice": g = vox(v => {
-        v.box(-2, 0, -2, 1, 6, 1, 0xf6f6f2);
-        v.box(-2, 1, -2, 1, 4, 1, 0xf08a24); v.set(-2, 3, 1, 0xffffff);
-        v.box(0, 7, 0, 0, 10, 0, 0xd8303a); v.set(1, 10, 0, 0xd8303a);
+      case "bunny": g = vox(v => {                      // a little rabbit, hopping off
+        v.box(-2, 0, -1, 2, 3, 1, 0xf0e6d8); v.box(1, 3, -1, 3, 5, 1, 0xf0e6d8); v.box(1, 6, 0, 1, 8, 0, 0xf0e6d8); v.box(3, 6, 0, 3, 8, 0, 0xf0e6d8);
+        v.set(3, 5, 1, 0x2a2a2a); v.set(-3, 2, 0, 0xffffff); v.box(1, 7, 1, 1, 7, 1, 0xf0a8b8);
       }); break;
-      case "shoe": g = vox(v => {
-        for (let y = 0; y < 8; y++) for (const x of [-4, 3]) v.box(x, y + 2, -1, x, y + 2, 0, y > 5 ? 0xfff3c4 : 0xf2b705);
-        v.box(-3, 1, -1, 2, 1, 0, 0xf2b705); v.box(-4, 2, -1, -4, 2, 0, 0xf2b705); v.box(-2, 0, -1, 1, 0, 0, 0xd89a00);
-        for (const x of [-4, 3]) v.set(x, 5, 1, 0x7a4a00);
+      /* a spring, in voxels after Sonic Advance 3's: a red base, a silver coil (its own part, so
+         it can stretch), a red cap with a gold rim round the top */
+      case "springBase": g = vox(v => vdisc(v, 0, 2, 6.5, (x, y, z, d) => y === 2 && d > 5.2 ? 0xff5a3a : d > 5.6 ? 0xa8141c : 0xd8261e)); break;
+      case "springCoil": g = vox(v => {
+        for (let y = 0; y < 8; y++) vdisc(v, y, y, y % 2 ? 4.4 : 3.6, (x, yy, z, d) => d < 2.4 ? null : y % 2 ? (x < 0 ? 0xf2f4fa : 0xb8bcc8) : 0x585c68);
       }); break;
-      case "spring": g = vox(v => {
-        v.box(-6, 0, -5, 5, 1, 4, 0x6a6a74);
-        for (let y = 2; y < 6; y++) v.box(-4 + (y % 2), y, -3, 3 - (y % 2), y, 2, 0xb8bcc4);
-        v.box(-7, 6, -6, 6, 7, 5, 0xd8303a); v.box(-5, 8, -4, 4, 8, 3, 0xf2f2f2);
-      }); break;
+      case "springCap": g = vox(v => vdisc(v, 0, 3, 7.5, (x, y, z, d) => {
+        if (y === 3) return d > 6.2 ? 0xffd21a : d > 4.6 ? 0xff8a10 : 0xe8302a;   // the top: a gold rim round red
+        if (y === 0) return 0x8a1014;
+        return x < -2 && z > 0 ? 0xff6a4a : d > 6.6 ? 0xb81c1c : 0xe02a24;
+      })); break;
       case "dash": g = vox(v => {
         v.box(-7, 0, -10, 8, 0, 9, 0x2a2a34);
         for (const ox of [-6, 0, 6]) for (let k = 0; k < 4; k++) { v.box(ox + k - 2, 1, -6 + k, ox + k - 2, 1, -6 + k + 1, 0xf2d040); v.box(ox + k - 2, 1, 5 - k, ox + k - 2, 1, 5 - k + 1, 0xf2d040); }
       }); break;
-      case "pole": g = vox(v => {                      // a furlong pole
-        v.box(-1, 0, -1, 0, 40, 0, 0xf6f6f2);
-        v.box(-6, 34, -1, 5, 43, 0, 0xf6f6f2); v.box(-5, 35, -1, 4, 42, 0, 0xd8303a); v.box(-2, 36, -1, 1, 41, 0, 0xf6f6f2);
-      }); break;
-      case "poleDone": g = vox(v => {
-        v.box(-1, 0, -1, 0, 40, 0, 0xf6f6f2);
-        v.box(-6, 34, -1, 5, 43, 0, 0xfff3c4); v.box(-5, 35, -1, 4, 42, 0, 0xf2b705); v.box(-2, 36, -1, 1, 41, 0, 0xfff3c4);
-      }); break;
-      case "goal": g = vox(v => {                      // the winning post: a tall white post, the round plate
-        v.box(-1, 0, -1, 1, 62, 1, 0xf6f6f2);
-        for (let x = -9; x <= 9; x++) for (let y = -9; y <= 9; y++) {
-          const d = Math.hypot(x, y);
-          if (d > 9.4) continue;
-          v.set(x, 70 + y, 2, d > 7.6 ? 0xd8303a : d < 2.2 ? 0xd8303a : 0xf6f6f2);
+      case "pole": case "poleDone": g = vox(v => {     // a Star Post: a grey post, its lamp blue till it is passed, then red
+        v.box(-1, 0, -1, 0, 30, 0, 0x9aa0ac); v.box(-3, 0, -3, 2, 1, 2, 0x6a6e78); v.box(-2, 30, -2, 1, 31, 1, 0x6a6e78);
+        const c = name === "poleDone" ? [0xe42630, 0xff8a8a] : [0x2a6ae0, 0x9ac8ff];
+        for (let x = -4; x <= 3; x++) for (let y = -4; y <= 3; y++) for (let z = -4; z <= 3; z++) {
+          const d = Math.hypot(x + 0.5, y + 0.5, z + 0.5);
+          if (d <= 4.2) v.set(x, 36 + y, z, x < -1 && y > 0 ? c[1] : c[0]);
         }
-        v.box(-1, 61, 0, 1, 61, 2, 0xf6f6f2);
-        for (let z = -24; z <= 18; z += 2) v.box(-1, 0, z, 1, 0, z, 0xffffff);   // the line across the ground
+      }); break;
+      case "goal": g = vox(v => {                      // the goal signpost: a grey post, a round sign that spins when passed
+        v.box(-1, 0, -1, 0, 46, 0, 0x9aa0ac); v.box(-3, 0, -3, 2, 1, 2, 0x6a6e78);
+        for (let x = -11; x <= 10; x++) for (let y = -11; y <= 10; y++) {
+          const d = Math.hypot(x + 0.5, y + 0.5);
+          if (d > 11) continue;
+          const col = d > 9.4 ? 0xf2f2f2 : d > 8.2 ? 0x050a22 : 0x1f58e0;
+          v.box(x, 58 + y, -1, x, 58 + y, 0, col);
+        }
+        starVox(v, 0, 58, 6, 0xffd21a, 1);
+      }); break;
+      case "relic": g = vox(v => {                     // a story stage's end: a Red Star Ring on a stone plinth
+        v.box(-9, 0, -7, 8, 3, 6, 0x8a8a96); v.box(-7, 4, -5, 6, 17, 4, 0xbcbcc8); v.box(-9, 18, -7, 8, 20, 6, 0x8a8a96);
+        ringVox(v, 0, 32, 11, 8, [0xe42630, 0xff8a8a, 0xa8141c]);
+        starVox(v, 0, 32, 5.5, 0xffd21a);
       }); break;
       case "hurdle": g = vox(v => hurdleVox(v, T ? T.hurdle : "brush")); break;
       case "vent": g = vox(v => { v.box(-5, 0, -5, 4, 2, 4, 0x6a7078); v.box(-3, 2, -3, 2, 3, 2, 0x2a2e34); }); break;
@@ -1450,6 +1607,45 @@
     return (PROPS[key] = g);
   }
   /* h: something across the course to jump, or smash. */
+  /* a solid disc, lying flat, rows y0 to y1, radius r; col(x, y, z, d) picks the colour (or null) */
+  function vdisc(v, y0, y1, r, col) {
+    const n = Math.ceil(r);
+    for (let y = y0; y <= y1; y++) for (let x = -n; x < n; x++) for (let z = -n; z < n; z++) {
+      const d = Math.hypot(x + 0.5, z + 0.5);
+      if (d > r) continue;
+      const c = col(x, y, z, d);
+      if (c != null) v.set(x, y, z, c);
+    }
+  }
+  /* a ring of voxels on its edge, facing the camera: radius r1 outside, r0 inside, lit at the
+     top left (C: face, light, shade) */
+  function ringVox(v, cx, cy, r1, r0, C) {
+    const n = Math.ceil(r1);
+    for (let x = -n; x <= n; x++) for (let y = -n; y <= n; y++) {
+      const d = Math.hypot(x, y);
+      if (d > r1 || d < r0) continue;
+      const a = Math.atan2(y, x), col = a > 1.6 && a < 2.9 ? C[1] : a < -0.6 && a > -2.4 ? C[2] : C[0];
+      v.box(cx + x, cy + y, -1, cx + x, cy + y, 0, col);
+    }
+  }
+  /* a five-pointed star, flat, facing the camera, `dz` forward of the face */
+  function starVox(v, cx, cy, R, col, dz) {
+    const n = Math.ceil(R), pts = [];
+    for (let k = 0; k < 10; k++) { const a = PI / 2 + k * PI / 5, r = k % 2 ? R * 0.42 : R; pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
+    const inside = (x, y) => { let c = false; for (let i = 0, j = 9; i < 10; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+    for (let x = -n; x <= n; x++) for (let y = -n; y <= n; y++) if (inside(x, y)) v.set(cx + x, cy + y, dz || 0, col);
+  }
+  /* An item monitor -- Sonic's TV of a box -- on its little stand, its screen showing what is
+     in it: ten rings, a shield, invincibility's stars, the speed shoes. */
+  function monitorVox(v, kind) {
+    v.box(-6, 0, -4, 5, 1, 3, 0x6a6e78);
+    v.box(-6, 2, -4, 5, 13, 3, 0xc8ccd6); v.box(-6, 13, -4, 5, 13, 3, 0xe8ecf4);
+    v.box(-5, 4, 3, 4, 11, 4, 0x182040);
+    if (kind === "ring") ringVox({ box: (a, b, c, d, e, f, col) => v.box(a, b, 5, d, e, 5, col) }, 0, 7.5, 3.2, 1.6, [0xf2b705, 0xfff3a0, 0xd89a00]);
+    else if (kind === "shield") { for (let x = -3; x <= 3; x++) for (let y = -3; y <= 3; y++) if (Math.hypot(x, y) <= 3.2) v.set(x, 8 + y, 5, Math.hypot(x, y) > 2.2 ? 0x6ac8ff : 0x2a6ae0); }
+    else if (kind === "star") { starVox(v, -1, 9, 2.6, 0xffd21a, 5); v.set(2, 6, 5, 0xff6ad8); v.set(3, 9, 5, 0x6affb0); v.set(-3, 5, 5, 0xffffff); }
+    else { v.box(-3, 5, 5, 2, 6, 5, 0xe42630); v.box(-3, 7, 5, -1, 9, 5, 0xe42630); v.box(-3, 5, 5, 2, 5, 5, 0xffffff); v.set(1, 7, 5, 0xffffff); }
+  }
   const HURDLE_C = { brush: [0x3a7e32, 0x2a6a2a, 0xf6f6f2], barrier: [0xd8303a, 0xf6f6f2, 0x8a8a92], books: BOOKS.slice(0, 4),
                      cairn: [0x8a8478, 0x6a645a, 0xf4f8fc], rope: [0xb01e3a, 0xe8c050, 0x7a1428],
                      stones: [0x7e786c, 0x5a544a, 0x4a9a54], crate: [0xc8904a, 0x8a5a2c, 0xe0b070] };
@@ -1652,7 +1848,17 @@
               v.set(x, y, z, y >= h - 1 ? jit(r, 0x5ea04a, 0.05) : jit(r, (y % 3 === 1) ? 0xcabfa4 : 0xe8e0cc, 0.03));
           }
           const m = new THREE.Mesh(meshVox(v, g), M.vox); m.position.set(-130, -0.5, -160); group.add(m);
+          /* a lighthouse on the broadest headland in each stretch, standing on its turf */
+          for (let x0 = 0; x0 < W + 120; x0 += 260) {
+            let best = null;
+            for (let X = x0; X < x0 + 260; X += g) { const s = Math.sin(X * 0.022) + Math.sin(X * 0.057) * 0.35; if (s > 0.15 && (!best || s > best.s)) best = { X, s }; }
+            if (best) lighthouse(group, best.X - 130 + 1.5, -0.5 + Math.round((5 + best.s * 7) / g) * g, -155);
+          }
         }
+        /* the coast across the bay: green hills to the horizon, behind the headlands */
+        band(4, -262, -250, 18, 9, 0.009, [0x4a8a5a, 0x5ea04a], 37);
+        /* rocks standing in the bay, their tops in grass, a palm or two on each */
+        for (let x = 10; x < W + 40; x += 44 + rnd() * 34) seaStack(group, x, -36 - rnd() * 44, 3 + Math.floor(rnd() * 8), rnd, T);
         for (let x = 30; x < W; x += 110) torii(group, x + rnd() * 30, -48 - rnd() * 10);
         for (let k = 0; k < Math.round(W / 40); k++) {
           const b = vox(v => { v.box(-4, 0, -1, 4, 1, 1, 0xf6f6f2); v.box(-5, 1, -1, 5, 1, 1, 0x3a5a8a); for (let y = 2; y < 12; y++) v.box(0, y, 0, Math.round((12 - y) * 0.45), y, 0, 0xfaf8f0); v.box(0, 2, 0, 0, 13, 0, 0x8a6a4a); }, 0.5);
@@ -1678,7 +1884,9 @@
         plane(0x4a4a52, 0.05, -41, 14);                           // the runway
         { const v = new Vox(); for (let x = 0; x < W + 240; x += 6) v.box(x, 0, 0, x + 2, 0, 1, 0xf2f0e8); const m = new THREE.Mesh(meshVox(v, 1), M.vox); m.position.set(-120, 0.12, -49); group.add(m); }
         band(2, -150, -140, 7, 4, 0.025, [0x7aa070, 0x86ac7a], 41);
-        for (let x = 20; x < W; x += 95) hangar(group, x + rnd() * 20, -70, rnd);
+        band(2, -112, -100, 4, 2.5, 0.035, [0x5e9a46, 0x6aac50], 43);
+        for (let x = 0; x < W + 40; x += 9 + rnd() * 8) oak(group, x, 0, -88 - rnd() * 8, 0.9 + rnd() * 0.5, rnd);
+        for (let x = 20; x < W; x += 95) { hangar(group, x + rnd() * 20, -70, rnd); fuelTank(group, x + 42 + rnd() * 6, -66); }
         for (let x = 140; x < W; x += 320) tower(group, x, -58);
         for (let x = 0; x < W + 100; x += 60) group.userData.anim.push(turbine(group, x + rnd() * 30, -135 - rnd() * 10, 10 + rnd() * 4));
         for (let k = 0; k < 3; k++) group.userData.anim.push(biplane(group, W, k, rnd));
@@ -1706,7 +1914,7 @@
         mountains(group, W, -120, 2, 34, 0x6a6470, 2);
         for (let x = 30; x < W; x += 140) shrine(group, x + rnd() * 30, -70 - rnd() * 14, rnd);
         trees(-16, Math.round(W / 22), 0);
-        { const s = new THREE.Sprite(glowMat(0x6af0a0, 0.9)); s.scale.set(26, 26, 1); s.position.set(W + 30, 62, -228); group.add(s); }
+        for (let x = 60; x < W + 60; x += 300) beacon(group, x + rnd() * 60, -200);
         clouds(0.6);
         break;
       }
@@ -1747,7 +1955,8 @@
           if (k % 3 === 2) displayCases(group, x, base, -24); else skeleton(group, x, base, -36 - rnd() * 8, k % 2);
           k++;
         }
-        for (let x = 40; x < W; x += 150) whale(group, x, base + 24, -50);
+        hallCeiling(group, W, base + 34, -2, -66, 0xb8ab90, 0x8a7e66, 0xfff6d8);
+        for (let x = 40; x < W; x += 150) whale(group, x, base + 24, -50, base + 34);
         break;
       }
       case "springs": {
@@ -1755,8 +1964,9 @@
            the old shrine at the top of its steps, stone lanterns, fireflies, the moon */
         plane(0x1e6a7a, -0.3, -5, 400);
         band(3, -120, -110, 26, 10, 0.02, [0x3a4a48, 0x3e7a4a], 81);
+        const cliffAt = bandAt(3, 26, 10, 0.02, 81);
         band(4, -200, -190, 44, 16, 0.012, [0x2a3634, 0x2e5a3a], 82);
-        for (let x = 20; x < W; x += 70 + rnd() * 40) waterfall(group, x, -107.5, 16 + Math.floor(rnd() * 8));
+        for (let x = 20; x < W; x += 70 + rnd() * 40) waterfall(group, x, -107, cliffAt(x + 2));
         for (let x = 60; x < W; x += 170) shrineSteps(group, x + rnd() * 30, -64);
         trees(-14, Math.round(W / 26), 0);
         disc(group, W * 0.4, 62, -262, 13, 0xeef6ff, 0xc8e0ff);
@@ -1784,8 +1994,8 @@
         skyline(group, W, -240, 0x3a1e1e, 0.0, 70, 1.6);
         skyline(group, W, -150, 0x2a1616, 0.15, 50, 1.2);
         brokenBlocks(group, W, -72, rnd);
+        rubble(group, W, -30, rnd);
         group.userData.anim.push(fires(group, W, rnd));
-        group.userData.anim.push(floaters(group, W, rnd));
         break;
       }
       case "depot": {
@@ -1795,7 +2005,8 @@
         plane(0x4a525c, base - 0.02, -5, 70);
         depotWall(group, W, base, -72);
         for (let x = 0; x < W + 40; x += 26) rack(group, x + rnd() * 4, base, -36 - rnd() * 6, rnd);
-        for (let x = 10; x < W; x += 22) hangLamp(group, x, base + 20, -16 - rnd() * 10);
+        hallCeiling(group, W, base + 26, -2, -72, 0x2e343c, 0x4a525c, 0xf2c030);
+        for (let x = 10; x < W; x += 22) hangLamp(group, x, base + 20, -16 - rnd() * 10, base + 26);
         break;
       }
       case "stars": {
@@ -1803,9 +2014,12 @@
            turns floating far off in ribbons of light, grandstands lit up, rocks drifting by */
         nebula(group, W);
         ringedPlanet(group, W * 0.3, 44, -300);
+        plane(0x3c3850, 0, -5, 420);
+        band(4, -250, -238, 20, 12, 0.01, [0x34304a, 0x4a4466], 61);
+        band(3, -140, -132, 8, 5, 0.025, [0x3e3a54, 0x524c6c], 62);
+        craters(group, W, rnd);
         for (let x = -100; x < W + 200; x += 170) trackRibbon(group, x, -150 - rnd() * 40, rnd);
         for (let x = 40; x < W; x += 120) grandstand(group, x + rnd() * 30, -60, rnd);
-        group.userData.anim.push(asteroids(group, W, rnd));
         break;
       }
       case "station": {
@@ -2122,18 +2336,20 @@
     }
     group.add(voxMesh(v, 0.5, x, base, z)); group.add(voxMesh(gl, 0.5, x, base, z, materials().glow));
   }
-  function whale(group, x, y, z) {                     // a whale's skeleton, hung from the ceiling on wires
-    const v = new Vox(), B = 0xf2ead6;
+  function whale(group, x, y, z, top) {                // a whale's skeleton, hung from the ceiling on wires
+    const v = new Vox(), B = 0xf2ead6, wire = Math.round(((top || y + 17) - y) / 0.5);
     for (let sx = 0; sx < 60; sx++) {
       const yy = Math.round(Math.sin(sx / 60 * PI) * 3); v.set(sx, yy, 0, B);
       if (sx > 12 && sx < 42 && sx % 3 === 0) for (let r = 1; r < 6 - Math.abs(sx - 27) / 6; r++) { v.set(sx, yy - r, -2, B); v.set(sx, yy - r, 2, B); }
     }
     v.box(0, -3, -2, 9, 1, 2, B); v.box(52, -1, -4, 58, 0, 4, B);
-    for (const sx of [14, 44]) v.box(sx, 2, 0, sx, 34, 0, 0x8a8a8a);
+    for (const sx of [14, 44]) v.box(sx, 2, 0, sx, wire, 0, 0x8a8a8a);
     group.add(voxMesh(v, 0.5, x, y, z));
   }
-  function waterfall(group, x, z, h) {                 // a waterfall down the cliff, foaming at its foot
+  function waterfall(group, x, z, h) {                 // a waterfall over the cliff's lip, foaming at its foot
     const v = new Vox();
+    h = Math.round(h);
+    for (let X = -1; X < 5; X++) v.set(X, h, -1, 0x7ad0e0);                                // over the edge
     for (let y = 0; y < h; y++) for (let X = 0; X < 4; X++) v.set(X, y, 0, (X + y * 2) % 5 === 0 ? 0xffffff : (X === 0 || X === 3) ? 0x7ad0e0 : 0xb8ecf6);
     for (let X = -2; X < 6; X++) v.set(X, 0, 1, 0xffffff);
     group.add(voxMesh(v, 1, x, 0, z, materials().glow));
@@ -2190,16 +2406,80 @@
     }
     return t => { for (const f of fl) { const k = 1 + Math.sin(t * 7 + f.p) * 0.12 + Math.sin(t * 13 + f.p * 3) * 0.08; f.s.scale.set(f.r * k, f.r * k * 1.2, 1); f.s.position.set(f.x, f.y, f.z); } };
   }
-  function floaters(group, W, rnd) {                   // pieces of the city, held up in the air, bobbing, in his light
-    const fl = [], M = materials();
-    for (let k = 0; k < Math.round(W / 24); k++) {
-      const v = new Vox(), n = 2 + Math.floor(rnd() * 4);
-      for (let a = 0; a < n; a++) for (let b = 0; b < 2 + (a & 1); b++) v.set(a, b, 0, (a + b) & 1 ? 0x4a4042 : 0x5a5052);
-      const m = voxMesh(v, 1, 0, 0, 0, M.vox); group.add(m);
-      const s = new THREE.Sprite(glowMat(0x70f0d0, 0.35)); s.scale.set(n + 3, 5, 1); group.add(s);
-      fl.push({ m, s, x: rnd() * W, y: 8 + rnd() * 16, z: -20 - rnd() * 30, p: rnd() * 10, n });
+
+  /* ---- what the backdrops stand on, and what stands on them */
+  /** The height of a band() at world x: its ground's top there. */
+  function bandAt(grain, base, amp, freq, seed) {
+    return wx => { const x = Math.floor((wx + 60) / grain), X = x * grain - 60;
+      return Math.max(1, Math.round((base + Math.sin(X * freq + seed) * amp + Math.sin(X * freq * 2.7 + seed * 2) * amp * 0.4) / grain)) * grain; };
+  }
+  function seaStack(group, x, z, h, rnd, T) {           // a rock standing in the bay, banded chalk, turf on top
+    const v = new Vox(), w = 2 + Math.floor(rnd() * 3);
+    for (let y = 0; y < h; y++) {
+      const ww = w + (y < 2 ? 1 : 0);
+      for (let X = -ww; X <= ww; X++) for (let Z = -2; Z <= 2; Z++)
+        v.set(X, y, Z, y === h - 1 ? 0x5ea04a : y === h - 2 && (X + Z) % 2 ? 0x4a8a3a : (y % 3 === 1) ? 0xcabfa4 : 0xe8e0cc);
     }
-    return t => { for (const f of fl) { const y = f.y + Math.sin(t * 0.7 + f.p) * 0.8; f.m.position.set(f.x, y, f.z); f.m.rotation.z = Math.sin(t * 0.4 + f.p) * 0.12; f.s.position.set(f.x + f.n / 2, y + 1, f.z + 0.5); } };
+    const top = h * 1.5 - 0.5;
+    group.add(voxMesh(v, 1.5, x, -0.5, z));
+    const palm = new THREE.Mesh(propGeo("tree", T), materials().vox);
+    palm.position.set(x - 0.6, top, z); palm.scale.setScalar(1.4 + rnd() * 0.4); group.add(palm);
+  }
+  function lighthouse(group, x, y, z) {                 // a lighthouse on the headland's turf, its lamp lit
+    const v = new Vox();
+    for (let k = 0; k < 22; k++) { const r = k < 2 ? 3 : 2; for (let X = -r; X <= r; X++) for (let Z = -r; Z <= r; Z++) if (X * X + Z * Z <= r * r + 1) v.set(X, k, Z, k < 2 ? 0xb0a890 : (k >> 2) % 2 ? 0xe03a30 : 0xfaf8f0); }
+    v.box(-3, 22, -3, 3, 22, 3, 0x3a3a42); v.box(-1, 23, -1, 1, 24, 1, 0xfff2b0); v.box(-2, 25, -2, 2, 25, 2, 0xe03a30);
+    group.add(voxMesh(v, 1, x, y, z));
+    const s = new THREE.Sprite(glowMat(0xfff2b0, 0.85)); s.scale.set(10, 10, 1); s.position.set(x, y + 24, z + 2); group.add(s);
+  }
+  function oak(group, x, y, z, k, rnd) {                // a broad tree on its trunk
+    const v = new Vox(), r = 3 + Math.floor(rnd() * 2);
+    v.box(0, 0, 0, 0, 4, 0, 0x6a4a2e);
+    for (let a = -r; a <= r; a++) for (let b = -r; b <= r; b++) for (let c = -r; c <= r; c++)
+      if (Math.hypot(a, b * 1.15, c) <= r + 0.3) v.set(a, 5 + r + b, c, (a + b * 2 + c) % 5 === 0 ? 0x4a8a3a : 0x5aa046);
+    group.add(voxMesh(v, 0.5 * k, x, y, z));
+  }
+  function fuelTank(group, x, z) {                      // a fuel tank on its footing, a ladder up its side
+    const v = new Vox();
+    v.box(-5, 0, -5, 5, 0, 5, 0x8a8a86);
+    for (let y = 1; y < 9; y++) for (let X = -4; X <= 4; X++) for (let Z = -4; Z <= 4; Z++) if (X * X + Z * Z <= 17) v.set(X, y, Z, y === 8 ? 0xd8d8d2 : y === 4 ? 0x3a6ad0 : 0xf2f0e8);
+    for (let y = 1; y < 9; y++) v.set(5, y, 0, 0x5a5a5a);
+    group.add(voxMesh(v, 0.6, x, 0, z));
+  }
+  function beacon(group, x, z) {                        // a stone beacon on the snow, the light that does not go out on top
+    const v = new Vox();
+    for (let y = 0; y < 30; y++) { const r = y < 3 ? 4 : y > 26 ? 3 : 2; for (let X = -r; X <= r; X++) for (let Z = -r; Z <= r; Z++) v.set(X, y, Z, y % 6 === 0 ? 0x8a8478 : (y > 26 ? 0xf4f8fc : 0xa8a090)); }
+    group.add(voxMesh(v, 1.4, x, 0, z));
+    const s = new THREE.Sprite(glowMat(0x6af0a0, 0.9)); s.scale.set(22, 22, 1); s.position.set(x, 30 * 1.4 + 3, z + 2); group.add(s);
+  }
+  function rubble(group, W, z, rnd) {                    // heaps of broken concrete on the ground, rebar out of them, a wall still standing
+    for (let x0 = -60; x0 < W + 60; x0 += 80) {
+      const v = new Vox();
+      for (let k = 0; k < 6; k++) {
+        const cx = Math.floor(rnd() * 80), r = 3 + Math.floor(rnd() * 4);
+        for (let a = -r; a <= r; a++) for (let c = -2; c <= 2; c++) {
+          const h = Math.max(0, Math.round((r - Math.abs(a)) * 0.8 + rnd() * 1.5));
+          for (let y = 0; y < h; y++) v.set(cx + a, y, c, (a * 3 + y * 5 + c) % 7 === 0 ? 0x2a2224 : y === h - 1 ? 0x5a5052 : 0x463c3e);
+        }
+        if (rnd() < 0.7) for (let y = 0; y < r + 3; y++) v.set(cx + 1 + (y >> 2), y + 1, 0, 0x8a4a2a);
+        if (rnd() < 0.35) { const ww = 4 + Math.floor(rnd() * 5), hh = 6 + Math.floor(rnd() * 8);
+          for (let a = 0; a < ww; a++) for (let y = 0; y < hh - (a % 3 ? 0 : 2); y++) v.set(cx + r + a, y, 2, (y % 4 === 0) ? 0x2e2426 : 0x3a3032); }
+      }
+      group.add(voxMesh(v, 1, x0, 0, z));
+    }
+  }
+  /* a hall's roof, seen from below: beams across it front to back, and lit panes (skylights, or lamps) between */
+  function hallCeiling(group, W, y, z0, z1, col, beam, light) {
+    for (let x0 = -60; x0 < W + 60; x0 += 120) {
+      const v = new Vox(), gl = new Vox(), d = Math.round(z0 - z1);
+      for (let X = 0; X < 120; X++) for (let Z = 0; Z < d; Z++) {
+        v.set(X, 1, Z, col);
+        if (X % 12 === 0) v.set(X, 0, Z, beam);
+        else if (X % 12 > 3 && X % 12 < 9 && Z % 10 > 2 && Z % 10 < 8) gl.set(X, 0.5 | 0, Z, light);
+      }
+      for (let X = 0; X < 120; X++) v.set(X, 0, 0, beam);
+      group.add(voxMesh(v, 1, x0, y, z1)); group.add(voxMesh(gl, 1, x0, y, z1, materials().glow));
+    }
   }
   function depotWall(group, W, base, z) {              // the depot's far wall: steel, ribbed, a hazard stripe along its foot
     for (let x0 = -60; x0 < W + 60; x0 += 120) {
@@ -2222,9 +2502,9 @@
     }
     group.add(voxMesh(v, 0.5, x, base, z));
   }
-  function hangLamp(group, x, y, z) {                  // a lamp hanging on its chain, lit
+  function hangLamp(group, x, y, z, top) {             // a lamp hanging on its chain from the roof, lit
     const v = new Vox();
-    v.box(0, 1, 0, 0, 14, 0, 0x5a5a62); v.box(-2, 0, -2, 2, 0, 2, 0x3a3a42); v.box(-1, -1, -1, 1, -1, 1, 0xfff2c8);
+    v.box(0, 1, 0, 0, top ? Math.round((top - y) / 0.25) : 14, 0, 0x5a5a62); v.box(-2, 0, -2, 2, 0, 2, 0x3a3a42); v.box(-1, -1, -1, 1, -1, 1, 0xfff2c8);
     group.add(voxMesh(v, 0.25, x, y, z));
     const s = new THREE.Sprite(glowMat(0xfff0c8, 0.5)); s.scale.set(4, 4, 1); s.position.set(x, y - 0.3, z + 0.2); group.add(s);
   }
@@ -2240,30 +2520,43 @@
     const ring = new THREE.Mesh(new THREE.RingGeometry(38, 50, 64), new THREE.MeshBasicMaterial({ color: 0xe8d0a8, fog: false, side: THREE.DoubleSide, transparent: true, opacity: 0.8 }));
     ring.position.set(x, y, z + 0.5); ring.scale.y = 0.28; ring.rotation.z = 0.25; group.add(ring);
   }
-  function trackRibbon(group, x, z, rnd) {             // the track's far turns, a ribbon of light hanging in space
-    const v = new Vox(), y0 = 10 + Math.floor(rnd() * 30);
+  function trackRibbon(group, x, z, rnd) {             // the track's far turns: a ribbon of light up on pylons from the ground
+    const v = new Vox(), gl = new Vox(), y0 = 8 + Math.floor(rnd() * 14);
     for (let X = 0; X < 160; X++) {
-      const y = y0 + Math.round(Math.sin(X * 0.04) * 8);
-      v.set(X, y, 0, X % 6 < 3 ? 0x7ad8ff : 0xffffff); v.set(X, y - 1, 0, 0x2a2a44);
+      const y = y0 + Math.round(Math.sin(X * 0.04) * 6);
+      gl.set(X, y, 0, X % 6 < 3 ? 0x7ad8ff : 0xffffff); v.set(X, y - 1, 0, 0x2a2a44);
+      if (X % 20 === 10) for (let k = 0; k < y - 1; k++) { v.set(X, k, 0, k % 4 === 0 ? 0x5a5a7a : 0x44445e); v.set(X + 1, k, 0, 0x3a3a52); }
     }
-    group.add(voxMesh(v, 1, x, 0, z, materials().glow));
+    group.add(voxMesh(v, 1, x, 0, z)); group.add(voxMesh(gl, 1, x, 0, z, materials().glow));
   }
-  function grandstand(group, x, z, rnd) {              // a grandstand floating in space, every seat lit
+  function grandstand(group, x, z, rnd) {              // a grandstand on the ground by the course, every seat lit
     const v = new Vox(), gl = new Vox();
-    for (let k = 0; k < 8; k++) for (let X = k; X < 36 - k; X++) { v.set(X, k, k, 0x3a3a52); if (rnd() < 0.6) gl.set(X, k + 1, k, [0xff5ac8, 0x7ad8ff, 0xf2d040, 0xffffff][Math.floor(rnd() * 4)]); }
-    for (let X = 0; X < 36; X++) v.set(X, -1, 3, 0x2a2a3a);
-    group.add(voxMesh(v, 0.5, x, 6 + rnd() * 8, z)); group.add(voxMesh(gl, 0.5, x, 6 + rnd() * 8, z, materials().glow));
-  }
-  function asteroids(group, W, rnd) {                  // rocks drifting past, turning
-    const fl = [];
-    for (let k = 0; k < Math.round(W / 30); k++) {
-      const v = new Vox(), r = 2 + Math.floor(rnd() * 3);
-      for (let a = -r; a <= r; a++) for (let b = -r; b <= r; b++) for (let c = -r; c <= r; c++) if (Math.hypot(a, b, c) <= r + rnd() * 0.6) v.set(a, b, c, rnd() < 0.3 ? 0x5a5a6a : 0x7a7a8a);
-      const m = voxMesh(v, 0.8, 0, 0, 0); group.add(m);
-      fl.push({ m, x: rnd() * W, y: 4 + rnd() * 30, z: -30 - rnd() * 60, p: rnd() * 10, sp: 0.6 + rnd() });
+    for (let k = 0; k < 8; k++) for (let X = k; X < 36 - k; X++) {
+      for (let y = 0; y <= k; y++) v.set(X, y, k, y === k ? 0x3a3a52 : 0x2a2a3c);
+      if (rnd() < 0.6) gl.set(X, k + 1, k, [0xff5ac8, 0x7ad8ff, 0xf2d040, 0xffffff][Math.floor(rnd() * 4)]);
     }
-    return t => { for (const f of fl) { f.m.position.set(((f.x + t * f.sp) % (W + 40) + W + 40) % (W + 40) - 20, f.y + Math.sin(t * 0.3 + f.p), f.z); f.m.rotation.set(t * 0.2 + f.p, t * 0.3, 0); } };
+    for (const X of [0, 35]) for (let y = 0; y < 14; y++) v.set(X, y, 8, 0x5a5a7a);
+    for (let X = 0; X < 36; X++) v.set(X, 14, 8, 0x7ad8ff);
+    group.add(voxMesh(v, 0.5, x, 0, z)); group.add(voxMesh(gl, 0.5, x, 0, z, materials().glow));
   }
+  /* the little world under the course: craters and loose rocks on its grey ground */
+  function craters(group, W, rnd) {
+    for (let x0 = -60; x0 < W + 60; x0 += 120) {
+      const v = new Vox();
+      for (let k = 0; k < 14; k++) {
+        const cx = Math.floor(rnd() * 120), cz = -Math.floor(rnd() * 90), r = 2 + Math.floor(rnd() * 5);
+        for (let a = -r - 1; a <= r + 1; a++) for (let b = -r - 1; b <= r + 1; b++) {
+          const d = Math.hypot(a, b);
+          if (d > r - 0.5 && d <= r + 1) v.set(cx + a, 0, cz + b, 0x5a5476);              // its rim
+          else if (d <= r - 0.5) v.set(cx + a, -1, cz + b, 0x26233a);                   // and its floor, sunk
+        }
+      }
+      for (let k = 0; k < 26; k++) { const rx = Math.floor(rnd() * 120), rz = -Math.floor(rnd() * 90), h = 1 + Math.floor(rnd() * 3);
+        for (let y = 0; y < h; y++) v.box(rx, y, rz, rx + h - y, y, rz + 1, y === h - 1 ? 0x6a6488 : 0x4e4a66); }
+      group.add(voxMesh(v, 1, x0, 0.02, -8));
+    }
+  }
+
   function worldBelow(group, W) {                      // the world, turning far below the station's windows
     const c = document.createElement("canvas"); c.width = 256; c.height = 128;
     const g = c.getContext("2d"), r = mulberry32(77);
@@ -2356,7 +2649,8 @@
   const SFX = {
     jump: () => tone(300, 620, 0.12, "square", 0.07),
     double: () => tone(520, 900, 0.12, "triangle", 0.09),
-    carrot: () => { tone(988, 988, 0.05, "square", 0.06); tone(1319, 1319, 0.09, "square", 0.06, 0.05); },
+    coin: () => { tone(1568, 1568, 0.05, "square", 0.05); tone(2093, 2093, 0.14, "square", 0.05, 0.05); },        // a ring
+    ringLoss: () => { for (let k = 0; k < 6; k++) tone(2093 - k * 140, 1568 - k * 140, 0.06, "square", 0.04, k * 0.035); },
     shoe: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, f, 0.12, "triangle", 0.1, i * 0.07)),
     juice: () => tone(400, 900, 0.25, "sine", 0.12),
     spring: () => tone(180, 900, 0.3, "triangle", 0.12),
@@ -2411,9 +2705,16 @@
   let host = null, opts0 = null, R = null, scene = null, camera = null, sun = null, hemi = null;
   let world = null, player = null, raf = 0, last = 0, acc = 0, mode = "menu", paused = false;
   let saveData = null, stageIdx = 0, castId = "sonic";
-  const keys = {}, pad = { L: 0, R: 0, U: 0, D: 0, J: 0, Z: 0, X: 0, C: 0 }, touch = { L: 0, R: 0, U: 0, D: 0, J: 0, Z: 0, X: 0, C: 0 };
-  const input = { L: 0, R: 0, U: 0, D: 0, J: 0, Z: 0, X: 0, C: 0, jp: 0, zp: 0, xp: 0, cp: 0, dash: 0 };
-  let padStart = 0;
+  const keys = {}, duoKeys = [{}, {}], pad = { L: 0, R: 0, U: 0, D: 0, J: 0, Z: 0, X: 0, C: 0 }, touch = { L: 0, R: 0, U: 0, D: 0, J: 0, Z: 0, X: 0, C: 0 };
+  /* `input` is the hands of whoever is moving now: the one runner's (INPUT0), or in a battle each
+     fighter's own in turn -- a player's keys or pad, or the CPU's. */
+  const newInput = () => ({ L: 0, R: 0, U: 0, D: 0, J: 0, Z: 0, X: 0, C: 0, jp: 0, zp: 0, xp: 0, cp: 0, dash: 0 });
+  const INPUT0 = newInput();
+  let input = INPUT0;
+  /* A battle (or training) under way: its fighters and rules (see "battle" below). `actor` is
+     the fighter whose blow, shot or trap is landing now; `hitTok` the blow itself, so it lands
+     on each fighter once; `hitDmg` and `hitKnock` how hard. */
+  let battle = null, actor = null, hitTok = null, hitDmg = 8, hitKnock = 0.85;
 
   function stages() { return (root.AdventureStages && AdventureStages.LIST) || []; }
 
@@ -2464,9 +2765,9 @@
       const m = new THREE.Mesh(TG[c], M.vox); m.position.set(i, j, 0); m.castShadow = m.receiveShadow = true; group.add(m);
       w.tiles[i + "," + j] = { c, m, i, j, t: 0, gone: 0 };
     }
-    // carrots, as one instanced mesh
+    // the rings, as one instanced mesh (`carrots` inside: the stage's c)
     const cs = S.ents.filter(e => e.t === "c");
-    const cm = new THREE.InstancedMesh(propGeo("carrot"), M.vox, Math.max(1, cs.length));
+    const cm = new THREE.InstancedMesh(propGeo("ring"), M.vox, Math.max(1, cs.length));
     cm.castShadow = true; group.add(cm);
     w.carrotMesh = cm;
     cs.forEach((e, k) => w.carrots.push({ x: e.i + 0.5, y: e.j + 0.35, k, got: false }));
@@ -2477,12 +2778,30 @@
       const x = e.i + 0.5, y = e.j;
       switch (e.t) {
         case "P": w.start = { x, y }; break;
-        case "G": w.goal = { x, y, m: put(propGeo("goal"), x, y, 0) }; break;
+        case "G":
+          w.goal = { x, y, m: put(propGeo(def.story ? "relic" : "goal"), x, y, def.story ? 0 : -0.4), spin: 0 };
+          if (def.story) { const g = new THREE.Sprite(glowMat(0xff7060, 0.7)); g.scale.set(3.6, 3.6, 1); g.position.set(x, y + 2.0, -0.3); group.add(g); }
+          break;
         case "K": w.checks.push({ x, y, on: false, m: put(propGeo("pole"), x, y, -0.9) }); break;
-        case "*": w.ents.push({ t: "star", x, y: y + 0.3, m: put(propGeo("rainbow"), x, y + 0.3) }); break;
-        case "J": w.ents.push({ t: "juice", x, y: y + 0.2, m: put(propGeo("juice"), x, y + 0.2) }); break;
-        case "H": w.shoes.push({ t: "shoe", n: shoeN, x, y: y + 0.3, m: put(propGeo("shoe"), x, y + 0.3) }); shoeN++; break;
-        case "S": w.ents.push({ t: "spring", x, y, m: put(propGeo("spring"), x, y), sq: 0 }); break;
+        /* item monitors: * holds invincibility or the speed shoes, J ten rings or a shield, by turns along the stage */
+        case "*": case "J": {
+          const kind = e.t === "*" ? ((e.i + e.j) % 2 ? "speed" : "star") : ["ring", "shield", "magnet"][(e.i + e.j) % 3];
+          let m;
+          if (ITEMS) { m = makeCard("items"); group.add(m); setFrame(m, "mon." + kind, 0, 1, x, y, false, 0.1, 0.9); }
+          else m = put(propGeo("monitor_" + (kind === "magnet" ? "shield" : kind)), x, y, 0);
+          w.ents.push({ t: "monitor", kind, x, y, m });
+          break;
+        }
+        case "E": w.arena = { x0: e.i, y }; break;          // Eggman's arena: its left edge (the boss, below)
+        case "H": w.shoes.push({ t: "shoe", n: shoeN, x, y: y + 0.2, m: put(propGeo("redring"), x, y + 0.2) }); shoeN++; break;   // a Red Star Ring
+        case "S": {                                     // a spring, its coil squashed down at rest
+          const m = new THREE.Group(), part = n => { const q = new THREE.Mesh(propGeo(n), M.vox); q.castShadow = q.receiveShadow = true; m.add(q); return q; };
+          part("springBase"); const coil = part("springCoil"), cap = part("springCap");
+          m.position.set(x, y, 0); group.add(m);
+          w.ents.push({ t: "spring", x, y, m, coil, cap, sq: 0 });
+          springPose({ coil, cap, sq: 0 });
+          break;
+        }
         case ">": w.ents.push({ t: "dash", x, y, m: put(propGeo("dash"), x, y + 0.01) }); break;
         case "h": { const m = put(propGeo("hurdle", T), x, y); w.solids.push({ t: "hurdle", x0: x - 0.2, x1: x + 0.2, y0: y, y1: y + 1.0, m, alive: true }); break; }
         case "Q": w.ents.push({ t: "bumper", x, y: y + 0.5, m: put(propGeo("bumper", T), x, y + 0.5, -0.3), sq: 0, cd: 0 }); break;
@@ -2541,6 +2860,7 @@
       scene.add(w.snow);
     }
     shoeN = 0;
+    if (w.arena && def.boss && def.last && BSH && BOSS[def.boss]) w.boss = newBoss(def.boss, w);   // Eggman, waiting in his arena
     return w;
   }
 
@@ -2567,14 +2887,16 @@
 
   // ---------------------------------------------------------------- the runner
   function makePlayer(c) {
-    sheetMats(c.id).mat.color.setHex(world.T.tint || 0xffffff);
+    if (c.id === "emerl" && !c.emerl) c = emerlCast();
+    sheetMats(c.sheet || c.id).mat.color.setHex(world.T.tint || 0xffffff);
     if (BADS) badMats().mat.color.setHex(world.T.tint || 0xffffff);        // the badniks in the same light
-    const spr = makeCard(c.id); world.group.add(spr);
+    if (ITEMS) sheetMats("items").mat.color.setHex(world.T.tint || 0xffffff);  // and the monitors
+    const spr = makeCard(c.sheet || c.id); world.group.add(spr);
     // Sonic Advance's Spin Dash dust, kicked up behind a rev
     const dust = framesOf(c.id, "fx.rev") ? makeCard(c.id, "fx") : null;
     if (dust) { dust.visible = false; world.group.add(dust); }
     return { c, spr, dust, x: world.start.x, y: world.start.y, vx: 0, vy: 0, face: 1, ground: true, curl: false, coyote: 0, on: null,
-             state: "run", st: 0, hearts: 3, inv: 0, carrots: 0, nextHeal: 50, shoes: [false, false, false], falls: 0,
+             state: "run", st: 0, inv: 0, carrots: 0, ringsGot: 0, shield: false, speedT: 0, shoes: world.shoes.map(() => false), falls: 0,
              check: { x: world.start.x, y: world.start.y }, airMove: false, airSp: false, airUses: 0, cd: { shot: 0, power: 0, trap: 0 },
              rev: 0, star: 0, air: AIR, inWater: false, wasWater: false, jumping: false, dead: 0, target: null, onTile: null,
              flyLeft: c.flyTime || 0, hh: c.h, warnAt: 0, mv: null, sp: null, anim: { key: null, t: 0 }, landT: 0, drop: false };
@@ -2645,10 +2967,47 @@
     if (t.c === "B") for (let k = 0; k < 3; k++) spawnLoose(i + 0.5, j + 0.7, (k - 1) * 2.2, 7 + k);
     return true;
   }
-  /* A crate's carrots jump out and can be caught. */
-  function spawnLoose(x, y, vx, vy) {
-    const m = new THREE.Mesh(propGeo("carrot"), materials().vox); m.position.set(x, y, 0); world.group.add(m);
-    world.ents.push({ t: "loose", x, y, vx, vy, m, life: 6 });
+  /* Rings loose: a crate's, which jump out and can be caught; or a runner's own, knocked out of
+     them by a hit, flying every way, to be caught again in the few seconds before they vanish. */
+  function spawnLoose(x, y, vx, vy, own) {
+    const m = new THREE.Mesh(propGeo("ring"), materials().vox); m.position.set(x, y, 0); world.group.add(m);
+    world.ents.push({ t: "loose", x, y, vx, vy, m, life: own ? 4.2 : 6, wait: own ? 0.6 : 0.3, own: !!own });
+  }
+  /* what a beaten badnik lets go: the animal inside it, which hops or flies off, as in the classic games */
+  /* a spring's coil, stretched by how lately it threw someone (sq 1 just now, 0 at rest): it
+     shoots up, overshoots, and settles back squashed, as Sonic Advance 3's does */
+  function springPose(e) {
+    const k = e.sq > 0 ? 1 - e.sq : 1;
+    const s = e.sq > 0 ? 0.45 + 2.0 * Math.exp(-k * 4) * Math.abs(Math.cos(k * 7)) : 0.45;
+    e.coil.position.y = 3 / 16; e.coil.scale.y = s;
+    e.cap.position.y = (3 + 8 * s) / 16;
+  }
+  function spawnCritter(x, y) {
+    const bird = Math.random() < 0.5, m = new THREE.Mesh(propGeo(bird ? "bird" : "bunny"), materials().vox);
+    m.position.set(x, y, 0.2); world.group.add(m);
+    world.ents.push({ t: "critter", bird, x, y, vx: (Math.random() < 0.5 ? -1 : 1) * (bird ? 3.5 : 3), vy: bird ? 5 : 6, m, life: 2.6 });
+  }
+  /* a hit with rings: they fly out of the runner every way -- thirty-two at most, as in the games */
+  function scatterRings(p) {
+    const n = Math.min(32, p.carrots);
+    p.carrots = 0;
+    for (let k = 0; k < n; k++) {
+      const a = PI / 2 + (k % 16 - 7.5) * 0.19 * (k < 16 ? 1 : 1.6), sp = k < 16 ? 7 : 4.5;
+      spawnLoose(p.x, p.y + p.hh * 0.5, Math.cos(a) * sp * (k % 2 ? 1 : -1), Math.abs(Math.sin(a)) * sp + 3, true);
+    }
+    SFX.ringLoss();
+  }
+  /* an item monitor broken open: what it held */
+  function openMonitor(p, e) {
+    e.gone = true; e.m.visible = false;
+    if (ITEMS) effect("items", "smoke", e.x, e.y + 0.45, 1, 16, true, "fx", 0.9);                  // it goes up in smoke
+    else burst(e.x, e.y + 0.5, [0xc8ccd6, 0xffffff, 0x182040], 12, 5);
+    SFX.pop();
+    if (e.kind === "ring") { p.carrots += 10; p.ringsGot += 10; SFX.coin(); hudToast("Super Ring: ten rings"); }
+    else if (e.kind === "shield") { p.shield = "green"; SFX.set(); hudToast("Shield: it takes one hit for you"); }
+    else if (e.kind === "magnet") { p.shield = "magnet"; SFX.set(); hudToast("Magnetic Shield: rings come to you"); }
+    else if (e.kind === "star") { p.star = 15; SFX.star(); hudToast("Invincibility"); }
+    else { p.speedT = 12; SFX.dash(); hudToast("Speed Shoes"); }
   }
   /** A blow lands on a box of the world: whatever is in it -- things alive, cracked rock,
       crates, hurdles -- is beaten or broken, things alive knocked by `kick` (see defeat).
@@ -2669,6 +3028,14 @@
       if ((t === "X" || t === "B") && breakTile(i, j)) { at(i, i + 1, j, j + 1); n++; }
     }
     for (const b of world.solids) if (b.alive && b.x1 > x0 && b.x0 < x1 && b.y1 > y0 && b.y0 < y1) { at(b.x0, b.x1, b.y0, b.y1); smashHurdle(b); n++; }
+    if (world.boss && !battle) n += bossStrike(x0, x1, y0, y1);
+    /* in a battle, the other side's fighters (not one's own team) */
+    if (battle && actor) for (const q of battle.fs) {
+      if (!rivals(actor, q) || q.ko || q.out) continue;
+      const qx0 = q.x - q.c.w / 2, qx1 = q.x + q.c.w / 2;
+      if (qx1 <= x0 || qx0 >= x1 || q.y + q.hh <= y0 || q.y >= y1) continue;
+      if (hitFighter(q, kick, (x0 + x1) / 2)) { at(qx0, qx1, q.y, q.y + q.hh); n++; }
+    }
     return n;
   }
 
@@ -2738,14 +3105,18 @@
     else if (p.state === "atk" && p.mv.air && p.mv.name !== "aim") { p.state = "run"; p.mv = null; }
   }
 
+  /* Hurt, the Sonic way: a shield takes the hit and goes; else the rings fly out; with no rings
+     at all, the runner is down, and goes back to the last Star Post. */
   function hurt(p, fromX) {
     if (p.inv > 0 || p.star > 0 || p.dead) return;
-    p.hearts--; p.inv = 1.6;
+    p.inv = 1.6;
     p.vx = -sgn(fromX - p.x || p.face) * 7; p.vy = 8; p.ground = false;
     p.state = "hurt"; p.st = 0.45; p.curl = false; p.mv = null; p.sp = null;
     SFX.hurt(); flashHud();
     burst(p.x, p.y + 1, [0xffffff, 0xf2d040], 8, 4);
-    if (p.hearts <= 0) die(p, "beaten");
+    if (p.shield) { p.shield = false; burst(p.x, p.y + p.hh / 2, [0x6ac8ff, 0xffffff], 14, 5); return; }
+    if (p.carrots > 0) scatterRings(p);
+    else die(p, "beaten");
   }
   function die(p, why) {
     if (p.dead) return;
@@ -2753,7 +3124,7 @@
     SFX.fall();
   }
   function respawn(p) {
-    p.dead = 0; p.hearts = 3; p.x = p.check.x; p.y = p.check.y + 0.02; p.vx = 0; p.vy = 0; p.inv = 1.4;
+    p.dead = 0; p.carrots = 0; p.shield = false; p.speedT = 0; p.x = p.check.x; p.y = p.check.y + 0.02; p.vx = 0; p.vy = 0; p.inv = 1.4;
     p.state = "run"; p.ground = false; p.air = AIR; p.star = 0; p.rev = 0; p.mv = null; p.sp = null; p.curl = false;
     snapCamera();
   }
@@ -2761,14 +3132,15 @@
   // ---------------------------------------------------------------- moving
   function step(dt) {
     const p = player, w = world, c = p.c;
-    w.t += dt;
+    if (!battle) w.t += dt;                               // (a battle keeps one clock for everyone)
+    if (p.ko) { stepKO(p, dt); return; }
     if (p.dead) {
       p.dead -= dt;
       if (p.dead <= 0) respawn(p);
       return;
     }
     if (mode === "goal") { p.vx *= Math.pow(0.02, dt); goalStep(p, dt); if (!p.ground) p.vy = Math.max(p.vy - GRAV * dt, -22); integrate(p, dt); return; }
-    p.inv = Math.max(0, p.inv - dt); p.star = Math.max(0, p.star - dt);
+    p.inv = Math.max(0, p.inv - dt); p.star = Math.max(0, p.star - dt); p.speedT = Math.max(0, (p.speedT || 0) - dt);
     for (const k in p.cd) p.cd[k] = Math.max(0, p.cd[k] - dt);
     p.comboT = Math.max(0, (p.comboT || 0) - dt);
     p.drop = false;
@@ -2787,20 +3159,25 @@
       if (p.air < 6 && w.t > p.warnAt) { SFX.warn(); p.warnAt = w.t + 1; }
       if (p.air <= 0) { die(p, "air"); return; }
     } else p.air = AIR;
-    let top = c.run * (p.star > 0 ? 1.22 : 1), acc = p.ground ? c.accel : c.airAccel, fr = p.ground ? 30 : 4;
+    let top = c.run * (p.star > 0 ? 1.22 : 1) * (p.speedT > 0 ? 1.35 : 1), acc = (p.ground ? c.accel : c.airAccel) * (p.speedT > 0 ? 1.3 : 1), fr = p.ground ? 30 : 4;
     if (p.inWater) { if (c.swims) { acc *= 1.2; fr = 12; } else { top *= 0.62; acc *= 0.6; fr = 8; } }
     if (mud) top *= 0.5;
     if (ice) { acc *= 0.32; fr = 2.2; }
     p.st -= dt;
+    if (battle) guardUpkeep(p, dt);
     p.hh = (p.state === "crouch" || p.state === "roll" || p.state === "charge") && !c.lift ? 0.72 : c.h;
     if (p.state === "ledge") { stepLedge(p, dt); interact(p, dt); return; }
 
     // what they are in the middle of
     switch (p.state) {
-      case "hurt": case "stumble": if (p.st <= 0) p.state = "run"; break;
+      case "hurt": case "stumble":
+        if (battle && p.ground && p.state === "hurt") p.vx *= Math.pow(0.03, dt);     // knocked along the floor, sliding to a stop
+        if (p.st <= 0) p.state = "run";
+        break;
       case "crouch":
         p.vx = Math.abs(p.vx) <= fr * dt ? 0 : p.vx - sgn(p.vx) * fr * dt;
         if (!input.D || !p.ground) { p.state = "run"; p.landT = 0.1; }
+        else if (battle) stepGuard(p, dt);                // in a battle, Down guards, and held, heals
         break;
       case "charge":                                       // a Spin Dash, revving: tap Space, let go of Down
         p.vx *= Math.pow(0.0005, dt);
@@ -2847,7 +3224,7 @@
       case "fly":
         p.flyLeft -= dt;
         if (input.D) { p.state = "run"; p.catchT = 0.3; }        // Rouge Catch: lets go
-        else if (p.inWater && c.id !== "tails") p.state = "run";
+        else if (p.inWater && srcOf(p, "air") !== "tails") p.state = "run";
         else if (c.air === "hover" && p.flyLeft <= 0 && !c.glides) p.state = "run";   // Gamma's Flight Mode runs out
         break;
       case "glide":
@@ -2858,7 +3235,7 @@
     }
     // running, and steering in the air
     if (p.state === "run" || p.state === "fly" || p.state === "teleport") {
-      const t2 = p.state === "fly" ? Math.min(top * 1.3, c.run * (c.flyK || (c.id === "rouge" ? 0.8 : 0.66))) : top;
+      const t2 = p.state === "fly" ? Math.min(top * 1.3, c.run * (c.flyK || (srcOf(p, "air") === "rouge" ? 0.8 : 0.66))) : top;
       if (dir) {
         if (sgn(p.vx) !== dir && Math.abs(p.vx) > 0.4) p.vx += dir * acc * (ice ? 1 : 2.4) * dt;
         else if (Math.abs(p.vx) < t2) p.vx = clamp(p.vx + dir * acc * dt, -t2, t2);
@@ -2964,10 +3341,10 @@
         break;
       }
       case "fly":                                          // Tails' tails and Rouge's wings: tap to climb, till tired
-        if (p.inWater && c.id !== "tails") return;
+        if (p.inWater && srcOf(p, "air") !== "tails") return;
         if (p.state !== "fly") { if (p.flyLeft <= 0) return; p.state = "fly"; p.curl = false; p.jumping = false; }
         /* each stroke lifts, but not past the top of the stage: there is nothing to fly over */
-        if (p.flyLeft > 0) { p.vy = p.y > H - 3 ? Math.min(p.vy, 0.5) : Math.min(Math.max(p.vy, 0) + (c.id === "tails" ? 4.4 : 4), 5.2); SFX.flap(); }
+        if (p.flyLeft > 0) { p.vy = p.y > H - 3 ? Math.min(p.vy, 0.5) : Math.min(Math.max(p.vy, 0) + (srcOf(p, "air") === "tails" ? 4.4 : 4), 5.2); SFX.flap(); }
         break;
       case "glide":                                        // Knuckles: hold Space
         if (p.state === "glide") return;
@@ -3033,18 +3410,19 @@
       if (gy !== null && gy > p.y) p.y = gy;
     }
     p.vy = Math.max(p.vy, 1.5); p.state = "teleport"; p.st = 0.28; p.inv = Math.max(p.inv, 0.3); p.curl = false; p.jumping = false;
-    effect(p.c.id, "after", from.x, from.y, p.face, 18, false, "body");
+    if (framesOf(p.c.sheet || p.c.id, "after")) effect(p.c.sheet || p.c.id, "after", from.x, from.y, p.face, 18, false, "body");
     burst(from.x, from.y + 0.5, [0xf03a4a, 0xffe060, 0xffffff], 8, 3);
     SFX.teleport();
   }
   function startCharge(p) { p.state = "charge"; p.curl = true; p.rev = 0.15; SFX.rev(0.1); }
   const dashK = c => c.dashK || (c.id === "shadow" ? 1.45 : 1.25);
+  const dashFrom = c => c.dashFrom || c.id;           // whose dash this is (Emerl's copies one)
   function startDash(p, d) {
     const c = p.c;
-    p.state = "dash"; p.face = d; p.st = c.dashT || (c.id === "knuckles" ? 0.42 : 0.3); p.driveT2 = 0;
+    p.state = "dash"; p.face = d; p.st = c.dashT || (dashFrom(c) === "knuckles" ? 0.42 : 0.3); p.driveT2 = 0;
     p.vx = d * c.run * dashK(c);
-    if (c.id === "sonic" || c.id === "tails") { p.vy = 4.5; p.ground = false; p.on = null; }    // Sonic Dash and Tails Hop are hops
-    if (c.id === "shadow" || c.dashInv) p.inv = Math.max(p.inv, p.st);                        // gone while he dashes; Chaos a puddle
+    if (dashFrom(c) === "sonic" || dashFrom(c) === "tails") { p.vy = 4.5; p.ground = false; p.on = null; }    // Sonic Dash and Tails Hop are hops
+    if (dashFrom(c) === "shadow" || c.dashInv) p.inv = Math.max(p.inv, p.st);                        // gone while he dashes; Chaos a puddle
     SFX.dash();
   }
   function startClimb(p, wall) { p.state = "climb"; p.wall = wall; p.face = wall; p.vx = 0; p.vy = 0; p.curl = false; p.grabT = 0.14; SFX.grab(); }
@@ -3094,7 +3472,7 @@
       if (p.airMove) return;
       p.airMove = true;
       if (kind === "heavy" && input.D) return startSeek(p);
-      if (kind === "light" && c.id === "shadow") {         // his Homing Attack
+      if (kind === "light" && srcOf(p, "airatk") === "shadow") {         // his Homing Attack
         const t = homingTarget(p, 7.5);
         if (t) { p.state = "homing"; p.target = t; p.st = 0.6; p.curl = true; SFX.homing(); return; }
       }
@@ -3107,16 +3485,16 @@
     startBlow(p, name);
   }
   function startBlow(p, name) {
-    const b = blow(p.c, name), n = framesOf(p.c.id, name).length;
+    const bw = srcOf(p, name), b = blow(castOf(bw), name), n = (framesOf(p.c.sheet || p.c.id, name) || framesOf(p.c.sheet || p.c.id, "atk1")).length;
     const h0 = Math.floor(n * 0.3), h1 = Math.max(h0, Math.ceil(n * 0.7) - 1);
     p.state = "atk"; p.curl = false;
     p.mv = { name, t: 0, fps: b.fps, n, reach: b.reach, step: b.step, h0, h1, live: false, queue: null, air: !p.ground, struck: false,
              speed: Math.max(Math.abs(p.vx), p.c.run * 0.9) };
     if (name === "airatk") p.vy = Math.max(p.vy, 4);
     /* Cream's blows are Cheese's: out in front of her, keeping time with her */
-    if (CHEESE[name] && framesOf(p.c.id, CHEESE[name])) {
+    if (CHEESE[name] && framesOf(bw, CHEESE[name])) {
       const nm = CHEESE[name], up = name === "upper" ? 0.95 : 0.55;
-      effect(p.c.id, nm, p.x + p.face * 0.8, p.y + up, p.face, framesOf(p.c.id, nm).length * b.fps / n, true, "fx", 1, 0, { p, ox: 0.8, oy: up });
+      effect(bw, nm, p.x + p.face * 0.8, p.y + up, p.face, framesOf(bw, nm).length * b.fps / n, true, "fx", 1, 0, { p, ox: 0.8, oy: up });
     }
     SFX.swing(name === "heavy" || name === "dashatk" || name === "upper");
   }
@@ -3128,10 +3506,11 @@
     if (m.name === "dashatk") p.vx = p.face * m.speed * (i <= m.h1 ? 1 : 0.45);
     else if (!m.air) p.vx = p.face * m.step * (i <= m.h1 ? 1 : 0.2);
     // Amy's upper is her hammer swung at the ground: a Hammer Jump
-    if (c.id === "amy" && m.name === "upper" && i >= m.h0 && !m.launched) { m.launched = true; p.vy = 16.5; p.ground = false; p.on = null; SFX.spring(); }
+    if (srcOf(p, "upper") === "amy" && m.name === "upper" && i >= m.h0 && !m.launched) { m.launched = true; p.vy = 16.5; p.ground = false; p.on = null; SFX.spring(); }
     if (m.live) {
       const up = m.name === "upper" ? 0.9 : 0;
       const x0 = p.face > 0 ? p.x : p.x - c.w / 2 - m.reach, x1 = p.face > 0 ? p.x + c.w / 2 + m.reach : p.x;
+      tok(m, blowDmg(p, m.name), m.name === "atk1" || m.name === "atk2" ? 0.35 : 0.85);
       if (strike(x0, x1, p.y + 0.08, p.y + p.hh + up, blowKick(p)) && !m.struck) landBlow(p);
     }
     // the combo: the next blow, pressed once this one has landed
@@ -3148,7 +3527,7 @@
   }
   /** The knock a blow gives what it hits: forward and up, by its row and the runner's weight. */
   function blowKick(p) {
-    const H = HITS[p.mv.name] || HITS.atk1, k = hitWeight(p.c, p.mv.name);
+    const H = HITS[p.mv.name] || HITS.atk1, k = hitWeight(castOf(srcOf(p, p.mv.name)), p.mv.name);
     return { vx: p.face * H.kick[0] * k, vy: H.kick[1] * k };
   }
   /** A blow connects: a hit spark in the runner's colour where it met, a flash, and the picture
@@ -3157,7 +3536,7 @@
   function landBlow(p) {
     const m = p.mv; if (!m || m.struck) return;
     m.struck = true;
-    const H = HITS[m.name] || HITS.atk1, k = hitWeight(p.c, m.name), col = HIT_C[p.c.id] || 0xffffff;
+    const H = HITS[m.name] || HITS.atk1, k = hitWeight(castOf(srcOf(p, m.name)), m.name), col = HIT_C[p.c.id] || 0xffffff;
     const h = world.hitAt || { x: p.x + p.face * (p.c.w / 2 + m.reach * 0.6), y: p.y + p.hh * 0.55 };
     hitSpark(h.x, h.y, H.spark * k, col);
     flash(h.x, h.y, H.spark * 1.5 * k, col);
@@ -3201,6 +3580,7 @@
     for (const e of world.ents) if (e.t === "spring") consider(e, e.x, e.y + 0.3);
       else if ((e.t === "balloon" && !e.back) || e.t === "bumper") consider(e, e.x, e.y - 0.4);
     for (const b of world.solids) if (b.alive) consider(Object.assign(b, { x: (b.x0 + b.x1) / 2, y: b.y0, h: 1 }), (b.x0 + b.x1) / 2, b.y0 + 0.5);
+    if (battle) for (const q of battle.fs) if (rivals(p, q) && !q.ko && !q.out) consider(q, q.x, q.y + q.hh / 2);
     return best;
   }
 
@@ -3208,13 +3588,15 @@
   /** C: the shot; Up + C the power; Down + C the trap, or sets off the traps already down. */
   function startSpecial(p) {
     const c = p.c, air = !p.ground, kind = input.U ? "power" : input.D ? "trap" : "shot";
-    if (kind === "trap" && world.traps.some(t => !t.gone)) { world.traps.forEach(t => { if (!t.gone) boomTrap(t); }); return; }
+    if (kind === "trap" && world.traps.some(t => !t.gone && mine(t, p))) { world.traps.forEach(t => { if (!t.gone && mine(t, p)) boomTrap(t); }); return; }
     if (p.cd[kind] > 0 || (air && p.airSp)) return;
     if (air) p.airSp = true;
-    const S = SPECIALS[c.id][(air ? "air" : "") + kind];
+    const slot = (air ? "air" : "") + kind;
+    let S = SPECIALS[c.id] && SPECIALS[c.id][slot];
+    if (c.emerl) S = emerlSpecial(p, slot);           // Emerl: the move he copied in that slot, in his own frames
     p.cd[kind] = kind === "power" ? 1.4 : kind === "trap" ? 0.7 : 0.45;
     p.state = "special"; p.curl = false; p.jumping = false;
-    p.sp = Object.assign({ t: 0, fired: false, air }, S, { n: framesOf(c.id, S.body).length * (S.loops || 1) });
+    p.sp = Object.assign({ t: 0, fired: false, air, kind }, S, { n: (framesOf(c.sheet || c.id, S.body) || [0]).length * (S.loops || 1) });
     if (air && !S.dive) p.vy = Math.max(p.vy, 1);
     SFX.cast();
   }
@@ -3231,13 +3613,14 @@
       if (s.glow <= 0 && s.bits !== 0 && i >= (s.gfrom || 0)) { s.glow = s.muzzle ? 0.02 : 0.03; gather(p, s.charge, s); }
     }
     if (!s.fired && i >= s.at) { s.fired = true; fire(p, s); if (p.state !== "special") { p.sp = null; return; } }
-    if (s.shield && s.fired) strike(p.x - 1.0, p.x + 1.0, p.y - 0.1, p.y + 1.9, { r: 10, cx: p.x, cy: p.y + 0.9 });   // the Black Shield breaks what it meets
+    if (s.shield && s.fired && tok(s, 6)) strike(p.x - 1.0, p.x + 1.0, p.y - 0.1, p.y + 1.9, { r: 10, cx: p.x, cy: p.y + 0.9 });   // the Black Shield breaks what it meets
     if (i >= s.n) {
       p.sp = null; p.state = "run";
-      if (s.shield) effect(p.c.id, "fx.power", p.x, p.y + 0.9, p.face, 14, true, "fx", 1.3);                   // and breaks up
+      if (s.shield) effect(s.fxWho || p.c.id, "fx.power", p.x, p.y + 0.9, p.face, 14, true, "fx", 1.3);        // and breaks up
       if (s.drive) {
         p.state = "roll"; p.curl = true; p.vx = p.face * 19; p.driveT = 0.42; SFX.roll();
-        if (p.ground) effect(p.c.id, "fx.dust", p.x - p.face * 0.6, p.y, -p.face, 22, false);
+        const dw = s.fxWho || p.c.id;
+        if (p.ground && framesOf(dw, "fx.dust")) effect(dw, "fx.dust", p.x - p.face * 0.6, p.y, -p.face, 22, false);
         impact(p.x - p.face * 0.3, p.y + 0.4, { c: 0x9ad4ff, flash: 1.8, shake: 0.12 });
       }
     }
@@ -3248,7 +3631,7 @@
   function stepCharged(p, s, dt) {
     const H = s.charged;
     if (!s.phase) {
-      if (s.fired || Math.floor(s.t * s.fps) < H.at || !input.C) return false;
+      if (s.fired || Math.floor(s.t * s.fps) < H.at || !input.C || !framesOf(p.c.sheet || p.c.id, H.body)) return false;
       s.phase = "charge"; s.ct = 0; s.body = H.body; s.t = 0; SFX.charge(H.max);
     }
     if (s.phase !== "charge") return false;              // the release plays as any special does
@@ -3258,7 +3641,7 @@
     if (s.glow <= 0) { s.glow = 0.025; gather(p, s.charge || 0xffffff, { muzzle: s.muzzle, t: Math.min(s.ct, H.max), fps: 1, at: H.max }); }
     if (!input.C || s.ct >= H.max) {
       const k = 1 + Math.min(1, s.ct / H.max) * 0.8;
-      s.phase = "release"; s.body = H.release; s.t = 0; s.at = H.rat; s.n = framesOf(p.c.id, H.release).length;
+      s.phase = "release"; s.body = H.release; s.t = 0; s.at = H.rat; s.n = framesOf(p.c.sheet || p.c.id, H.release).length;
       s.k = (s.k || 1) * k; s.life *= k; s.speed *= 1.1; s.pow = Object.assign({}, s.pow, { flash: s.pow.flash * k, shake: s.pow.shake * k });
     }
     return true;
@@ -3282,10 +3665,11 @@
       const f = p.face;
       flash(p.x + f * 0.9, p.y + (s.air ? 0.3 : 0.55), 3.2);
       const fy = p.y + (s.air ? 0.35 : 0.5);
-      if (framesOf(p.c.id, "fx.flare")) effect(p.c.id, "fx.flare", p.x + f * 1.3, fy, f, 26, true, "fx", 1.1);
-      if (framesOf(p.c.id, "fx.crescent")) effect(p.c.id, "fx.crescent", p.x + f * 1.1, fy, f, 30, true, "ghost", 1.8);
+      const fw = s.fxWho || p.c.id;
+      if (framesOf(fw, "fx.flare")) effect(fw, "fx.flare", p.x + f * 1.3, fy, f, 26, true, "fx", 1.1);
+      if (framesOf(fw, "fx.crescent")) effect(fw, "fx.crescent", p.x + f * 1.1, fy, f, 30, true, "ghost", 1.8);
       burst(p.x + f * 0.8, p.y + 0.4, [0xffffff, 0xcfe8ff, 0x9ad4ff], 16, 6);
-      if (p.ground) effect(p.c.id, "fx.dust", p.x - f * 0.5, p.y, -f, 24, false);
+      if (p.ground && framesOf(fw, "fx.dust")) effect(fw, "fx.dust", p.x - f * 0.5, p.y, -f, 24, false);
       shakeCam(0.28); SFX.blast();
       p.sp = null; p.state = "recoil"; p.st = 0.32; p.curl = false;
       p.vx = -f * s.recoil;
@@ -3368,8 +3752,10 @@
     a.scale.setScalar(size); b.scale.setScalar(size * 0.5);
     world.group.add(a, b); world.flashes.push({ s: a, s2: b, size, t: 0, life: 0.17, spark: true });
   }
+  let fireDmg = 8;
   function fire(p, s) {
-    const who = p.c.id, f = p.face;
+    const who = s.fxWho || p.c.id, f = p.face;           // (Emerl's copied moves: their source's effects)
+    fireDmg = spDmg(p, s);
     // the release: a flash at the hand, a jolt, and a push back
     const mz = s.muzzle;
     if (s.pow && !s.dive && !s.blast) {
@@ -3394,6 +3780,7 @@
     } else if (s.area) {
       const ax = p.x + f * s.ax, ay = p.y + s.ay;
       effect(who, s.area, ax, ay, f, 22, true, "fx", k);
+      tok(s, spDmg(p, s));
       if (strike(ax - s.w / 2, ax + s.w / 2, ay - s.h / 2, ay + s.h / 2, { r: 11, cx: ax - f * 0.6, cy: ay - 0.3 })) hitStop(0.05);
       SFX.boom();
     } else if (s.drive) {
@@ -3406,8 +3793,9 @@
       const by = p.y + 1.0;
       effect(who, "fx.boom", p.x, by, f, 16, true, "fx", s.k);
       impact(p.x, by, s.pow); burst(p.x, by, [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 30, 9);
-      strike(p.x - s.w / 2, p.x + s.w / 2, p.y - 0.6, p.y + s.h, { r: 14, cx: p.x, cy: p.y + 0.4 });
-      if (p.hearts > 1) { p.hearts--; flashHud(); }
+      tok(s, 22); strike(p.x - s.w / 2, p.x + s.w / 2, p.y - 0.6, p.y + s.h, { r: 14, cx: p.x, cy: p.y + 0.4 });
+      if (battle) p.hp = Math.max(1, p.hp - 10);          // (in a battle it costs him health)
+      else if (p.carrots > 0) { p.carrots = Math.max(0, p.carrots - 10); flashHud(); }   // (on a stage, rings)
       p.inv = Math.max(p.inv, 1.2); SFX.boom(); SFX.impact();
     } else if (s.shield) { p.inv = Math.max(p.inv, (s.n - s.at) / s.fps + 0.2); SFX.set(); }   // Metal's Black Shield: nothing gets through
   }
@@ -3433,21 +3821,23 @@
   function diveLand(p, fell) {
     const kind = p.dive;
     if (kind === "meteor" || kind === "drill") {
-      strike(p.x - 1.0, p.x + 1.0, p.y - 0.2, p.y + 1.2, { r: 9, cx: p.x, cy: p.y });
+      tok(p.diveS || p, 12); strike(p.x - 1.0, p.x + 1.0, p.y - 0.2, p.y + 1.2, { r: 9, cx: p.x, cy: p.y });
       burst(p.x, p.y + 0.1, [0xd8d0c0, 0xffffff, kind === "drill" ? 0xb070c0 : 0x5a9ae0], 16, 5);
       impact(p.x, p.y + 0.3, p.diveS && p.diveS.pow);
-      if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.5, p.y, -1, 22, false); effect(p.c.id, "fx.dust", p.x + 0.5, p.y, 1, 22, false); }
+      const dw = (p.diveS && p.diveS.fxWho) || p.c.id;
+      if (framesOf(dw, "fx.dust")) { effect(dw, "fx.dust", p.x - 0.5, p.y, -1, 22, false); effect(dw, "fx.dust", p.x + 0.5, p.y, 1, 22, false); }
       p.state = "run"; p.vy = 6; p.ground = false; SFX.stomp(); SFX.impact();
     } else if (kind === "hammer") {                       // Mighty's Hammer Drop: a shockwave both ways, then he uncurls
-      effect(p.c.id, "fx.power", p.x, p.y, p.face, 20, false, "fx", 1.35);
+      effect((p.diveS && p.diveS.fxWho) || p.c.id, "fx.power", p.x, p.y, p.face, 20, false, "fx", 1.35);
       impact(p.x, p.y + 0.3, p.diveS && p.diveS.pow);
-      strike(p.x - 2.4, p.x + 2.4, p.y - 0.2, p.y + 1.3, { r: 12, cx: p.x, cy: p.y });
+      tok(p.diveS || p, 13); strike(p.x - 2.4, p.x + 2.4, p.y - 0.2, p.y + 1.3, { r: 12, cx: p.x, cy: p.y });
       SFX.boom(); SFX.impact(); p.curl = false;
-      p.state = "erupt"; p.vx = 0; p.er = { t: 0, body: "airpower", from: 3, to: 8, at: 99, fps: 18, fired: true };
+      p.state = "erupt"; p.vx = 0; p.er = { t: 0, body: p.c.emerl ? "sp.airpower" : "airpower", from: 3, to: 8, at: 99, fps: 18, fired: true };
     } else {
       p.state = "erupt"; p.vx = 0;
-      p.er = kind === "erupt" ? { t: 0, body: "airpower", from: 4, to: 16, at: 10, fps: 18, r: 1.9, fired: false }
-                              : { t: 0, body: "airpower", from: 6, to: 13, at: 1, fps: 18, r: 1.9, fired: false, fx: "fx.power" };
+      const ab = p.c.emerl ? "sp.airpower" : "airpower", an = (framesOf(p.c.sheet || p.c.id, ab) || [0]).length - 1;
+      p.er = kind === "erupt" ? { t: 0, body: ab, from: Math.min(4, an), to: Math.min(16, an), at: 10, fps: 18, r: 1.9, fired: false }
+                              : { t: 0, body: ab, from: Math.min(6, an), to: Math.min(13, an), at: 1, fps: 18, r: 1.9, fired: false, fx: "fx.power" };
     }
   }
   function stepErupt(p, dt) {
@@ -3455,12 +3845,13 @@
     const i = e.from + Math.floor(e.t * e.fps);
     if (!e.fired && i >= e.from + e.at) {
       e.fired = true;
+      const ew = (p.diveS && p.diveS.fxWho) || p.c.id;
       if (e.fx) {                                          // Shadow's Air Chaos Burst, kicking up dust
-        effect(p.c.id, e.fx, p.x, p.y + 0.7, p.face, 22, true, "fx", 1.45);
-        if (framesOf(p.c.id, "fx.dust")) { effect(p.c.id, "fx.dust", p.x - 0.7, p.y, -1, 20, false); effect(p.c.id, "fx.dust", p.x + 0.7, p.y, 1, 20, false); }
-      } else effect(p.c.id, "fx.boom", p.x, p.y + 0.6, p.face, 22, true, "fx", 1.5);   // Knuckles' Major Eruption: the blast alone
+        effect(ew, e.fx, p.x, p.y + 0.7, p.face, 22, true, "fx", 1.45);
+        if (framesOf(ew, "fx.dust")) { effect(ew, "fx.dust", p.x - 0.7, p.y, -1, 20, false); effect(ew, "fx.dust", p.x + 0.7, p.y, 1, 20, false); }
+      } else effect(ew, "fx.boom", p.x, p.y + 0.6, p.face, 22, true, "fx", 1.5);   // Knuckles' Major Eruption: the blast alone
       impact(p.x, p.y + 0.7, p.diveS && p.diveS.pow);
-      strike(p.x - e.r, p.x + e.r, p.y - 0.3, p.y + 2.2, { r: 12, cx: p.x, cy: p.y });
+      tok(e, 14); strike(p.x - e.r, p.x + e.r, p.y - 0.3, p.y + 2.2, { r: 12, cx: p.x, cy: p.y });
       SFX.boom(); SFX.impact();
     }
     if (i > e.to) { p.state = "run"; p.er = null; }
@@ -3473,6 +3864,8 @@
       T.left -= dt;
       p.vx = p.face * (T.air ? 3.5 : 4.5);
       const col = HIT_C[p.c.id] || 0xff80c0;
+      if ((T.hitT = (T.hitT || 0) - dt) <= 0) { T.hitT = 0.22; T.tok = {}; }    // round and round: it can hit again each turn
+      tok(T.tok, 3, 0.5);
       if (strike(p.x - 0.9, p.x + 0.9, p.y + 0.05, p.y + p.hh + 0.2, { vx: p.face * 10, vy: 8 })) { impact(p.x + p.face * 0.6, p.y + 0.6, { c: col, flash: 1.4, shake: 0.08 }); hitStop(0.03); SFX.hit(); }
       T.whirl = (T.whirl || 0) - dt;
       if (T.whirl <= 0) {                                  // the wind of the swing, round and round
@@ -3488,7 +3881,7 @@
   /** A shot: a card of the runner's sheet that flies and hits what it meets. */
   function shoot(who, o) {
     const card = makeCard(who, o.ghost ? "ghost" : "fx"); world.group.add(card);
-    world.shots.push(Object.assign({ card, who, t: 0, life0: o.life, gone: false }, o));
+    world.shots.push(Object.assign({ card, who, t: 0, life0: o.life, gone: false, owner: actor, dmg: fireDmg }, o));
   }
   /** An effect that only shows: plays once where it is put. */
   function effect(who, name, x, y, face, fps, mid, kind, k, from, follow) {
@@ -3496,11 +3889,12 @@
     world.fx.push({ card, name, x, y, face, fps, mid, k, t: 0, from: from || 0, n: framesOf(who, name).length - (from || 0), follow });
   }
   function setTrap(p, s) {
-    const live = world.traps.filter(t => !t.gone);
+    const live = world.traps.filter(t => !t.gone && mine(t, p));
     if (s.one) live.forEach(boomTrap);                   // Psycho Orb: one at a time
     else if (live.length >= 2) boomTrap(live[0]);
-    const f = p.face, card = makeCard(p.c.id, s.faint ? "faint" : "fx"), float = s.trap === "float"; world.group.add(card);
-    world.traps.push({ card, who: p.c.id, kind: s.trap, x: p.x + f * 0.7, y: p.y + (s.flies || float ? 1.0 : 0), vx: float ? f * 7 : s.toss ? f * (s.far || 3) : 0, vy: s.toss ? 2 : 0,
+    const tw = s.fxWho || p.c.id;                        // (whose trap it is: Emerl's copies look like their source's)
+    const f = p.face, card = makeCard(tw, s.faint ? "faint" : "fx"), float = s.trap === "float"; world.group.add(card);
+    world.traps.push({ card, who: tw, owner: p, kind: s.trap, x: p.x + f * 0.7, y: p.y + (s.flies || float ? 1.0 : 0), vx: float ? f * 7 : s.toss ? f * (s.far || 3) : 0, vy: s.toss ? 2 : 0,
                        t: 0, life: s.trap === "orbit" ? 6 : 9, a: 0, flies: !!s.flies || float, grounded: !s.toss && !s.flies && !float && s.trap !== "orbit", gone: false, face: f });
     SFX.set();
   }
@@ -3513,8 +3907,16 @@
     else effect(t.who, "fx.boom", t.x, by, 1, 22, true, "fx", 1.6);
     if (!knux) burst(t.x, by, L.boom ? [col, 0xffffff, mixC(col, 0xffffff, 0.5)] : [0xfff3a0, 0xf08a24, 0xffffff, 0xe8403a], 24, 7);
     impact(t.x, by, { c: col, flash: 3.6, shake: 0.28, stop: 0.05, bits: knux ? 0 : 1 });
+    const a0 = actor; actor = t.owner || actor; tok(t, 12);
     strike(t.x - 1.5, t.x + 1.5, t.y - 0.6, t.y + 1.8, { r: 11, cx: t.x, cy: by - 0.4 });
+    actor = a0;
     SFX.boom(); SFX.impact();
+  }
+  /* what a hunting trap goes after: a badnik, or in a battle a fighter of the other side */
+  function nearestFoe(x, y, range, owner) {
+    let best = nearestEnemy(x, y, range), bd = best ? Math.hypot(best.x - x, best.y + best.h / 2 - y) : range;
+    if (battle) for (const q of battle.fs) if (rivals(owner, q) && !q.ko && !q.out) { const d = Math.hypot(q.x - x, q.y + q.hh / 2 - y); if (d < bd) { bd = d; best = q; } }
+    return best;
   }
   function nearestEnemy(x, y, range) {
     let best = null, bd = range;
@@ -3525,6 +3927,7 @@
     const w = world;
     for (const s of w.shots) {
       if (s.gone) continue;
+      actor = s.owner || null; tok(s, s.dmg || 8);
       s.t += dt; s.life -= dt;
       if (s.g) s.vy -= s.g * dt;
       s.x += s.vx * dt; s.y += s.vy * dt;
@@ -3537,7 +3940,7 @@
         if (n) { SFX.hit(); if (!s.bursts) { impact(s.x, s.mid ? s.y : s.y + 0.5, { c: s.trail || 0xffffff, flash: 1.3, shake: 0.06 }); hitStop(0.03); } }
         if (n && s.bursts) { boomAt(s.x, s.y, s.bursts, s); s.life = 0; }
       }
-      if (s.ring && Math.abs(player.x - s.x) < 0.7 && player.state === "roll") s.life = 0;
+      if (s.ring) { const o = s.owner || player; if (Math.abs(o.x - s.x) < 0.7 && o.state === "roll") s.life = 0; }
       if (s.trail && s.bits !== 0 && Math.random() < 0.7) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.35 * (s.k || 1), y: (s.mid ? s.y : s.y + 0.3 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.3,
         z: (Math.random() - 0.5) * 0.3, vx: -s.vx * 0.06, vy: 0.5 + Math.random(), vz: 0, life: 0.22, s: 0.07, c: Math.random() < 0.6 ? s.trail : 0xffffff });
       if (s.ghost && !s.trail && Math.random() < 0.6) world.parts.list.push({ x: s.x - sgn(s.vx) * 0.5, y: s.y + (s.mid ? 0 : 0.2 + Math.random() * 0.9), z: (Math.random() - 0.5) * 0.4,
@@ -3545,6 +3948,7 @@
       if (s.y < -3) s.life = 0;
       if (s.life <= 0) { s.gone = true; w.group.remove(s.card); s.card.geometry.dispose(); }
     }
+    actor = null;
     if (w.shots.length > 30) w.shots = w.shots.filter(s => !s.gone);
     for (const f of w.flashes) {
       if (f.gone) continue;
@@ -3571,14 +3975,14 @@
       if (t.gone) continue;
       t.t += dt; t.life -= dt;
       if (t.kind === "orbit") {                            // Roaming Chaos keeps to Shadow
-        t.a += dt * 4; t.x = p.x + Math.cos(t.a) * 1.2; t.y = p.y + 0.3 + Math.sin(t.a) * 0.8;
+        const o = t.owner || p; t.a += dt * 4; t.x = o.x + Math.cos(t.a) * 1.2; t.y = o.y + 0.3 + Math.sin(t.a) * 0.8;
       } else if (t.kind === "float") {                     // Silver's Psycho Orb: ahead, slowing, then hangs there
         t.vx *= Math.pow(0.03, dt);
         const nx = t.x + t.vx * dt;
         if (solid(tile(Math.floor(nx), Math.floor(t.y)))) t.vx = 0; else t.x = nx;
         t.y += Math.sin(t.t * 3) * 0.35 * dt;
       } else if (t.flies) {                                // Bat Cracker hunts
-        const e = nearestEnemy(t.x, t.y, 9);
+        const e = nearestFoe(t.x, t.y, 9, t.owner);
         if (e) { const dx = e.x - t.x, dy = e.y + e.h / 2 - t.y, d = Math.hypot(dx, dy) || 1; t.x += dx / d * 3.5 * dt; t.y += dy / d * 3.5 * dt; t.face = sgn(dx) || t.face; }
         else t.y += Math.sin(t.t * 4) * 0.4 * dt;
       } else if (!t.grounded) {                            // tossed: falls to the ground
@@ -3587,10 +3991,11 @@
         if (gy !== null && t.vy < 0 && t.y <= gy) { t.y = gy; t.grounded = true; t.vx = 0; t.landT = t.t; }
         if (t.y < -3) { t.gone = true; w.group.remove(t.card); t.card.geometry.dispose(); continue; }
       } else if (t.kind === "chase") {                     // the Chu² Bomb crawls after its mark
-        const e = nearestEnemy(t.x, t.y, 8);
+        const e = nearestFoe(t.x, t.y, 8, t.owner);
         if (e) { const nx = t.x + sgn(e.x - t.x) * 3 * dt, gy = groundY(nx, t.y); if (gy !== null) { t.x = nx; t.y = gy; t.face = sgn(e.x - t.x) || t.face; } }
       }
       for (const e of w.enemies) if (e.alive && !e.hidden && Math.abs(e.x - t.x) < e.w / 2 + 0.35 && t.y > e.y - 0.5 && t.y < e.y + e.h + 0.3) { boomTrap(t); break; }
+      if (!t.gone && battle) for (const q of battle.fs) if (rivals(t.owner, q) && !q.ko && !q.out && Math.abs(q.x - t.x) < q.c.w / 2 + 0.35 && t.y > q.y - 0.5 && t.y < q.y + q.hh + 0.3) { boomTrap(t); break; }
       if (!t.gone && t.life <= 0) boomTrap(t);
     }
     if (w.traps.length > 12) w.traps = w.traps.filter(t => !t.gone);
@@ -3655,11 +4060,15 @@
     const w = world;
     const bx0 = p.x - p.c.w / 2, bx1 = p.x + p.c.w / 2, by0 = p.y, by1 = p.y + p.hh;
     const touches = (x, y, r) => x + r > bx0 && x - r < bx1 && y + r > by0 && y - r < by1;
-    // carrots
-    for (const k of w.carrots) if (!k.got && touches(k.x, k.y + 0.3, 0.38)) {
-      k.got = true; p.carrots++; SFX.carrot();
-      burst(k.x, k.y + 0.4, [0xf08a24, 0xffc27a], 4, 2);
-      if (p.carrots >= p.nextHeal) { p.nextHeal += 50; if (p.hearts < 3) { p.hearts++; SFX.juice(); } }
+    // rings -- and with the magnetic shield, the ones near fly in
+    if (p.shield === "magnet") for (const k of w.carrots) {
+      if (k.got) continue;
+      const dx = p.x - k.x, dy = p.y + 0.4 - k.y, d = Math.hypot(dx, dy);
+      if (d < 3.4 && d > 0.05) { k.x += dx / d * 10 * dt; k.y += dy / d * 10 * dt; }
+    }
+    for (const k of w.carrots) if (!k.got && touches(k.x, k.y + 0.35, 0.38)) {
+      k.got = true; p.carrots++; p.ringsGot++; SFX.coin();
+      burst(k.x, k.y + 0.4, [0xfff3a0, 0xffffff], 4, 2);
     }
     for (const e of w.ents) {
       if (e.gone) continue;
@@ -3687,24 +4096,28 @@
           if (Math.abs(p.vx) > 0.5) p.face = sgn(p.vx);
           e.sq = 1; e.cd = 0.2; SFX.bumper(); flash(e.x, e.y, 1.4, w.T.id === "club" ? 0xff7ad8 : 0xffd060);
         }
-      } else if (touches(e.x, e.y + 0.4, 0.42)) {
-        e.gone = true; e.m.visible = false;
-        if (e.t === "juice") { p.hearts = Math.min(3, p.hearts + 1); SFX.juice(); }
-        if (e.t === "star") { p.star = 8; SFX.star(); }
-        burst(e.x, e.y + 0.5, [0xfff3a0, 0xffffff], 8, 3);
+      } else if (e.t === "monitor") {                      // break it open: jump on it, roll or dash into it, or hit it
+        if (!(bx1 > e.x - 0.42 && bx0 < e.x + 0.42 && by0 < e.y + 0.95 && by1 > e.y)) continue;
+        const above = p.vy < 0 && p.y > e.y + 0.5;
+        if (above || attacking(p) || p.state === "atk" || p.state === "seek" || p.state === "dash") {
+          openMonitor(p, e);
+          if (above) { p.vy = input.J ? 11 : 8; p.ground = false; p.airMove = false; p.airUses = 0; }
+        } else if (p.y < e.y + 0.6) {                      // otherwise it stands in the way
+          p.x = p.x < e.x ? e.x - 0.42 - p.c.w / 2 : e.x + 0.42 + p.c.w / 2; p.vx = 0;
+        }
       }
     }
     for (const s of w.shoes) if (!s.got && touches(s.x, s.y + 0.4, 0.45)) {
       s.got = true; s.m.visible = false; p.shoes[s.n] = true; SFX.shoe();
       burst(s.x, s.y + 0.5, [0xf2b705, 0xfff3c4], 14, 4);
-      hudToast("Golden Horseshoe " + (s.n + 1) + " of 3");
+      hudToast("Red Star Ring " + (s.n + 1) + " of 3");
     }
     // checkpoints and the post
     for (const k of w.checks) if (!k.on && p.x >= k.x - 0.3) {
       k.on = true; p.check = { x: k.x, y: k.y }; SFX.check();
-      k.m.geometry = propGeo("poleDone"); hudToast("Furlong pole: you'll start again here");
+      k.m.geometry = propGeo("poleDone"); k.spin = 1; hudToast("Star Post: you'll start again here");
     }
-    if (w.goal && p.x >= w.goal.x && mode === "play") finish(p);
+    if (w.goal && p.x >= w.goal.x && mode === "play") { if (!w.def.story) w.goal.spin = 2.6; finish(p); }
     // thorns
     const shell = p.c.id === "mighty" && p.curl;             // Mighty's shell shrugs off spikes (Sonic Mania Plus)
     for (const z of w.hazards) if (bx1 > z.x0 && bx0 < z.x1 && by0 < z.y1 && by1 > z.y0 && !shell) hurt(p, p.x + p.face);
@@ -3785,10 +4198,10 @@
     if (e.fling) SFX.stomp();
     e.fling = null; e.m.visible = false; whiten(e.m, false);
     burst(e.x, e.y + e.h / 2, [0xffffff, 0xf2d040, 0xc8ccd8], 10, 5);
-    if (!lost) {                                           // Sonic Advance's puff of smoke, and what it was carrying
+    if (!lost) {                                           // Sonic Advance's puff of smoke, and the animal it was running on
       const m = badCard(); m.castShadow = false; world.group.add(m);
       world.booms.push({ key: "boom", x: e.x, y: e.y + e.h / 2, r: -9, t: 0, m });
-      spawnLoose(e.x, e.y + 0.6, 0, 7);
+      spawnCritter(e.x, e.y + 0.3);
     }
   }
   /* A blow that does not land: a white spark and a clink, and nothing else. */
@@ -3816,6 +4229,7 @@
   // ---------------------------------------------------------------- everything else that moves
   function worldStep(dt) {
     const w = world, p = player;
+    if (w.boss && (mode === "play" || mode === "goal")) stepBoss(dt);
     for (const q of w.plats) {
       const k = Math.sin(w.t * 0.9 + q.ph) * q.range;
       const nx = q.t === "M" ? q.x0 + k : q.x0, ny = q.t === "V" ? q.y0 + k : q.y0;
@@ -3828,7 +4242,11 @@
       if (F.t > 0.05 && !F.lit) { F.lit = true; whiten(e.m, false); }
       F.vy -= 30 * dt; F.rot += F.spin * dt;
       const nx = e.x + F.vx * dt, ny = e.y + F.vy * dt;
-      if (F.t > 0.45 || ny < -2 || solid(tile(Math.floor(nx), Math.floor(ny + e.h / 2)))) pop(e, ny < -2);
+      /* it bursts on a wall or the ground -- a slope's surface too, never sailing on into it */
+      const mc = tile(Math.floor(nx), Math.floor(ny + e.h / 2)), lo = tile(Math.floor(nx), Math.floor(ny + 0.05));
+      const inSlope = ((mc === "/" || mc === "\\") && ny + e.h / 2 < slopeY(mc, Math.floor(nx), Math.floor(ny + e.h / 2), nx)) ||
+                      ((lo === "/" || lo === "\\") && F.vy < 0 && ny < slopeY(lo, Math.floor(nx), Math.floor(ny + 0.05), nx));
+      if (F.t > 0.45 || ny < -2 || solid(mc) || inSlope) pop(e, ny < -2);
       else { e.x = nx; e.y = ny; }
     }
     for (const e of w.enemies) {                            // the badniks near enough to matter
@@ -3844,17 +4262,27 @@
     }
     // shots, effects and traps
     stepShots(dt);
-    // loose carrots
+    // loose rings, bouncing, and the animals let out of the badniks
     for (const e of w.ents) {
-      if (e.t !== "loose" || e.gone) continue;
-      e.life -= dt; e.vy -= GRAV * 0.7 * dt; e.x += e.vx * dt; e.y += e.vy * dt;
-      const below = tile(Math.floor(e.x), Math.floor(e.y));
-      if ((solid(below) || below === "-") && e.vy < 0) { e.y = Math.floor(e.y) + 1; e.vy = -e.vy * 0.4; e.vx *= 0.7; }
-      if (e.life < 5.7 && Math.abs(e.x - p.x) < 0.7 && e.y > p.y - 0.4 && e.y < p.y + p.hh) {
-        e.gone = true; e.m.visible = false; p.carrots++; SFX.carrot();
+      if (e.gone) continue;
+      if (e.t === "critter") {
+        e.life -= dt; e.x += e.vx * dt;
+        if (e.bird) e.y += 4.5 * dt;
+        else { e.vy -= GRAV * 0.8 * dt; e.y += e.vy * dt; const g = groundY(e.x, e.y + 0.3); if (g !== null && e.vy < 0 && e.y <= g) { e.y = g; e.vy = 6; } }
+        e.m.position.set(e.x, e.y, 0.2); e.m.scale.x = sgn(e.vx) || 1; e.m.rotation.z = e.bird ? Math.sin(w.t * 30) * 0.2 : 0;
+        if (e.life <= 0 || e.y < -3) { e.gone = true; e.m.visible = false; }
+        continue;
+      }
+      if (e.t !== "loose") continue;
+      e.life -= dt; e.wait -= dt; e.vy -= GRAV * 0.7 * dt; e.x += e.vx * dt; e.y += e.vy * dt;
+      const below = tile(Math.floor(e.x), Math.floor(e.y)), side = tile(Math.floor(e.x + sgn(e.vx) * 0.2), Math.floor(e.y + 0.3));
+      if ((solid(below) || below === "-") && e.vy < 0) { e.y = Math.floor(e.y) + 1; e.vy = -e.vy * 0.6; e.vx *= 0.85; }
+      if (solid(side)) e.vx = -e.vx * 0.6;
+      if (e.wait <= 0 && Math.abs(e.x - p.x) < 0.7 && e.y > p.y - 0.4 && e.y < p.y + p.hh && !p.dead) {
+        e.gone = true; e.m.visible = false; p.carrots++; if (!e.own) p.ringsGot++; SFX.coin();
       }
       if (e.life <= 0 || e.y < -3) { e.gone = true; e.m.visible = false; }
-      e.m.position.set(e.x, e.y, 0); e.m.rotation.y += dt * 4; e.m.visible = !e.gone && (e.life > 1.5 || Math.sin(e.life * 30) > 0);
+      e.m.position.set(e.x, e.y, 0); e.m.rotation.y += dt * 9; e.m.visible = !e.gone && (e.life > 1.2 || Math.sin(e.life * 30) > 0);
     }
     // crumbling ledges
     for (const k in w.tiles) {
@@ -3913,17 +4341,18 @@
   // ---------------------------------------------------------------- the picture
   let camX = 0, camY = 0, shake = 0, stopT = 0;
   const hitStop = s => { stopT = Math.max(stopT, s); };
-  const shakeCam = s => { shake = Math.max(shake, s); };
+  const shakeCam = s => { if (!root.Settings || Settings.get("shake") !== false) shake = Math.max(shake, s); };   // Options can turn it off
   const CAM_D = 17;
   function snapCamera() { if (!player) return; camX = player.x + 2; camY = Math.max(6.1, player.y + 2.1); }
   /** The runner's frame, from what they are doing. */
   function drawRunner(p, dt) {
-    const c = p.c, a = p.anim, sp = Math.abs(p.vx), id = c.id;
+    const c = p.c, a = p.anim, sp = Math.abs(p.vx), id = c.sheet || c.id;
+    const airId = srcOf(p, "air"), runId = srcOf(p, "run");
     p.landT = Math.max(0, p.landT - dt); p.dblT = Math.max(0, (p.dblT || 0) - dt);
     p.balT = Math.max(0, (p.balT || 0) - dt); p.catchT = Math.max(0, (p.catchT || 0) - dt); p.grabT = Math.max(0, (p.grabT || 0) - dt);
     const count = nm => framesOf(id, nm).length;
     let name, fps = 10, loop = true, face = p.face, pick = null;
-    if (p.dead) { name = "out"; fps = 8; loop = false; }
+    if (p.dead || p.ko) { name = "out"; fps = 8; loop = false; }
     else switch (p.state) {
       case "hurt": case "stumble": name = "hit"; fps = 12; loop = false; break;
       case "atk": name = p.mv.name; pick = () => Math.floor(p.mv.t * p.mv.fps); break;
@@ -3951,17 +4380,17 @@
       case "ledge": name = "ledge"; pick = () => Math.floor(p.ledge.t / LEDGE_T * count("ledge")); break;
       case "glide": name = "glide"; pick = t => t * 12 < 2 ? Math.floor(t * 12) : 2 + Math.floor(t * 10) % 3; break;
       case "fly":
-        if (id === "tails") { name = "fly"; pick = t => 1 + Math.floor(t * (p.flyLeft > 0 ? 16 : 7)) % 4; }
-        else if (id === "cream") { name = "fly"; pick = t => p.flyLeft > 0 ? 2 + Math.floor(t * 12) % 3 : 5; }   // her ears flap; tired, held out
-        else if (framesOf(id, "fly")) { name = "fly"; fps = id === "gamma" ? 14 : 10; }                            // Flight Mode, the Egg Mobile's jets
+        if (airId === "tails" && !c.emerl) { name = "fly"; pick = t => 1 + Math.floor(t * (p.flyLeft > 0 ? 16 : 7)) % 4; }
+        else if (airId === "cream" && !c.emerl) { name = "fly"; pick = t => p.flyLeft > 0 ? 2 + Math.floor(t * 12) % 3 : 5; }   // her ears flap; tired, held out
+        else if (framesOf(id, "fly")) { name = "fly"; fps = airId === "gamma" ? 14 : 10; }                            // Flight Mode, the Egg Mobile's jets
         else { name = "fall"; fps = p.flyLeft > 0 ? 14 : 6; }
         break;
       case "jet": name = "jet"; fps = 14; break;
       case "psy": name = "airdash"; pick = t => Math.min(count("airdash") - 1, Math.floor(t * 18)); break;
       case "teleport": name = "teleport"; fps = 20; loop = false; break;
       case "dive":
-        if (p.dive === "meteor") { name = "ball"; fps = 30; }
-        else { name = "airpower"; pick = t => p.dive === "drill" ? Math.floor(t * 22) % count("airpower") : Math.floor(t * 20) % (p.dive === "hammer" ? 3 : 4); }
+        if (p.dive === "meteor") { name = framesOf(id, "ball") ? "ball" : "sp.airpower"; fps = 30; }
+        else { name = c.emerl ? "sp.airpower" : "airpower"; pick = t => p.dive === "drill" ? Math.floor(t * 22) % count(name) : Math.floor(t * 20) % Math.min(count(name), p.dive === "hammer" ? 3 : 4); }
         break;
       case "erupt": name = p.er.body; pick = () => Math.min(p.er.from + Math.floor(p.er.t * p.er.fps), p.er.to); break;
       case "tornado": {
@@ -3975,7 +4404,7 @@
           else if (p.dblT > 0) { name = "double"; fps = 12; loop = false; }
           else if (p.floatT > 0 && input.J && p.vy < 0 && framesOf(id, "airdash")) { name = "airdash"; pick = t => 5 + Math.floor(t * 8) % 4; }   // Silver floats down
           else if (p.balT > 0) { name = "spark"; fps = 16; loop = false; }
-          else if (p.catchT > 0 && id === "rouge") { name = "catch"; fps = 8; loop = false; }
+          else if (p.catchT > 0 && airId === "rouge" && framesOf(id, "catch")) { name = "catch"; fps = 8; loop = false; }
           else if (p.curl) { name = "spin"; fps = 12 + sp * 1.4; }          // out of a roll: the Spin Dash ball
           else { name = p.vy > 0 ? "jump" : "fall"; loop = false; }
         }
@@ -3983,14 +4412,14 @@
         else if (sp < 0.6) { name = "idle"; fps = 7; }
         else if (sp > 4 && (input.R - input.L) && sgn(input.R - input.L) !== sgn(p.vx)) { name = "skid"; fps = 12; loop = false; face = sgn(p.vx); }
         else if (sp < 2.2) name = "start";
-        else { name = "run"; fps = id === "shadow" ? 8 + sp * 1.7 : 5 + sp * 1.15; }
+        else { name = "run"; fps = runId === "shadow" && !c.emerl ? 8 + sp * 1.7 : 5 + sp * 1.15; }
     }
     const key = name + "|" + p.state;
     if (a.key !== key) { a.key = key; a.t = 0; } else a.t += dt;
     const i = pick ? pick(a.t) : frameAt(count(name), a.t, fps, loop);
-    const lift = c.lift && !p.dead ? c.lift + Math.sin(world.t * 3.4) * 0.05 : 0;          // Eggman's Egg Mobile, hovering
+    const lift = c.lift && !p.dead && !p.ko ? c.lift + Math.sin(world.t * 3.4) * 0.05 : 0;          // Eggman's Egg Mobile, hovering
     setFrame(p.spr, name, i, face, p.x, p.y + lift);
-    p.spr.visible = mode !== "title" && !(p.inv > 0 && !p.dead && p.state !== "dash" && p.state !== "teleport" && !(p.sp && p.sp.shield) && Math.sin(world.t * 40) > 0.4);
+    p.spr.visible = !GLIDE[mode] && !p.out && !(p.inv > 0 && !p.dead && p.state !== "dash" && p.state !== "teleport" && !(p.sp && p.sp.shield) && Math.sin(world.t * 40) > 0.4);
   }
   /* The dust behind a rev: Sonic Advance's spray, looping faster and swelling as the rev
      builds (each tap of Space kicks it up), at the runner's heels, trailing away from them. */
@@ -4034,25 +4463,31 @@
   }
   function draw(dt) {
     const p = player, w = world;
-    drawRunner(p, dt);
-    drawDust(p, dt);
+    if (battle) {                                          // everyone in the fight, each with their own hands
+      for (const f of battle.fs) { input = f.inp; drawRunner(f, dt); drawDust(f, dt); drawAura(f, dt); }
+      input = INPUT0;
+    } else { drawRunner(p, dt); drawDust(p, dt); drawAura(p, dt); }
     drawCards();
-    if (p.star > 0 && Math.random() < 0.5) burst(p.x, p.y + Math.random() * p.hh, [0xe8403a, 0xf2d040, 0x5ab84a, 0x3a8ae0, 0x8a5ad0], 1, 1);
-    if (Math.abs(p.vx) > 13 && p.ground && Math.random() < 0.4) burst(p.x - p.face * 0.3, p.y + 0.05, [0xd8d0c0, 0xffffff], 1, 1.5);
-    // carrots spin and bob
+    for (const f of battle ? battle.fs : [p]) {
+      if (f.out || f.ko) continue;
+      if (f.star > 0 && Math.random() < (ITEMS ? 0.15 : 0.5)) burst(f.x, f.y + Math.random() * f.hh, [0xffffff, 0x9ad8ff, 0xfff070], 1, 1);
+      if ((Math.abs(f.vx) > 13 || f.speedT > 0) && f.ground && Math.random() < (f.speedT > 0 ? 0.8 : 0.4)) burst(f.x - f.face * 0.3, f.y + 0.05, [0xd8d0c0, 0xffffff], 1, 1.5);
+    }
+    // the rings spin, all together, as they do
     const M4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s1 = new THREE.Vector3(1, 1, 1), s0 = new THREE.Vector3(0, 0, 0), pos = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     for (const k of w.carrots) {
-      q.setFromAxisAngle(up, w.t * 2.4 + k.k * 0.3);
+      q.setFromAxisAngle(up, w.t * 3.2);
       pos.set(k.x, k.y + 0.12 + Math.sin(w.t * 3 + k.k) * 0.08, 0);
       M4.compose(pos, q, k.got ? s0 : s1);
       w.carrotMesh.setMatrixAt(k.k, M4);
     }
     w.carrotMesh.instanceMatrix.needsUpdate = true;
-    for (const e of w.ents) if (!e.gone && e.m && (e.t === "juice" || e.t === "star")) { e.m.rotation.y = w.t * 2; e.m.position.y = e.y + Math.sin(w.t * 3 + e.x) * 0.1; }
-    for (const e of w.ents) if (e.t === "spring") { e.sq = Math.max(0, e.sq - dt * 4); e.m.scale.y = 1 + e.sq * 0.6; }
+    for (const k of w.checks) if (k.spin > 0) { k.spin = Math.max(0, k.spin - dt); k.m.rotation.y = (1 - k.spin) * PI * 4; }
+    if (w.goal && w.goal.spin > 0) { w.goal.spin = Math.max(0, w.goal.spin - dt); w.goal.m.rotation.y += dt * (2 + w.goal.spin * 14); if (!w.goal.spin) w.goal.m.rotation.y = 0; }
+    for (const e of w.ents) if (e.t === "spring") { e.sq = Math.max(0, e.sq - dt * 2.6); springPose(e); }
       else if (e.t === "bumper") { e.sq = Math.max(0, e.sq - dt * 5); e.m.scale.set(1 + e.sq * 0.3, 1 + e.sq * 0.3, 1); }
       else if (e.t === "balloon") { e.m.position.y = e.y + Math.sin(w.t * 2.2 + e.x) * 0.12; e.m.rotation.z = Math.sin(w.t * 1.3 + e.x) * 0.12; }
-    for (const s of w.shoes) if (!s.got) { s.m.rotation.y = w.t * 2.2; s.m.position.y = s.y + Math.sin(w.t * 2.5 + s.x) * 0.12; }
+    for (const s of w.shoes) if (!s.got) { s.m.rotation.y = w.t * 2.6; s.m.position.y = s.y + Math.sin(w.t * 2.5 + s.x) * 0.12; }
     for (const e of w.enemies) {
       if (e.fling) {                                       // shaking through the freeze-frame, then spinning away
         drawBadnik(e);
@@ -4079,14 +4514,19 @@
     // the camera
     const aspect = R.domElement.width / Math.max(1, R.domElement.height);
     /* a tall phone screen backs the camera off until twelve metres of the stage fit across */
-    const D = clamp(12.5 / (2 * Math.tan(17 * PI / 180) * aspect), CAM_D, 42);
-    const halfW = Math.tan(17 * PI / 180) * D * aspect, halfH = Math.tan(17 * PI / 180) * D;
-    const lead = clamp(p.vx * 0.28, -4.5, 4.5) + p.face * 1.2;
-    const tx = clamp(p.x + lead, halfW - 0.5, w.W - halfW + 0.5);
-    let ty = clamp(p.y + 2.1, p.y < 3.5 ? 3.8 : 6.1, H - 3.2);             // lower when she is down in the water
-    if (D > CAM_D) ty = Math.max(ty, halfH - 3);
-    camX = lerp(camX, tx, 1 - Math.exp(-dt * 3.6));
-    camY = lerp(camY, ty, 1 - Math.exp(-dt * (p.ground ? 4 : 1.8)));
+    let D = clamp(12.5 / (2 * Math.tan(17 * PI / 180) * aspect), CAM_D, 42);
+    if (battle) D = battleView(aspect, dt);              // a battle frames everyone in it
+    else {
+      const halfW = Math.tan(17 * PI / 180) * D * aspect, halfH = Math.tan(17 * PI / 180) * D;
+      const lead = clamp(p.vx * 0.28, -4.5, 4.5) + p.face * 1.2;
+      let tx = clamp(p.x + lead, halfW - 0.5, w.W - halfW + 0.5);
+      w.viewHalfW = halfW;
+      if (w.boss && w.boss.lock) tx = bossCamX(w.boss, halfW);           // a boss's arena: the camera holds on it
+      let ty = clamp(p.y + 2.1, p.y < 3.5 ? 3.8 : 6.1, H - 3.2);             // lower when she is down in the water
+      if (D > CAM_D) ty = Math.max(ty, halfH - 3);
+      camX = lerp(camX, tx, 1 - Math.exp(-dt * 3.6));
+      camY = lerp(camY, ty, 1 - Math.exp(-dt * (p.ground ? 4 : 1.8)));
+    }
     camera.position.set(camX, camY + 1.9, D);
     if (shake > 0) {                                       // a blast shakes the picture, briefly
       shake = Math.max(0, shake - dt);
@@ -4096,20 +4536,552 @@
     if (w.snow) w.snow.position.set(camX, 0, 0);
     sun.position.set(camX + w.T.sun[2][0], w.T.sun[2][1], w.T.sun[2][2]);
     sun.target.position.set(camX, camY - 2, 0);
+    if (battle) placeTags();
+    if (w.boss) drawBoss();
     R.render(scene, camera);
+  }
+
+  // ---------------------------------------------------------------- Eggman's bosses
+  /* Each zone's Act 2 ends in Eggman's arena (E in the stage marks where it starts). Run in and it
+     shuts behind you, the camera holds still, and the boss comes in. Every boss is the zone's own
+     from the Sonic Advance games (adventure-bosses.js, tools/pack-bosses.py), doing what it does
+     there, as far as the guides and the Sonic wikis tell it:
+       hammer   Egg Hammer Tank (Advance): drives to and fro, its hammer going round in front;
+                hit the cockpit from above or behind. Hurt, it hops, the hammer slamming down.
+       aero     Aero Egg (Advance 2): flies over, dropping bombs that burst into flame; swoops
+                low now and then, and that is the time to hit it.
+       cube     Egg Cube (Advance 3): rises over you and slams down; throws a spiked mace that
+                bounces at you, and sends out toy soldiers.
+       mecha    Mecha Knuckles (Advance): Knuckles to look at, till it is hurt -- walks, punches,
+                glides, spin-dashes; then its own silver, and missiles from afar.
+       ball     Egg Ball (Advance): goes from tube to tube while a spiked ball runs between them.
+       bomber   Egg Bomber Tank (Advance 2), a chase: it drives off down the road, firing back
+                shells that burst into flame; catch it up and hit it.
+       totem    Egg Totem (Advance 2): rolls to and fro on its electric spring, firing spiked bars
+                low and high; the cockpit on top is the place to hit.
+       spider   Egg Spider (Advance): hangs from the ceiling, drops icicles, and comes down to
+                stamp; hit it low.
+       press    Egg Press (Advance): bounds on its spring; a big jump shakes the ground on landing
+                (be in the air); the cockpit on top is the place to hit, never the spring.
+       hammer3  Gemerl first (Advance 3: stands, then dashes across; hit him standing, four
+                times), then the Egg Hammer 3, its hammer on a chain, slamming down.
+       snake    Egg Snake (Advance): two spiked balls going round it on chains; its top opens
+                and shuts -- hit it open; it fires.
+       saucer   Egg Saucer (Advance 2), a chase: the great ring flies on ahead, its giant fists
+                slamming the road; it dips low after, and the cockpit in the ring can be hit.
+       frog     Egg Frog (Advance 2): leaps from side to side, shaking the floor where it lands;
+                breathes flame and fires; hit it when it is down.
+     Eight hits (Gemerl four first), each a flash and a moment untouchable; past half, the boss
+     fights harder. Then it blows apart, Eggman gets away in the Egg Mobile, and a capsule drops:
+     jump on it and the animals go free -- the zone is clear. Going down in the arena puts the
+     runner back at the Star Post before it, and the boss back as it was. */
+  const BSH = root.AdventureBosses || null;
+  if (BSH) SHEETS.bosses = BSH;
+  const BOSS = {
+    hammer: { name: "Egg Hammer Tank", hp: 8, k: 1.1 },
+    aero: { name: "Aero Egg", hp: 8, k: 1 },
+    cube: { name: "Egg Cube", hp: 8, k: 0.95 },
+    mecha: { name: "Mecha Knuckles", hp: 8, k: 1.12 },
+    ball: { name: "Egg Ball", hp: 8, k: 1.05 },
+    bomber: { name: "Egg Bomber Tank", hp: 8, k: 1, chase: true },
+    totem: { name: "Egg Totem", hp: 8, k: 0.9 },
+    spider: { name: "Egg Spider", hp: 8, k: 1.05 },
+    press: { name: "Egg Press", hp: 8, k: 0.95 },
+    hammer3: { name: "Egg Hammer 3", hp: 8, k: 1.1, gemerl: 4 },
+    snake: { name: "Egg Snake", hp: 8, k: 1 },
+    saucer: { name: "Egg Saucer", hp: 8, k: 0.85, chase: true },
+    frog: { name: "Egg Frog", hp: 8, k: 1.05, music: "finale" },
+  };
+  const ROAD_LEN = 360, BOSS_W = 18;
+  const ovl = (A, B) => A[0] < B[1] && A[1] > B[0] && A[2] < B[3] && A[3] > B[2];
+  const fr = name => (BSH && BSH.f[name]) || [[0, 0, 1, 1, 0, 0]];
+  /* a sprite's size in metres, at the boss's scale */
+  const bw = (b, name, i) => fr(name)[i || 0][2] * PX * b.C.k, bh = (b, name, i) => fr(name)[i || 0][3] * PX * b.C.k;
+
+  function newBoss(key, w) {
+    const C = BOSS[key], x0 = w.arena.x0, chase = !!C.chase;
+    const a0 = chase ? x0 : x0 + 11, a1 = chase ? x0 + ROAD_LEN : x0 + 11 + BOSS_W;
+    return { key, C, x0, a0, a1, gy: w.arena.y, state: "wait", mode: "in", t: 0, t2: 0, at: 1.2, hp: C.hp, gem: C.gemerl || 0,
+             x: a1 + 4, y: w.arena.y, vx: 0, vy: 0, face: -1, inv: 0, cards: {}, shots: [], fires: [], booms: [], camX: a0, lock: false, n: 0 };
+  }
+  function resetBoss(b) {
+    for (const k in b.cards) world.group.remove(b.cards[k]);
+    const nb = newBoss(b.key, world);
+    world.boss = nb; music();
+    return nb;
+  }
+  /* into the arena: it shuts, the camera holds, the boss comes */
+  function lockArena(b) {
+    b.lock = true; b.state = "fight"; b.mode = "in"; b.t = 0; b.camX = b.C.chase ? player.x + 3 : (b.a0 + b.a1) / 2;
+    if (b.C.chase) { b.x = player.x + 14; b.y = b.gy; }
+    sheetMats("bosses").mat.color.setHex(world.T.tint || 0xffffff);
+    try { if (root.Sound && Sound.play) Sound.play(b.C.music || "rival"); } catch (e) {}
+    hudToast(b.gem ? "Gemerl!" : b.C.name);
+    SFX.warn();
+  }
+  const pinchOf = b => b.hp <= b.C.hp / 2;
+  function bossHit(b, p) {
+    if (b.inv > 0) return;
+    b.inv = 0.9;
+    if (b.gem > 0) { b.gem--; if (!b.gem) { b.mode = "gemout"; b.t2 = 0; } }
+    else b.hp--;
+    hitSpark(p.x + sgn(b.x - p.x) * 0.4, p.y + p.hh * 0.6, 1.5, 0xffffff); hitStop(0.07); shakeCam(0.14); SFX.hit(); SFX.impact();
+    p.vx = -(sgn(b.x - p.x) || p.face) * 7; p.vy = Math.max(p.vy, 9); p.ground = false; p.airMove = false; p.airUses = 0;
+    if (p.state === "homing" || p.state === "seek" || p.state === "dash" || p.state === "roll" || p.state === "glide") p.state = "run";
+    p.curl = true;
+    if (b.hp <= 0 && !b.gem) { b.state = "boom"; b.t = 0; b.shots.length = 0; b.fires.length = 0; SFX.boom(); }
+  }
+  /* a blow, a shot or a blast that reaches its weak spot (strike) */
+  function bossStrike(x0, x1, y0, y1) {
+    const b = world.boss;
+    if (!b || b.state !== "fight" || b.inv > 0) return 0;
+    const wk = BRAIN[b.key].weak(b);
+    if (!wk || !ovl([x0, x1, y0, y1], wk)) return 0;
+    bossHit(b, player);
+    return 1;
+  }
+  /* a shot: falls if it has weight, bursts or bounces where it meets the floor */
+  function bshot(b, o) { b.shots.push(Object.assign({ x: b.x, y: b.y + 1, vx: 0, vy: 0, g: 0, r: 0.35, life: 6, t: 0, fps: 12, mid: true }, o)); }
+  function bfire(b, x, h, life) { b.fires.push({ x, t: 0, h: h || 1.8, life: life || 1.1 }); }
+  function quake(b, x, range) {
+    shakeCam(0.3); impact(x, b.gy, { c: 0xd8c8a8, flash: 1.2, shake: 0.2 });
+    burst(x, b.gy + 0.1, [0xd8d0c0, 0xb0a890], 18, 6);
+    const p = player;
+    if (p.ground && Math.abs(p.x - x) < range) hurt(p, x);
+  }
+  const toward = (b, p) => (sgn(p.x - b.x) || b.face);
+
+  /* each boss's mind: step, its weak spot, what hurts, and how it is drawn */
+  const BRAIN = {
+    hammer: {
+      step(b, dt, p, pn) {
+        const sp = pn ? 3.6 : 2.4;
+        if (b.mode === "in") { b.x -= 5 * dt; b.face = -1; if (b.x <= b.a1 - 3) b.mode = "drive"; return; }
+        if (b.mode === "drive") {
+          b.x += b.face * sp * dt;
+          if (b.x < b.a0 + 2.2) { b.x = b.a0 + 2.2; b.face = 1; } if (b.x > b.a1 - 2.2) { b.x = b.a1 - 2.2; b.face = -1; }
+          b.at -= dt;
+          if (pn && b.at <= 0 && Math.abs(p.x - b.x) < 6) { b.mode = "hop"; b.vy = 9; b.at = 2.6; }
+        } else if (b.mode === "hop") {
+          b.vy -= GRAV * dt; b.y += b.vy * dt; b.x += b.face * 1.5 * dt;
+          if (b.y <= b.gy) { b.y = b.gy; b.mode = "drive"; quake(b, b.x + b.face * 1.6, 3.2); }
+        }
+      },
+      weak(b) { const p = player, w = bw(b, "hammer.body"), h = bh(b, "hammer.body");
+        const above = p.y > b.y + h * 0.55, behind = sgn(p.x - b.x) === -b.face;
+        return above || behind ? [b.x - w * 0.42, b.x + w * 0.42, b.y + h * 0.3, b.y + h + 0.3] : null; },
+      harm(b) { const w = bw(b, "hammer.body"), h = bh(b, "hammer.body"), f = b.face;
+        return [[Math.min(b.x + f * w * 0.15, b.x + f * (w * 0.5 + 0.7)), Math.max(b.x + f * w * 0.15, b.x + f * (w * 0.5 + 0.7)), b.y, b.y + h * 0.8],
+                [b.x - w * 0.45, b.x + w * 0.45, b.y, b.y + h * 0.35]]; },
+      draw(b, show) { show("body", "hammer.body", Math.floor(world.t * 7) % 3, b.face, b.x, b.y, false, true); },
+    },
+    aero: {
+      step(b, dt, p, pn) {
+        const hi = b.gy + 2.8, lo = b.gy + 1.1;
+        if (b.mode === "in") { b.x -= 6 * dt; b.y = hi; if (b.x <= b.a1 - 3) { b.mode = "fly"; b.at = 1.2; b.t2 = 0; } return; }
+        b.t2 += dt;
+        if (b.mode === "fly") {
+          b.x += b.face * (pn ? 4.2 : 3) * dt;
+          if (b.x < b.a0 + 1.5) b.face = 1; if (b.x > b.a1 - 1.5) b.face = -1;
+          b.y = lerp(b.y, hi + Math.sin(b.t2 * 2) * 0.3, 1 - Math.exp(-dt * 3));
+          b.at -= dt;
+          if (b.at <= 0) { bshot(b, { name: "aero.bomb", y: b.y, vx: b.face * 1, g: 14, r: 0.3, land: "fire", fps: 10 }); b.at = pn ? 0.9 : 1.5; b.n++; }
+          if (b.n >= (pn ? 4 : 3)) { b.mode = "swoop"; b.n = 0; b.t2 = 0; b.face = toward(b, p); }
+        } else if (b.mode === "swoop") {
+          b.y = lerp(b.y, lo, 1 - Math.exp(-dt * 4)); b.x += b.face * 2.2 * dt;
+          if (b.x < b.a0 + 1.5) b.face = 1; if (b.x > b.a1 - 1.5) b.face = -1;
+          if (b.t2 > 2.6) { b.mode = "fly"; b.at = 0.8; }
+        }
+      },
+      weak(b) { const w = bw(b, "aero.body"), h = bh(b, "aero.body"); return [b.x - w * 0.45, b.x + w * 0.45, b.y, b.y + h]; },
+      harm(b) { const w = bw(b, "aero.body"); return [[b.x - w * 0.2, b.x + w * 0.2, b.y - 0.4, b.y]]; },
+      draw(b, show) { show("body", "aero.body", Math.floor(world.t * 10) % 3, b.face, b.x, b.y, false, true); },
+    },
+    cube: {
+      step(b, dt, p, pn) {
+        const top = b.gy + 5.5;
+        if (b.mode === "in") { b.y = top; b.x -= 6 * dt; if (b.x <= b.a1 - 3) { b.mode = "hover"; b.t2 = 0; } return; }
+        b.t2 += dt;
+        if (b.mode === "hover") {
+          b.y = lerp(b.y, top, 1 - Math.exp(-dt * 4)); b.x = lerp(b.x, clamp(p.x, b.a0 + 1.5, b.a1 - 1.5), 1 - Math.exp(-dt * (pn ? 2.6 : 1.8)));
+          if (b.t2 > (pn ? 1.3 : 1.9)) { b.mode = "drop"; b.vy = 0; }
+        } else if (b.mode === "drop") {
+          b.vy -= GRAV * 1.4 * dt; b.y += b.vy * dt;
+          if (b.y <= b.gy) { b.y = b.gy; b.mode = "sit"; b.t2 = 0; quake(b, b.x, 2.6); b.n++;
+            if (b.n % 2 === 0) bshot(b, { name: "cube.mace", x: b.x + toward(b, p) * 1.2, y: b.gy + 0.8, vx: toward(b, p) * (pn ? 6 : 4.5), vy: 7, g: GRAV * 0.8, r: 0.6, bounce: 0.8, life: 4, fps: 10 });
+            else for (const d of [-1, 1]) bshot(b, { name: "cube.soldier", x: b.x + d * 1.2, y: b.gy, vx: d * 2.2, g: 0, r: 0.4, walker: true, life: 5, fps: 8, mid: false }); }
+        } else if (b.mode === "sit") { if (b.t2 > 1.6) { b.mode = "hover"; b.t2 = 0; } }
+      },
+      weak(b) { const w = bw(b, "cube.body"), h = bh(b, "cube.body"); return b.mode === "sit" ? [b.x - w * 0.5, b.x + w * 0.5, b.y, b.y + h] : null; },
+      harm(b) { const w = bw(b, "cube.body"), h = bh(b, "cube.body"); return b.mode === "drop" || b.mode === "hover" ? [[b.x - w * 0.45, b.x + w * 0.45, b.y, b.y + h]] : []; },
+      draw(b, show) { show("body", b.mode === "sit" ? "cube.body" : "cube.dark", b.mode === "sit" ? 2 : Math.floor(world.t * 6) % 2, 1, b.x, b.y, false, true); },
+    },
+    mecha: {
+      step(b, dt, p, pn) {
+        const sp = pn ? 1.35 : 1;
+        if (b.mode === "in") { b.x -= 3 * dt; b.face = -1; if (b.x <= b.a1 - 3) { b.mode = "walk"; b.at = 1.2; } return; }
+        b.t2 += dt; b.at -= dt;
+        switch (b.mode) {
+          case "walk":
+            b.face = toward(b, p); b.x += b.face * 2.6 * sp * dt;
+            if (Math.abs(p.x - b.x) < 1.5 && Math.abs(p.y - b.y) < 1.5) { b.mode = "punch"; b.t2 = 0; }
+            else if (b.at <= 0) {
+              const r = Math.random(); b.t2 = 0; b.at = 1.5 / sp;
+              if (pn && Math.abs(p.x - b.x) > 5 && r < 0.45) b.mode = "shoot";
+              else if (r < 0.6) { b.mode = "jump"; b.vy = 12.5; b.vx = b.face * 2.5; }
+              else b.mode = "spin";
+            }
+            break;
+          case "punch": if (b.t2 > 0.65) { b.mode = "walk"; b.at = 0.9; } break;
+          case "jump": b.vy -= GRAV * dt; b.y += b.vy * dt; b.x += b.vx * dt; if (b.vy < 1) { b.mode = "glide"; b.face = toward(b, p); } break;
+          case "glide": b.x += b.face * 7 * sp * dt; b.y -= 1.4 * dt;
+            if (b.y <= b.gy || b.x <= b.a0 + 0.6 || b.x >= b.a1 - 0.6) { b.mode = "fall"; b.vy = 0; } break;
+          case "fall": b.vy -= GRAV * dt; b.y += b.vy * dt; if (b.y <= b.gy) { b.y = b.gy; b.mode = "land"; b.t2 = 0; } break;
+          case "land": if (b.t2 > 0.7) { b.mode = "walk"; b.at = 1; } break;
+          case "spin": if (b.t2 > 0.45) b.x += b.face * 11 * sp * dt; if (b.t2 > 1.4 || b.x <= b.a0 + 0.6 || b.x >= b.a1 - 0.6) { b.mode = "land"; b.t2 = 0.25; } break;
+          case "shoot": if (b.t2 > 0.35 && !b.fired) { b.fired = true; SFX.shot();
+              bshot(b, { name: "mecha.missile", y: b.y + 0.7, vx: b.face * 8, r: 0.35, home: 1.6, life: 2.4, fps: 14 }); }
+            if (b.t2 > 0.9) { b.mode = "walk"; b.fired = false; b.at = 1.2; } break;
+        }
+        b.x = clamp(b.x, b.a0 + 0.6, b.a1 - 0.6);
+        if (b.mode !== "jump" && b.mode !== "glide" && b.mode !== "fall") b.y = b.gy;
+      },
+      weak(b) { return /^(walk|land|punch|shoot)$/.test(b.mode) ? [b.x - 0.45, b.x + 0.45, b.y, b.y + 1.3] : null; },
+      harm(b) {
+        if (b.mode === "punch" && b.t2 > 0.2 && b.t2 < 0.5) return [[Math.min(b.x, b.x + b.face * 1.4), Math.max(b.x, b.x + b.face * 1.4), b.y + 0.3, b.y + 1.1]];
+        if (/^(glide|spin|jump)$/.test(b.mode)) return [[b.x - 0.6, b.x + 0.6, b.y, b.y + 1.1]];
+        return [];
+      },
+      draw(b, show) {
+        const m = pinchOf(b) ? "mecha.m" : "mecha.", t = world.t;
+        const [n, i] = b.mode === "walk" || b.mode === "in" ? ["walk", Math.floor(t * 10) % 5] : b.mode === "punch" ? ["punch", Math.min(3, Math.floor(b.t2 * 8))] :
+          b.mode === "glide" ? ["glide", Math.floor(t * 8) % 2] : b.mode === "jump" || b.mode === "spin" || b.mode === "fall" ? ["ball", Math.floor(t * 16) % 4] : ["stand", Math.floor(t * 3) % 2];
+        show("body", m + n, i, b.face, b.x, b.y, false, true);
+      },
+    },
+    ball: {
+      step(b, dt, p, pn) {
+        const L = b.a0 + 2, R = b.a1 - 2, sp = pn ? 1.4 : 1;
+        if (b.mode === "in") { b.x = R; b.y = b.gy - 2; b.mode = "rise"; b.t2 = 0; b.side = 1; return; }
+        b.t2 += dt;
+        if (b.mode === "rise") { b.y = lerp(b.y, b.gy + 2.6, 1 - Math.exp(-dt * 5)); if (b.t2 > 0.8) { b.mode = "arc"; b.t2 = 0; b.from = b.x; b.to = b.side > 0 ? L : R; b.peak = 2.2 + Math.random() * 2.2; } }
+        else if (b.mode === "arc") {
+          const T = 2.2 / sp, u = Math.min(1, b.t2 / T);
+          b.x = lerp(b.from, b.to, u); b.y = b.gy + 2.6 + Math.sin(u * PI) * b.peak;
+          if (u >= 1) { b.mode = "sink"; b.t2 = 0; b.side = -b.side; }
+        } else if (b.mode === "sink") { b.y = lerp(b.y, b.gy - 2, 1 - Math.exp(-dt * 5)); if (b.t2 > 0.9) { b.mode = "rise"; b.t2 = 0; } }
+        b.at -= dt;
+        if (b.at <= 0) {                                     // the spiked ball: out of one tube, low or high, into the other
+          const fromR = Math.random() < 0.5, high = Math.random() < 0.4;
+          bshot(b, { name: "ball.spike", x: fromR ? R : L, y: b.gy + (high ? 2.4 : 0.55), vx: (fromR ? -1 : 1) * (pn ? 7.5 : 5.5), r: 0.6, life: 3.6, fps: 8 });
+          b.at = pn ? 1.6 : 2.4;
+        }
+      },
+      weak(b) { return b.mode === "arc" ? [b.x - 0.7, b.x + 0.7, b.y - 0.8, b.y + 0.8] : null; },
+      harm(b) { return []; },
+      draw(b, show) {
+        for (const [k, x] of [["tl", b.a0 + 2], ["tr", b.a1 - 2]]) for (let s = 0; s < 3; s++) show(k + s, "ball.tube", 0, 1, x, b.gy + s * bh(b, "ball.tube"), false);
+        if (b.y > b.gy - 0.5) show("body", "ball.body", Math.floor(world.t * 6) % 2, b.face, b.x, b.y, true, true);
+      },
+    },
+    bomber: {
+      step(b, dt, p, pn) {
+        const v = pn ? 8.4 : 7.2, end = b.a1 - 14;
+        if (b.mode === "in") { b.mode = "drive"; b.at = 1.5; }
+        if (b.x < end) { b.x += v * dt; b.face = 1; } else b.x = end;
+        b.camX = Math.min(b.x - 3.5, end - 3.5);
+        if (p.x > b.x - 0.8) b.x = Math.min(end, b.x + (p.x - b.x + 0.8) * dt * 4);
+        b.at -= dt;
+        if (b.at <= 0) {
+          SFX.shot(); b.at = pn ? 1.1 : 1.7;
+          bshot(b, { name: "bomber.ball", x: b.x - 1.2, y: b.y + 1.9, vx: -(3 + Math.random() * 3), vy: 7, g: GRAV * 0.7, r: 0.35, land: "fire", fps: 10 });
+        }
+      },
+      weak(b) { const w = bw(b, "bomber.body"), h = bh(b, "bomber.body"); return [b.x - w * 0.45, b.x + w * 0.3, b.y + h * 0.35, b.y + h]; },
+      harm(b) { const w = bw(b, "bomber.body"), h = bh(b, "bomber.body"); return [[b.x - w * 0.45, b.x + w * 0.45, b.y, b.y + h * 0.35]]; },
+      draw(b, show) { show("body", b.inv > 0.6 ? "bomber.flash" : "bomber.body", Math.floor(world.t * 8) % 3, -b.face, b.x, b.y, false, true); },
+    },
+    totem: {
+      step(b, dt, p, pn) {
+        if (b.mode === "in") { b.x -= 3 * dt; b.face = -1; if (b.x <= b.a1 - 3) { b.mode = "roll"; b.at = 1.4; } return; }
+        b.x += b.face * (pn ? 2.2 : 1.4) * dt;
+        if (b.x < b.a0 + 1.5) b.face = 1; if (b.x > b.a1 - 1.5) b.face = -1;
+        b.at -= dt;
+        if (b.at <= 0) {
+          const d = toward(b, p), high = (b.n++ % (pn ? 2 : 3)) === 2 || (pn && Math.random() < 0.4);
+          bshot(b, { name: "totem.bar", x: b.x + d * 1.2, y: b.gy + (high ? 1.7 : 0.45), vx: d * (pn ? 7 : 5.5), r: 0.5, w: 1.2, life: 3.5, fps: 12 });
+          b.at = pn ? 1.2 : 1.8; SFX.shot();
+        }
+        b.zap = (b.at < 0.5);
+      },
+      weak(b) { const w = bw(b, "totem.body"), h = bh(b, "totem.body"); return [b.x - w * 0.5, b.x + w * 0.5, b.y + h * 0.72, b.y + h + 0.3]; },
+      harm(b) { const w = bw(b, "totem.body"), h = bh(b, "totem.body"); return [[b.x - w * 0.42, b.x + w * 0.42, b.y, b.y + h * (b.zap ? 0.72 : 0.25)]]; },
+      draw(b, show) { const h = bh(b, "totem.body"); show("body", "totem.body", Math.floor(world.t * 8) % 3, b.face, b.x, b.y, false, true);
+        if (b.zap) show("zap", "totem.spark", Math.floor(world.t * 20) % 5, 1, b.x, b.y + h * 0.48, true); },
+    },
+    spider: {
+      step(b, dt, p, pn) {
+        const hang = b.gy + 3.6, low = b.gy + 0.9;
+        if (b.mode === "in") { b.x = (b.a0 + b.a1) / 2; b.y = b.gy + 9; b.mode = "down"; return; }
+        b.t2 += dt;
+        if (b.mode === "down") { b.y = lerp(b.y, hang, 1 - Math.exp(-dt * 3)); if (Math.abs(b.y - hang) < 0.1) { b.mode = "hang"; b.t2 = 0; b.at = 1; } }
+        else if (b.mode === "hang") {
+          b.x = lerp(b.x, clamp(p.x, b.a0 + 1.5, b.a1 - 1.5), 1 - Math.exp(-dt * (pn ? 1.6 : 1.1))); b.y = hang + Math.sin(b.t2 * 3) * 0.15;
+          b.at -= dt;
+          if (b.at <= 0) { for (let k = 0; k < (pn ? 4 : 3); k++) bshot(b, { name: "spider.ice", x: b.a0 + 1.5 + Math.random() * (b.a1 - b.a0 - 3), y: b.gy + 7 + k * 0.8, g: 18, r: 0.35, life: 3, fps: 1, mid: true, shatter: true });
+            b.at = pn ? 2 : 2.8; shakeCam(0.12); SFX.impact(); }
+          if (b.t2 > (pn ? 4 : 5.5)) { b.mode = "stamp"; b.t2 = 0; }
+        } else if (b.mode === "stamp") { b.y = lerp(b.y, low, 1 - Math.exp(-dt * 7)); if (b.t2 > 0.35 && !b.stamped) { b.stamped = true; quake(b, b.x, 1.6); } if (b.t2 > 1.8) { b.mode = "down"; b.stamped = false; } }
+      },
+      weak(b) { const w = bw(b, "spider.body"), h = bh(b, "spider.body"); return [b.x - w * 0.42, b.x + w * 0.42, b.y, b.y + h * 0.75]; },
+      harm(b) { const w = bw(b, "spider.body"); return b.mode === "stamp" && b.t2 < 0.5 ? [[b.x - w * 0.5, b.x + w * 0.5, b.y - 0.3, b.y + 0.4]] : []; },
+      draw(b, show) {
+        show("body", "spider.body", b.mode === "stamp" ? 3 + Math.floor(world.t * 8) % 3 : Math.floor(world.t * 5) % 3, 1, b.x, b.y, false, true);
+        for (let k = 0; k < 6; k++) show("th" + k, "snake.shot", 1, 1, b.x, b.y + bh(b, "spider.body") + 0.3 + k * 0.5, true, false, 0.6);    // its thread
+      },
+    },
+    press: {
+      step(b, dt, p, pn) {
+        if (b.mode === "in") { b.x -= 4 * dt; b.y = b.gy; if (b.x <= b.a1 - 3) { b.mode = "set"; b.t2 = 0; b.n = 0; } return; }
+        b.t2 += dt;
+        if (b.mode === "set") { if (b.t2 > (pn ? 0.3 : 0.5)) { b.mode = "air"; b.n++; const big = b.n % 3 === 0; b.big = big; b.vy = big ? 15 : 8.5; b.face = toward(b, p); b.vx = b.face * (big ? 2.5 : (pn ? 4 : 3)); } }
+        else if (b.mode === "air") {
+          b.vy -= GRAV * dt; b.y += b.vy * dt; b.x += b.vx * dt;
+          if (b.x < b.a0 + 1.3 || b.x > b.a1 - 1.3) { b.x = clamp(b.x, b.a0 + 1.3, b.a1 - 1.3); b.vx = -b.vx; }
+          if (b.y <= b.gy) { b.y = b.gy; b.mode = "set"; b.t2 = 0; if (b.big) quake(b, b.x, BOSS_W); SFX.spring(); }
+        }
+      },
+      weak(b) { const w = bw(b, "press.body"), h = bh(b, "press.body"); return [b.x - w * 0.5, b.x + w * 0.5, b.y + h * 0.55, b.y + h + 0.2]; },
+      harm(b) { const w = bw(b, "press.body"), h = bh(b, "press.body"); return [[b.x - w * 0.25, b.x + w * 0.25, b.y, b.y + h * 0.5]]; },
+      draw(b, show) { show("body", "press.body", b.mode === "set" ? 3 + Math.min(2, Math.floor(b.t2 * 10)) : b.vy > 4 ? 0 : 1, b.face, b.x, b.y, false, true); },
+    },
+    hammer3: {
+      step(b, dt, p, pn) {
+        b.t2 += dt;
+        if (b.mode === "in") { b.x = b.a1 + 2; b.y = b.gy; b.mode = "gstand"; b.t2 = 0; b.face = -1; b.x = b.a1 - 3; return; }
+        if (b.mode === "gstand") { b.face = toward(b, p); if (b.t2 > 1.2) { b.mode = "gdash"; b.t2 = 0; } return; }
+        if (b.mode === "gdash") { b.x += b.face * 10 * dt; if (b.x <= b.a0 + 1 || b.x >= b.a1 - 1) { b.x = clamp(b.x, b.a0 + 1, b.a1 - 1); b.mode = "gstand"; b.t2 = 0; } return; }
+        if (b.mode === "gemout") { b.y += 9 * dt; b.x += 4 * dt; if (b.t2 > 1.2) { b.mode = "drop"; b.t2 = 0; b.x = (b.a0 + b.a1) / 2; b.y = b.gy + 10; hudToast(b.C.name); } return; }
+        const hi = b.gy + 4.4;
+        if (b.mode === "drop") { b.y = lerp(b.y, hi, 1 - Math.exp(-dt * 3)); if (b.t2 > 1.4) { b.mode = "swing"; b.t2 = 0; } }
+        else if (b.mode === "swing") {
+          b.x = lerp(b.x, clamp(p.x - sgn(p.x - b.x) * 0.5, b.a0 + 1.5, b.a1 - 1.5), 1 - Math.exp(-dt * (pn ? 1.8 : 1.2))); b.y = hi;
+          if (b.t2 > (pn ? 2 : 2.8)) { b.mode = "slam"; b.t2 = 0; }
+        } else if (b.mode === "slam") {
+          b.y = lerp(b.y, b.gy + 1.7, 1 - Math.exp(-dt * 9));
+          if (b.t2 > 0.3 && !b.slammed) { b.slammed = true; quake(b, b.x, 1.8); }
+          if (b.t2 > 1.7) { b.mode = "swing"; b.t2 = 0; b.slammed = false; }
+        }
+      },
+      weak(b) {
+        if (b.mode === "gstand") return [b.x - 0.45, b.x + 0.45, b.y, b.y + 1.5];
+        if (/^g/.test(b.mode) || b.mode === "drop") return null;
+        const w = bw(b, "hammer3.pod"); return [b.x - w * 0.5, b.x + w * 0.5, b.y, b.y + w];
+      },
+      harm(b) {
+        if (b.mode === "gdash") return [[b.x - 0.6, b.x + 0.6, b.y, b.y + 1.4]];
+        if (/^g/.test(b.mode)) return [];
+        const sw = b.mode === "swing" ? Math.sin(b.t2 * 3.2) * 1.4 : 0, hx = b.x + sw, w = bw(b, "hammer3.head"), hy = b.y - 1.6;
+        return [[hx - w * 0.45, hx + w * 0.45, hy - 0.4, hy + 0.6]];
+      },
+      draw(b, show) {
+        if (/^g/.test(b.mode)) {
+          const [n, i] = b.mode === "gdash" ? ["gemerl.dash", Math.floor(world.t * 12) % 2] : b.mode === "gemout" ? ["gemerl.hurt", 0] : ["gemerl.stand", Math.floor(world.t * 3) % 2];
+          show("gem", n, i, b.face, b.x, b.y, false, true, 1.2); return;
+        }
+        const sw = b.mode === "swing" ? Math.sin(b.t2 * 3.2) * 1.4 : 0, hy = b.y - 1.6;
+        for (let k = 1; k <= 3; k++) show("l" + k, "hammer3.link", 0, 1, b.x + sw * k / 4, b.y - k * 0.4, true);
+        show("head", b.inv > 0.5 ? "hammer3.headhit" : "hammer3.head", 0, 1, b.x + sw, hy - 0.4, false);
+        show("body", b.inv > 0.5 ? "hammer3.podhit" : "hammer3.pod", Math.floor(world.t * 6) % 3, 1, b.x, b.y, false, true);
+      },
+    },
+    snake: {
+      step(b, dt, p, pn) {
+        if (b.mode === "in") { b.x -= 4 * dt; b.y = b.gy + 0.3; if (b.x <= b.a1 - 3) { b.mode = "shut"; b.t2 = 0; b.at = 1.5; } return; }
+        b.t2 += dt; b.spin = (b.spin || 0) + dt * (pn ? 3.2 : 2.2);
+        b.x += b.face * (pn ? 2.4 : 1.6) * dt;
+        if (b.x < b.a0 + 2.5) b.face = 1; if (b.x > b.a1 - 2.5) b.face = -1;
+        if (b.mode === "shut" && b.t2 > 2.4) { b.mode = "open"; b.t2 = 0; }
+        else if (b.mode === "open" && b.t2 > (pn ? 1.6 : 2.2)) { b.mode = "shut"; b.t2 = 0; }
+        b.at -= dt;
+        if (b.at <= 0) { const d = toward(b, p); bshot(b, { name: "snake.shot", x: b.x + d, y: b.y + 0.8, vx: d * 6, vy: 0, r: 0.25, life: 3, fps: 10 }); b.at = pn ? 1.3 : 2; SFX.shot(); }
+      },
+      balls(b) { return [0, PI].map(a => [b.x + Math.cos(b.spin + a) * 2, b.y + 1 + Math.sin(b.spin + a) * 1.4]); },
+      weak(b) { const w = bw(b, "snake.body"), h = bh(b, "snake.body"); return b.mode === "open" ? [b.x - w * 0.5, b.x + w * 0.5, b.y + h * 0.4, b.y + h + 0.3] : null; },
+      harm(b) { const w = bw(b, "snake.body"), h = bh(b, "snake.body");
+        return BRAIN.snake.balls(b).map(([x, y]) => [x - 0.5, x + 0.5, y - 0.5, y + 0.5]).concat(b.mode === "shut" ? [[b.x - w * 0.5, b.x + w * 0.5, b.y, b.y + h]] : []); },
+      draw(b, show) {
+        show("body", "snake.body", b.mode === "open" ? (Math.floor(world.t * 4) % 2 ? 0 : 5) : 1 + Math.floor(world.t * 8) % 3, 1, b.x, b.y, false, true);
+        BRAIN.snake.balls(b).forEach(([x, y], k) => {
+          for (let c = 1; c <= 3; c++) show("c" + k + c, "snake.shot", 1, 1, lerp(b.x, x, c / 4), lerp(b.y + 1, y, c / 4), true, false, 0.7);
+          show("s" + k, "snake.spike", 0, 1, x, y, true);
+        });
+      },
+    },
+    saucer: {
+      step(b, dt, p, pn) {
+        const v = pn ? 8.2 : 7, end = b.a1 - 16;
+        if (b.mode === "in") { b.mode = "fly"; b.at = 1.6; b.y = b.gy + 2.6; }
+        if (b.x < end) b.x += v * dt; else b.x = end;
+        b.camX = Math.min(b.x - 3, end - 3);
+        if (p.x > b.x + 1) b.x = Math.min(end, b.x + (p.x - b.x - 1) * dt * 4);
+        b.t2 += dt; b.at -= dt;
+        if (b.mode === "fly") { b.y = lerp(b.y, b.gy + 2.6, 1 - Math.exp(-dt * 3));
+          if (b.at <= 0) { b.mode = "fists"; b.t2 = 0; b.fx = [p.x + 2.2, p.x - 1.6]; b.fy = b.gy + 4.6; } }
+        else if (b.mode === "fists") {
+          b.fy = b.t2 < 0.7 ? b.gy + 4.6 : Math.max(b.gy, b.fy - 30 * dt);
+          if (b.fy <= b.gy && !b.slam) { b.slam = true; quake(b, b.fx[0], 0.9); quake(b, b.fx[1], 0.9); }
+          if (b.t2 > 1.6) { b.mode = "dip"; b.t2 = 0; b.slam = false; }
+        } else if (b.mode === "dip") { b.y = lerp(b.y, b.gy + 0.4, 1 - Math.exp(-dt * 5)); if (b.t2 > 2.2) { b.mode = "fly"; b.at = pn ? 1.4 : 2.2; } }
+      },
+      weak(b) { const w = bw(b, "saucer.pod"), h = bh(b, "saucer.ring"); const cy = b.y + h * 0.5; return [b.x - w * 0.55, b.x + w * 0.55, cy - w * 0.6, cy + w * 0.6]; },
+      harm(b) { if (b.mode !== "fists") return []; return b.fx.map(x => [x - 0.6, x + 0.6, b.fy, b.fy + 1.2]); },
+      draw(b, show) {
+        const h = bh(b, "saucer.ring");
+        show("ring", "saucer.ring", Math.floor(world.t * 10) % 6, 1, b.x, b.y, false, false, undefined, -0.05);
+        show("body", b.inv > 0.5 ? "saucer.podhit" : "saucer.pod", 0, 1, b.x, b.y + h * 0.5, true, true);
+        if (b.mode === "fists") b.fx.forEach((x, k) => show("f" + k, "saucer.fist", 0, k ? 1 : -1, x, b.fy, false));
+        else [-1, 1].forEach((d, k) => show("f" + k, "saucer.hand", 0, -d, b.x + d * bw(b, "saucer.ring") * 0.62, b.y + h * 0.35, false));
+      },
+    },
+    frog: {
+      step(b, dt, p, pn) {
+        if (b.mode === "in") { b.x = b.a1 - 3; b.y = b.gy + 10; b.vy = 0; b.mode = "fall"; return; }
+        b.t2 += dt;
+        if (b.mode === "fall" || b.mode === "leap") {
+          b.vy -= GRAV * dt; b.y += b.vy * dt; b.x += (b.vx || 0) * dt;
+          if (b.y <= b.gy) { b.y = b.gy; b.vx = 0; b.mode = "sit"; b.t2 = 0; quake(b, b.x, 2.4); b.fired = 0; }
+        } else if (b.mode === "sit") {
+          b.face = toward(b, p);
+          if (b.t2 > 0.5 && b.fired === 0) { b.fired = 1;
+            if (Math.random() < 0.5) { for (let k = 0; k < 4; k++) bfire(b, b.x + b.face * (1.4 + k * 0.7), 0.9, 0.9); SFX.blast(); }
+            else for (let k = -1; k <= 1; k++) bshot(b, { name: "frog.shot", x: b.x + b.face * 1, y: b.y + 1.2, vx: b.face * 6, vy: k * 2.4, r: 0.25, life: 3, fps: 12 }); }
+          if (b.t2 > (pn ? 1.3 : 1.9)) { b.mode = "leap"; b.t2 = 0; const to = b.x < (b.a0 + b.a1) / 2 ? b.a1 - 3 : b.a0 + 3; b.vy = pn ? 16 : 14; b.vx = (to - b.x) / (2 * b.vy / GRAV); }
+        }
+      },
+      weak(b) { const w = bw(b, "frog.body"), h = bh(b, "frog.body"); return b.mode === "sit" ? [b.x - w * 0.5, b.x + w * 0.5, b.y, b.y + h] : null; },
+      harm(b) { const w = bw(b, "frog.body"), h = bh(b, "frog.body"); return b.mode !== "sit" ? [[b.x - w * 0.45, b.x + w * 0.45, b.y, b.y + h]] : []; },
+      draw(b, show) { show("body", b.inv > 0.6 ? "frog.flash" : pinchOf(b) ? "frog.hurt" : "frog.body", b.mode === "sit" ? Math.floor(world.t * 6) % 5 : 0, b.face, b.x, b.y, false, true); },
+    },
+  };
+
+  function stepBoss(dt) {
+    const w = world, b = w.boss, p = player;
+    if (!b || battle || !p) return;
+    if (p.dead) { if (b.lock && b.state !== "done" && b.state !== "capsule") b.reset = true; return; }
+    if (b.reset) { resetBoss(b); return; }
+    if (b.state === "wait") { if (p.x > b.a0 + (b.C.chase ? 2 : 1.5)) lockArena(b); return; }
+    b.t += dt; b.inv = Math.max(0, b.inv - dt);
+    /* the arena's walls: one screen (or, on a chase, the camera's view, going on with the boss) */
+    const hw = w.viewHalfW || 8;
+    const L = b.C.chase ? b.camX - hw + 0.6 : b.a0 + 0.5, R = b.C.chase ? b.camX + hw - 0.6 : b.a1 - 0.5;
+    if (b.lock) { if (p.x < L) { p.x = L; if (p.vx < 0) p.vx = 0; } if (p.x > R) { p.x = R; if (p.vx > 0) p.vx = 0; } }
+    if (b.state === "fight") {
+      const B = BRAIN[b.key];
+      B.step(b, dt, p, pinchOf(b));
+      if (b.mode !== "in") {
+        const P = [p.x - p.c.w / 2, p.x + p.c.w / 2, p.y, p.y + p.hh];
+        const hitting = attacking(p) || p.state === "seek" || (p.state === "atk" && p.mv);
+        const wk = B.weak(b), stomp = p.vy < -0.5 && wk && p.y > (wk[2] + wk[3]) / 2;
+        if (wk && ovl(P, wk) && (hitting || stomp)) bossHit(b, p);
+        else if (p.inv <= 0 && p.star <= 0) for (const h of B.harm(b)) if (ovl(P, h)) { hurt(p, b.x); break; }
+      }
+    } else if (b.state === "boom") {
+      if (b.t % 0.14 < dt) { b.booms.push({ x: b.x + (Math.random() - 0.5) * 2.4, y: b.y + Math.random() * 2.2, t: 0 }); SFX.boom(); shakeCam(0.08); }
+      if (b.t > 2.4) { b.state = "flee"; b.t = 0; b.my = b.y + 1.2; b.mx = b.x;
+        b.cap = { x: b.C.chase ? b.camX + 2 : clamp(p.x + 3, b.a0 + 2, b.a1 - 2), y: b.gy + 11, vy: 0, open: false, t: 0 };
+        for (let k = 0; k < 10; k++) burst(b.x + (Math.random() - 0.5) * 2, b.y + Math.random() * 2, [0x8a8a8a, 0x5a5a5a, 0xffd040], 6, 7); }
+    } else if (b.state === "flee" || b.state === "capsule" || b.state === "done") {
+      b.mx += 7 * dt; b.my += 3.2 * dt;
+      const c = b.cap;
+      if (!c.landed) { c.vy -= GRAV * 0.6 * dt; c.y = Math.max(b.gy, c.y + c.vy * dt); if (c.y <= b.gy) { c.landed = true; shakeCam(0.12); SFX.impact(); b.state = "capsule"; } }
+      const cw = bw(b, "flee.capsule") * 0.42, ch = bh(b, "flee.capsule");
+      if (!c.open) {
+        /* its walls: a runner stands on it, or is stopped by its sides */
+        if (p.x + p.c.w / 2 > c.x - cw && p.x - p.c.w / 2 < c.x + cw && p.y < c.y + ch - 0.3 && p.y + p.hh > c.y) { p.x = p.x < c.x ? c.x - cw - p.c.w / 2 : c.x + cw + p.c.w / 2; p.vx = 0; }
+        if (c.landed && Math.abs(p.x - c.x) < cw && p.y >= c.y + ch - 0.4 && p.y <= c.y + ch + 0.6 && p.vy <= 0) {
+          c.open = true; c.t = 0; b.state = "done"; p.y = c.y + ch - 0.45; p.vy = 6; p.ground = false;
+          SFX.pop(); SFX.check(); burst(c.x, c.y + ch, [0xffffff, 0xffd040], 16, 6);
+          for (let k = 0; k < 8; k++) setTimeout(() => world && spawnCritter(c.x + (Math.random() - 0.5) * 1.6, c.y + 0.6), k * 120);
+        }
+      } else {
+        c.t += dt;
+        if (c.t > 1.6 && mode === "play") { try { music(); } catch (e) {} finish(p); }
+      }
+    }
+    // shots
+    for (const s of b.shots) {
+      s.t += dt; s.life -= dt;
+      if (s.home) s.vy += clamp((p.y + 0.6 - s.y) * s.home, -6, 6) * dt;
+      if (s.g) s.vy -= s.g * dt;
+      s.x += s.vx * dt; s.y += s.vy * dt;
+      if (s.y - (s.mid ? s.r : 0) <= b.gy && s.vy <= 0) {
+        if (s.land === "fire") { bfire(b, s.x, 1.8, 1.1); s.life = 0; SFX.blast(); }
+        else if (s.shatter) { burst(s.x, b.gy + 0.2, [0xc8f0ff, 0xffffff], 8, 4); s.life = 0; }
+        else if (s.bounce) { s.y = b.gy + s.r; s.vy = Math.abs(s.vy) * s.bounce; if (s.vy < 3) s.vy = 7; }
+        else if (s.walker) { s.y = b.gy; s.vy = 0; }
+      }
+      if (!b.C.chase && (s.x < b.a0 - 1 || s.x > b.a1 + 1)) { if (s.walker || s.bounce) s.vx = -s.vx; else s.life = 0; }
+      const r = s.r, hw2 = s.w || r;
+      const box = s.mid ? [s.x - hw2, s.x + hw2, s.y - r, s.y + r] : [s.x - hw2, s.x + hw2, s.y, s.y + r * 2.4];
+      const P = [p.x - p.c.w / 2, p.x + p.c.w / 2, p.y, p.y + p.hh];
+      if (s.life > 0 && ovl(P, box)) {
+        if (s.walker && (attacking(p) || p.vy < -0.5)) { s.life = 0; burst(s.x, s.y + 0.4, [0xffffff, 0xd8d8d8], 8, 4); SFX.stomp(); if (p.vy < 0) p.vy = 9; }
+        else if (p.inv <= 0 && p.star <= 0) { hurt(p, s.x); if (!s.bounce && !s.walker) s.life = 0; }
+      }
+    }
+    b.shots = b.shots.filter(s => s.life > 0);
+    for (const f of b.fires) {
+      f.t += dt;
+      const P = [p.x - p.c.w / 2, p.x + p.c.w / 2, p.y, p.y + p.hh];
+      if (p.inv <= 0 && p.star <= 0 && ovl(P, [f.x - 0.35, f.x + 0.35, b.gy, b.gy + f.h * Math.min(1, f.t * 4)])) hurt(p, f.x);
+    }
+    b.fires = b.fires.filter(f => f.t < f.life);
+    for (const o of b.booms) o.t += dt;
+    b.booms = b.booms.filter(o => o.t < 0.42);
+  }
+  /* the camera on a locked arena: held on it (on a chase, running with the boss) */
+  function bossCamX(b, halfW) {
+    if (b.C.chase) return b.camX;
+    const c = (b.a0 + b.a1) / 2;
+    return halfW * 2 >= b.a1 - b.a0 ? c : clamp(camX, b.a0 + halfW, b.a1 - halfW);
+  }
+  function drawBoss() {
+    const b = world.boss; if (!b || battle) return;
+    for (const k in b.cards) b.cards[k].visible = false;
+    if (b.state === "wait") return;
+    const flick = b.inv > 0 && Math.floor(world.t * 30) % 2 === 0;
+    /* a piece of it: frame i of `name`, facing `face` (-1 left, as the sheets draw them; 1 right),
+       at x, y (its feet, or its middle) */
+    const show = (id, name, i, face, x, y, mid, body, k, z) => {
+      if (body && flick) return;
+      let m = b.cards[id];
+      if (!m) { m = b.cards[id] = makeCard("bosses"); world.group.add(m); }
+      m.visible = true;
+      setFrame(m, name, i, face < 0 ? 1 : -1, x, y, mid, z == null ? 0.05 : z, b.C.k * (k || 1));
+    };
+    if (b.state === "fight") BRAIN[b.key].draw(b, show);
+    b.shots.forEach((s, k) => show("shot" + k, s.name, Math.floor(s.t * s.fps) % fr(s.name).length, s.vx > 0 ? 1 : -1, s.x, s.y, s.mid, false));
+    b.fires.forEach((f, k) => show("fire" + k, "aero.fire", Math.floor(f.t * 12) % 7, 1, f.x, b.gy, false, false, f.h / 1.9));
+    b.booms.forEach((o, k) => show("boom" + k, "hammer.boom", Math.floor(o.t * 12), 1, o.x, o.y, true, false));
+    if (b.state === "boom" && !flick) BRAIN[b.key].draw(b, (id, name, i, face, x, y, mid, body, k, z) => show(id, name, i, face, x, y, mid, false, k, z));
+    if (b.cap) {
+      show("mobile", "flee.mobile", Math.floor(world.t * 8) % 4, 1, b.mx, b.my, true, false);
+      show("cap", b.cap.open ? "flee.open" : "flee.capsule", 0, 1, b.cap.x, b.cap.y, false, false);
+    }
   }
 
   // ---------------------------------------------------------------- the finish
   function finish(p) {
     mode = "goal"; p.state = "run";
-    world.goal.fire = 2.5; world.goal.fireT = 0;
+    if (world.goal) { world.goal.fire = 2.5; world.goal.fireT = 0; }
     SFX.goal();
     const time = world.t;
-    const st = stages()[stageIdx];
+    const st = curDef();
     const prev = saveData.stages[st.id] || {};
-    const shoesBefore = prev.shoes || [false, false, false];
+    const shoesBefore = (prev.shoes || []).slice(0, p.shoes.length).concat(p.shoes.map(() => false)).slice(0, p.shoes.length);
     const shoes = shoesBefore.map((b, i) => b || p.shoes[i]);
-    const pct = world.total ? p.carrots / world.total : 1;
+    const pct = world.total ? Math.min(1, p.ringsGot / world.total) : 1;
     const par = st.par || 90;
     let score = 0;
     score += time <= par ? 2 : time <= par * 1.35 ? 1 : 0;
@@ -4151,10 +5123,16 @@
                  " ": "J", z: "Z", Z: "Z", x: "X", X: "X", c: "C", C: "C" };
   function onKey(e, down) {
     if (!host) return;
-    const k = e.key;
+    if (rebind) { if (down) takeRebind(e); e.preventDefault(); return; }   // Options: the next key pressed is the new one
+    const k = e.key, duo = !!(battle && battle.duo);
     const b = KEYS[k];
     if (menuKey(e, down)) return;
-    if (k === "Escape" || k === "p" || k === "P") { if (down && mode === "play") togglePause(); e.preventDefault(); return; }
+    if (k === "Escape" || ((k === "p" || k === "P") && !duo)) { if (down && mode === "play") togglePause(); e.preventDefault(); return; }
+    if (duo) {                                           // two on one keyboard: each their own keys
+      const hit = duoKey(e.code);
+      if (hit) { e.preventDefault(); duoKeys[hit[0]][hit[1]] = down ? 1 : 0; }
+      return;
+    }
     if (!b) return;
     if (mode === "play" || mode === "goal") e.preventDefault();
     keys[b] = down ? 1 : 0;
@@ -4170,8 +5148,15 @@
   let kbFocus = null, kbUsed = false;
   const NAV = { ArrowLeft: "L", ArrowRight: "R", ArrowUp: "U", ArrowDown: "D" };
   function menuKey(e, down) {
-    const k = e.key, inMenu = mode === "title" || mode === "menu" || mode === "results" || (mode === "play" && paused);
+    const k = e.key, inMenu = GLIDE[mode] || mode === "menu" || mode === "results" || (mode === "play" && paused);
     if (k === "Enter" && mode === "play" && !paused) { if (down && !e.repeat) { kbUsed = true; togglePause(); } e.preventDefault(); return true; }
+    if (mode === "scene") {                              // the story's talk: Z, Enter or Space on, X skips the scene
+      const go = k === "z" || k === "Z" || k === "Enter" || k === " ", skip = k === "x" || k === "X";
+      if (!go && !skip) return !!NAV[k];
+      e.preventDefault();
+      if (down && !e.repeat) { if (go) sceneNext(); else sceneSkip(); }
+      return true;
+    }
     if (!inMenu) return false;
     const z = k === "z" || k === "Z", x = k === "x" || k === "X";
     if (!(NAV[k] || z || x || k === "Enter")) return false;
@@ -4181,18 +5166,14 @@
     const ov = host.querySelector(".adv-ov"), click = sel => { const el = ov && ov.querySelector(sel); if (el && !el.disabled) el.click(); };
     if (NAV[k]) { moveFocus(NAV[k]); return true; }
     if (e.repeat) return true;
-    if (k === "Enter") {
-      if (mode === "title") click("#advTStart");
-      else if (mode === "menu") click("#advStart");
-      else if (mode === "play") togglePause();
-      else pressFocus();
+    if (k === "Enter") {                                 // a screen's own Enter button, or the one picked
+      if (mode === "play") togglePause();
+      else { const el = ov && ov.querySelector("[data-enter]"); if (el && !el.disabled) el.click(); else pressFocus(); }
       return true;
     }
     if (z) { pressFocus(); return true; }
-    if (mode === "title") click("#advTBack");
-    else if (mode === "menu") click("#advBack");
-    else if (mode === "play") togglePause();
-    else click("#advSel");
+    if (mode === "play") togglePause();
+    else click("[data-back]");                           // each screen marks its way back
     return true;
   }
   function menuItems() {
@@ -4201,7 +5182,7 @@
   }
   function defaultFocus() {
     const ov = host.querySelector(".adv-ov"), items = menuItems();
-    return (ov && (ov.querySelector("#advRes") || ov.querySelector("#advNext") || ov.querySelector("#advMenu") || ov.querySelector("#advStart") || ov.querySelector("#advTStart"))) || items[0] || null;
+    return (ov && (ov.querySelector("[data-focus]") || ov.querySelector("#advRes") || ov.querySelector("#advNext") || ov.querySelector("#advMenu") || ov.querySelector("#advStart") || ov.querySelector("#advTStart"))) || items[0] || null;
   }
   function setFocus(el) {
     if (kbFocus) kbFocus.classList.remove("kb");
@@ -4235,27 +5216,34 @@
   }
   /* a menu just drawn: if the keys are in use, start on its first choice */
   function autoFocus() { kbFocus = null; if (kbUsed && host) setFocus(defaultFocus()); }
-  const tapAt = { L: 0, R: 0 };
-  function readInput() {
-    const gp = navigator.getGamepads ? Array.from(navigator.getGamepads()).find(g => g && g.connected) : null;
+  /* A player's hands into `inp`: the keys, a pad, the touch buttons. On one keyboard (and in a
+     battle with one player) the keys are the ones above and the first pad and the touch pad are
+     theirs too; in a battle with two players each has their own keys (Options sets them) and
+     pad, and the touch pad is Player 1's. */
+  function readInput(inp, slot) {
+    inp = inp || INPUT0; slot = slot || 0;
+    const duo = !!(battle && battle.duo);
+    const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(g => g && g.connected) : [];
+    const gp = duo ? pads[KEYMAP.padSwap ? 1 - slot : slot] : pads[0];
     for (const k in pad) pad[k] = 0;
     if (gp) {
       const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, B = i => gp.buttons[i] && gp.buttons[i].pressed ? 1 : 0;
       pad.L = ax < -0.35 || B(14) ? 1 : 0; pad.R = ax > 0.35 || B(15) ? 1 : 0; pad.D = ay > 0.5 || B(13) ? 1 : 0; pad.U = ay < -0.5 || B(12) ? 1 : 0;
       pad.J = B(0); pad.Z = B(2); pad.X = B(3) || B(5); pad.C = B(1) || B(7);
-      if (B(9) && !padStart && mode === "play") togglePause();
-      padStart = B(9);
+      if (B(9) && !inp._start && mode === "play") togglePause();
+      inp._start = B(9);
     }
-    const on = k => keys[k] || pad[k] || touch[k] ? 1 : 0;
-    const now = performance.now();
-    input.dash = 0;
+    const src = duo ? duoKeys[slot] : keys, tc = slot === 0 ? touch : {};
+    const on = k => src[k] || pad[k] || tc[k] ? 1 : 0;
+    const now = performance.now(), tapAt = inp._tap || (inp._tap = { L: 0, R: 0 });
+    inp.dash = 0;
     for (const d of ["L", "R"]) {                    // a double tap: the dash
       const v = on(d);
-      if (v && !input[d]) { if (now - tapAt[d] < 260) input.dash = d === "L" ? -1 : 1; tapAt[d] = now; }
-      input[d] = v;
+      if (v && !inp[d]) { if (now - tapAt[d] < 260) inp.dash = d === "L" ? -1 : 1; tapAt[d] = now; }
+      inp[d] = v;
     }
-    input.U = on("U"); input.D = on("D");
-    for (const b of ["J", "Z", "X", "C"]) { const v = on(b); input[b.toLowerCase() + "p"] = v && !input[b] ? 1 : 0; input[b] = v; }
+    inp.U = on("U"); inp.D = on("D");
+    for (const b of ["J", "Z", "X", "C"]) { const v = on(b); inp[b.toLowerCase() + "p"] = v && !inp[b] ? 1 : 0; inp[b] = v; }
   }
 
   // ---------------------------------------------------------------- the loop
@@ -4270,12 +5258,18 @@
         else acc += dt;
         const h = 1 / 120;
         let n = 0;
-        while (acc >= h && n < 14) { readInput(); step(h); worldStep(h); input.jp = input.zp = input.xp = input.cp = 0; input.dash = 0; acc -= h; n++; }
-        hud();
+        while (acc >= h && n < 14 && (mode === "play" || mode === "goal")) {
+          if (battle) battleTick(h);
+          else { readInput(); step(h); worldStep(h); input.jp = input.zp = input.xp = input.cp = 0; input.dash = 0; }
+          acc -= h; n++;
+        }
+        if (mode === "play" || mode === "goal") { if (battle) battleHud(); else { hud(); storyBeats(dt); } }
       }
-    } else if (mode === "title") {
-      // the title: the camera goes along the stage on its own, the cast parades below
+    } else if (GLIDE[mode]) {
+      /* the title and the menus: the camera goes along the stage on its own (the cast parades
+         below the title); a story scene's talk goes on over it */
       world.t += dt; titleGlide(dt); worldStep(dt * 0.6); drawParade(dt);
+      if (mode === "scene") sceneTick(dt);
     } else {
       // the menu: she waits at the start, the world goes on around her
       world.t += dt; worldStep(dt * 0.6);
@@ -4293,19 +5287,1223 @@
     R.setSize(W, Hh, false); camera.aspect = W / Hh; camera.updateProjectionMatrix();
   }
 
+  // ---------------------------------------------------------------- battle
+  /* Sonic Battle's fighting, with health. Up to four fighters in one runner's arena -- players
+     or CPUs, everyone for themselves or two teams -- each with a hundred health (Options of
+     the match: 60, 100 or 150). Blows, shots, traps and a curled body take it off; at none a
+     fighter is KO'd and drops back in a moment later. A KO match goes to the first to so many
+     KOs; in Survival each fighter has so many lives and the last side standing wins. Down is
+     Sonic Battle's guard button: a tap raises a shield for half a second, and held still the
+     runner heals, slowly, with nothing to stop a blow. Training is the same fight on a
+     dummy that does as it is told, and never ends. */
+
+  /* the screens where nobody runs: the stage goes by behind them on its own */
+  const GLIDE = { title: 1, main: 1, setup: 1, options: 1, story: 1, scene: 1 };
+
+  /* whether a and b are on opposite sides: everyone for themselves, or by team */
+  const rivals = (a, b) => !!a && !!b && a !== b && (!battle || !battle.teams || a.team !== b.team);
+  const mine = (t, p) => !battle || t.owner === p;
+  const tok = (o, d, k) => { hitTok = o; hitDmg = d; hitKnock = k == null ? 0.85 : k; return true; };
+  /* Damage, of a hundred: the third jab and the heavies the most; the runner's Power grade
+     scales it, S a fifth more and C a tenth less. Powers hit harder than shots, traps between. */
+  const DMG = { atk1: 4, atk2: 4, atk3: 7, heavy: 11, upper: 10, aim: 8, dashatk: 9, airatk: 7 };
+  const POW = { S: 1.2, A: 1.1, B: 1, C: 0.9 };
+  const powK = c => POW[c.grades && c.grades.Power] || 1;
+  const blowDmg = (p, name) => Math.round((DMG[name] || 6) * powK(p.c));
+  const spDmg = (p, s) => Math.round((s.kind === "power" ? 13 : s.kind === "trap" ? 11 : 8) * powK(p.c));
+  /* how well each heals, held still on Down: Knuckles and Cream best, Sonic worst (as Sonic
+     Battle has them), health a second */
+  const HEAL = { knuckles: 9, cream: 9, chaos: 8, gamma: 7, sonic: 4, shadow: 4.5, metal: 4.5 };
+  const GUARD_T = 0.55;
+  const SLOT_C = ["#e8403a", "#3a7ae0", "#e8b020", "#3aa04a"], TEAM_C = ["#e8403a", "#3a7ae0"], TEAM_N = ["Red", "Blue"];
+  const tagCol = f => battle && battle.teams ? TEAM_C[f.team] : SLOT_C[f.slot];
+  const tagText = f => f.ctl === "p1" ? "1P" : f.ctl === "p2" ? "2P" : "CPU";
+
+  /** A fighter is hit. Unless their guard is up (the shield takes it: a clink, a push back),
+      the damage comes off their health and they are knocked away -- a jab barely moves them,
+      a finisher throws them across the arena or up into the air -- and reel a moment; at no
+      health left, they are KO'd. Each blow lands on each fighter once. */
+  function hitFighter(q, kick, cx) {
+    if (q.inv > 0 || q.state === "teleport" || q.ko || q.out) return false;
+    if (hitTok) { if (q.hits.has(hitTok)) return false; q.hits.add(hitTok); }
+    const by = actor, from = by ? by.x : cx, away = sgn(q.x - from) || -q.face;
+    if (q.guardT > 0) {
+      q.vx = away * 3.5; q.blocked++;
+      hitSpark(q.x - away * 0.35, q.y + q.hh * 0.55, 0.85, 0xbfe8ff); SFX.grab(); hitStop(0.03);
+      return false;
+    }
+    /* a CPU's blows on a player are softer the easier it is: Easy three-quarters, Normal nine-tenths */
+    const dmg = hitDmg * (by && by.ctl === "cpu" && q.ctl !== "cpu" ? [0.75, 0.9, 1][clamp(by.lvl, 0, 2)] : 1), k = hitKnock;
+    let vx, vy;
+    if (kick && kick.r) {
+      const dx = q.x - kick.cx, dy = q.y + q.hh / 2 - kick.cy, d = Math.hypot(dx, dy) || 1;
+      vx = dx / d * kick.r * 0.8 + (sgn(dx) || away) * 1.5; vy = Math.max(5, dy / d * kick.r * 0.8 + 4);
+    } else if (kick) { vx = kick.vx * k; vy = kick.vy * k; }
+    else { vx = away * 6; vy = 5; }
+    const stunned = q.state === "hurt";
+    q.cmb = stunned ? { n: q.cmb.n + 1, dmg: q.cmb.dmg + dmg } : { n: 1, dmg };
+    q.hp = Math.max(0, q.hp - dmg); q.sinceHit = 0; q.lastDmg = dmg;
+    if (by) { by.dealt += dmg; by.landed++; by.lastCmb = q.cmb; }
+    q.state = "hurt"; q.st = 0.24 + dmg * 0.014; q.mv = null; q.sp = null; q.tor = null; q.er = null; q.curl = false; q.target = null;
+    q.guardT = 0; q.healing = false; q.crouchT = 0;
+    q.vx = vx;
+    if (vy > 3 || !q.ground) { q.vy = vy; q.ground = false; q.on = null; }
+    if (q.cmb.n >= 6) q.inv = Math.max(q.inv, 0.5);       // a long string: they break out of it
+    if (q.hp <= 0) {
+      if (battle.cfg.kind === "training") { q.hp = q.hpMax; caption("KO!"); }   // the dummy never goes down for good
+      else koFighter(q, by);
+    }
+    return true;
+  }
+  function guardUpkeep(p, dt) {
+    if (p.guardT > 0 && (p.guardT -= dt) <= 0) { p.guardT = 0; p.guardCd = 0.35; }
+    p.guardCd = Math.max(0, (p.guardCd || 0) - dt);
+    if (p.state !== "crouch") { if (p.guardT > 0) { p.guardT = 0; p.guardCd = 0.25; } p.crouchT = 0; p.healing = false; }
+  }
+  /* Down, still on the ground: the shield for half a second, then (held) healing */
+  function stepGuard(p, dt) {
+    if (!p.crouchT && !(p.guardCd > 0)) { p.guardT = GUARD_T; SFX.set(); }
+    p.crouchT = (p.crouchT || 0) + dt;
+    p.healing = p.crouchT > 0.8 && p.hp < p.hpMax;
+    if (p.healing) p.hp = Math.min(p.hpMax, p.hp + (HEAL[p.c.id] || 6) * dt);
+  }
+  /* the shield, a bubble of light round them; healing, green sparks rising */
+  function drawAura(f, dt) {
+    if (!f.aura) { f.aura = new THREE.Sprite(glowMat(0x9ad8ff, 0.5)); f.aura.visible = false; world.group.add(f.aura); }
+    const card = ITEMS && f.shield && !f.dead;                 // a shield: Sonic Advance 3's own, see-through, turning
+    if (ITEMS) {
+      if (!f.shCard) { f.shCard = makeCard("items", "ghost"); world.group.add(f.shCard); }
+      f.shCard.visible = !!card;
+      if (card) setFrame(f.shCard, f.shield === "magnet" ? "shield.magnet" : "shield.green", Math.floor(world.t * 14) % 6, 1, f.x, f.y + f.hh * 0.5 + (f.c.lift || 0), true, 0.32, 1.05);
+      /* invincibility: eight little sparkles circling the runner like a turning ball of stars --
+         two tilted rings going round, the near side in front of the runner, the far side behind,
+         each twinkling through the sparkle's frames */
+      if (!f.spCards) { f.spCards = []; for (let k = 0; k < 8; k++) { const m = makeCard("items", "fx"); world.group.add(m); f.spCards.push(m); } }
+      const lit = f.star > 0 && !f.dead, cy = f.y + f.hh * 0.5 + (f.c.lift || 0), R = 0.62 + f.c.w * 0.25;
+      f.spCards.forEach((m, k) => {
+        m.visible = lit;
+        if (!lit) return;
+        const ring = k % 2, lat = ring ? 0.5 : -0.5, a = world.t * (ring ? 5.2 : -4.4) + k * PI / 4, hr = R * Math.cos(lat);
+        setFrame(m, "sparkle", (Math.floor(world.t * 20) + k * 2) % 6, 1, f.x + Math.cos(a) * hr, cy + R * Math.sin(lat) + Math.sin(a * 2) * 0.08,
+                 true, 0.06 + Math.sin(a) * hr, 0.34 + 0.08 * Math.sin(a));
+      });
+    }
+    const on = (f.guardT > 0 || (f.shield && !ITEMS)) && !f.ko && !f.out && !f.dead;
+    f.aura.visible = on;
+    if (on) { const k = 2.4 + Math.sin(world.t * 30) * 0.08; f.aura.scale.set(k, k, 1); f.aura.position.set(f.x, f.y + f.hh * 0.5 + (f.c.lift || 0), 0.35); }
+    if (f.healing && Math.random() < dt * 16) world.parts.list.push({ x: f.x + (Math.random() - 0.5) * 0.9, y: f.y + 0.2, z: 0.3, vx: 0, vy: 4 + Math.random() * 2, vz: 0,
+      life: 0.45, s: 0.07, c: Math.random() < 0.55 ? 0x7ae08a : 0xffffff });
+  }
+
+  /* KO'd: thrown up and down, flat out a moment; then back in from above, unless their lives
+     are spent (Survival), or the match is over */
+  function koFighter(q, by) {
+    const B = battle;
+    q.ko = true; q.koT = 2.2; q.hp = 0; q.state = "run"; q.guardT = 0; q.healing = false;
+    q.vy = Math.max(q.vy, 9); q.vx = (sgn(q.x - (by ? by.x : q.x)) || -q.face) * 5; q.ground = false; q.on = null;
+    hitStop(0.22); shakeCam(0.3);
+    flash(q.x, q.y + q.hh * 0.5, 3.6, HIT_C[by ? by.c.id : q.c.id] || 0xffffff);
+    burst(q.x, q.y + q.hh * 0.5, [0xffffff, 0xf2d040, 0xe8403a], 22, 7);
+    SFX.impact(); SFX.fall();
+    q.downs++;
+    if (B.cfg.rule === "stock") { q.lives--; if (q.lives <= 0) q.elim = true; }
+    else if (by && rivals(by, q)) by.score++;
+    if (by && rivals(by, q)) by.kos++;
+    caption("KO!");
+    checkWin();
+  }
+  function stepKO(p, dt) {
+    p.koT -= dt; p.state = "run"; p.vx *= Math.pow(0.15, dt);
+    if (!p.ground) p.vy = Math.max(p.vy - GRAV * dt, -22);
+    integrate(p, dt);
+    if (p.koT <= 0) { if (p.elim) p.out = true; else if (battle && !battle.over) respawnFighter(p); else p.koT = 0.5; }
+  }
+  const spawnXs = W => [8.5, W - 8.5, 13.5, W - 13.5];
+  /** the floor at x: the highest ground under the open sky (not a ledge) */
+  function floorAt(x) {
+    const i = Math.floor(x);
+    for (let j = H - 2; j >= 0; j--) { const c = tile(i, j); if (c === "/" || c === "\\") return slopeY(c, i, j, x); if (solid(c)) return j + 1; }
+    return 4;
+  }
+  function respawnFighter(p) {
+    const B = battle, W = world.W;
+    let best = spawnXs(W)[0], bd = -1;
+    for (const x of spawnXs(W)) {
+      const d = Math.min(99, ...B.fs.filter(f => f !== p && !f.out && !f.ko).map(f => Math.abs(f.x - x)));
+      if (d > bd) { bd = d; best = x; }
+    }
+    Object.assign(p, { ko: false, x: best, y: floorAt(best) + 5, vx: 0, vy: 0, ground: false, on: null, onTile: null, state: "run", hp: p.hpMax, inv: 1.6,
+                       curl: false, mv: null, sp: null, tor: null, er: null, airUses: 0, airMove: false, airSp: false, flyLeft: p.c.flyTime || 0,
+                       star: 0, rev: 0, dead: 0, guardT: 0, healing: false, crouchT: 0, cmb: { n: 0, dmg: 0 } });
+    p.face = best < W / 2 ? 1 : -1;
+    burst(p.x, p.y + 0.5, [0xffffff, 0xfff3a0], 10, 3);
+  }
+  /* Bodies: a fighter curled, rolling, homing, gliding or diving hurts the other side's when they
+     meet, as a badnik is beaten; one dropping on a head bounces off it, and hurts a little.
+     Fighters standing in each other are eased apart. */
+  function contacts(dt) {
+    const fs = battle.fs.filter(f => !f.ko && !f.out);
+    for (const p of fs) {
+      p.bodyT = Math.max(0, (p.bodyT || 0) - dt);
+      for (const q of fs) {
+        if (q === p || !rivals(p, q) || q.ko) continue;
+        const ox = Math.min(p.x + p.c.w / 2, q.x + q.c.w / 2) - Math.max(p.x - p.c.w / 2, q.x - q.c.w / 2);
+        const oy = Math.min(p.y + p.hh, q.y + q.hh) - Math.max(p.y, q.y);
+        if (ox <= 0 || oy <= 0) continue;
+        if (!p.bodyTok || p.bodyT <= 0) { p.bodyTok = {}; p.bodyT = 0.4; }
+        actor = p;
+        if (attacking(p) && p.state !== "atk" && p.state !== "tornado") {
+          const homing = p.state === "homing", v = Math.max(8, Math.abs(p.vx) * 0.8);
+          tok(p.bodyTok, homing ? 7 : 6, 0.8);
+          if (hitFighter(q, { vx: (sgn(p.vx) || p.face) * v, vy: homing ? 6 : 7 }, p.x)) {
+            hitSpark((p.x + q.x) / 2, q.y + q.hh * 0.5, 1.1, HIT_C[p.c.id] || 0xffffff); hitStop(0.04); shakeCam(0.08); SFX.hit();
+            if (homing) { p.state = "run"; p.vy = 10; p.vx = p.face * 4; p.airMove = false; p.airUses = 0; p.curl = true; }
+            else if (p.curl && !p.ground && p.vy < 0) p.vy = 9;
+            else if (p.state === "roll" || p.state === "dash") p.vx *= 0.4;
+          }
+        } else if (p.vy < -2 && !p.ground && p.y > q.y + q.hh * 0.55 && p.state !== "hurt") {
+          tok(p.bodyTok, 4, 0.3);
+          if (hitFighter(q, { vx: 0, vy: 0 }, p.x)) { p.vy = p.inp.J ? 12 : 9.5; p.airMove = false; p.airUses = 0; hitSpark(p.x, q.y + q.hh, 0.8, 0xffffff); SFX.stomp(); }
+        }
+        actor = null;
+      }
+    }
+    for (let a = 0; a < fs.length; a++) for (let b = a + 1; b < fs.length; b++) {
+      const p = fs[a], q = fs[b], ox = (p.c.w + q.c.w) / 2 * 0.8 - Math.abs(p.x - q.x);
+      if (ox <= 0 || Math.abs(p.y - q.y) > 0.9) continue;
+      const d = sgn(p.x - q.x) || (a % 2 ? 1 : -1), push = Math.min(ox / 2, 0.05);
+      moveX(p, d * push); moveX(q, -d * push);
+    }
+  }
+
+  /* Each runner's stage has its arena: forty metres of its own ground, walled at both ends by
+     nothing you can see (as Sonic Battle's are), ledges to fight from -- three layouts, by turns:
+     ledges over the floor; a mound in the middle; raised ends and one long ledge. */
+  const ARENA_W = 40;
+  function arenaDef(i) {
+    const st = stages()[i] || stages()[0], W = ARENA_W, HH = 32;
+    const g = Array.from({ length: HH }, () => Array(W).fill("."));
+    for (let j = 0; j < 4; j++) for (let x = 0; x < W; x++) g[j][x] = "#";
+    const plank = (x0, x1, j) => { for (let x = x0; x <= x1; x++) g[j][x] = "-"; };
+    const L = i % 3;
+    if (L === 0) { plank(5, 11, 7); plank(28, 34, 7); plank(16, 23, 10); }
+    else if (L === 1) { g[4][15] = "/"; for (let x = 16; x <= 23; x++) g[4][x] = "="; g[4][24] = "\\"; plank(4, 10, 8); plank(29, 35, 8); plank(17, 22, 11); }
+    else { for (let x = 0; x <= 5; x++) g[4][x] = "="; g[4][6] = "\\"; for (let x = 34; x < W; x++) g[4][x] = "="; g[4][33] = "/"; plank(12, 27, 8); plank(4, 9, 11); plank(30, 35, 11); }
+    g[4][12] = "T"; g[4][28] = "T"; g[6][20] = "P";
+    const lines = [];
+    for (let r = 0; r < HH; r++) lines.push(g[HH - 1 - r].join(""));
+    return { id: "arena-" + st.id, name: st.name, sub: st.sub, theme: st.theme, who: st.who, arena: true, chunks: [lines.join("\n")] };
+  }
+  const stageAt = id => Math.max(0, stages().findIndex(s => s.id === id));
+  /* An arena's picture, for the setups (as Sonic Battle shows the stage you pick): its world
+     built to one side, every chunk of it, seen from where a battle's camera stands when it is
+     furthest out, rendered once at twice the size and kept, smoothed down, as a little canvas. */
+  const ARENA_PICS = {};
+  function arenaPic(i) {
+    if (ARENA_PICS[i]) return ARENA_PICS[i];
+    if (!R) return null;
+    const keep = { scene, camera, sun, hemi, H };
+    let out = null, rt = null;
+    try {
+      const w = buildWorld(arenaDef(i));
+      for (const i0 of w.pending.splice(0)) for (const m of buildChunk(w.S, w.T, i0, Math.min(w.W, i0 + 16))) w.group.add(m);
+      for (const f of w.far.userData.anim) f(0);
+      const PW = 640, PH = 360, T = Math.tan(17 * PI / 180), D = 34, cx = w.W / 2, cy = 4 + T * D * 0.62;
+      camera.aspect = PW / PH; camera.updateProjectionMatrix();
+      camera.position.set(cx, cy + 1.9, D); camera.lookAt(cx, cy, 0);
+      sun.position.set(cx + w.T.sun[2][0], w.T.sun[2][1], w.T.sun[2][2]); sun.target.position.set(cx, cy - 2, 0);
+      rt = new THREE.WebGLRenderTarget(PW, PH);
+      rt.texture.encoding = R.outputEncoding;
+      R.setRenderTarget(rt); R.render(scene, camera);
+      const px = new Uint8Array(PW * PH * 4);
+      R.readRenderTargetPixels(rt, 0, 0, PW, PH, px);
+      const big = document.createElement("canvas"); big.width = PW; big.height = PH;
+      const img = big.getContext("2d").createImageData(PW, PH), row = PW * 4;
+      for (let y = 0; y < PH; y++) img.data.set(px.subarray((PH - 1 - y) * row, (PH - y) * row), y * row);   // GL's rows run bottom up
+      big.getContext("2d").putImageData(img, 0, 0);
+      out = document.createElement("canvas"); out.width = PW / 2; out.height = PH / 2;
+      const g = out.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(big, 0, 0, PW / 2, PH / 2);
+      scene.traverse(o => { if (o.geometry && !o.userData.keep && !Object.values(PROPS).includes(o.geometry)) o.geometry.dispose(); });
+      if (scene.background && scene.background.dispose) scene.background.dispose();
+    } catch (e) { out = null; }
+    finally {
+      if (R) R.setRenderTarget(null);
+      if (rt) rt.dispose();
+      ({ scene, camera, sun, hemi, H } = keep);
+    }
+    return (ARENA_PICS[i] = out);
+  }
+  /* the setups' arena picker: the picture over the arrows */
+  const arenaPick = i => `
+    <div class="adv-arena">
+      <div class="adv-arena-pic${ARENA_PICS[i] ? " in" : ""}"><canvas width="320" height="180" data-arena="${i}"></canvas></div>
+      ${arrows("arena", esc(stages()[i].name))}
+    </div>`;
+  function paintArena(ov) {
+    const cv = ov.querySelector("canvas[data-arena]"); if (!cv) return;
+    const i = +cv.dataset.arena;
+    const go = () => { if (!cv.isConnected) return; const pic = arenaPic(i); if (pic) { cv.getContext("2d").drawImage(pic, 0, 0); cv.parentNode.classList.add("in"); } };
+    if (ARENA_PICS[i]) go(); else setTimeout(go, 160);   // built once the picker rests on it, not for each arena gone past
+  }
+
+  /** Start a fight: cfg = { kind: "battle" | "training" | "story", slots: [{ who, ctl: "p1" |
+      "p2" | "cpu", lvl, team, dummy }], teams, arena, rule: "ko" | "stock", goal, time, hp }. */
+  function startBattle(cfg) {
+    endBattle();
+    disposeWorld();
+    world = buildWorld(arenaDef(cfg.arena));
+    const W = world.W, xs = spawnXs(W);
+    const fs = cfg.slots.map((s, i) => {
+      const f = makePlayer(castOf(s.who)), x = xs[i];
+      return Object.assign(f, { x, y: floorAt(x), face: x < W / 2 ? 1 : -1, slot: i, ctl: s.ctl, lvl: s.lvl == null ? 1 : s.lvl, team: cfg.teams ? s.team : i,
+        inp: newInput(), hits: new WeakSet(), hpMax: cfg.hp, hp: cfg.hp, score: 0, lives: cfg.rule === "stock" ? cfg.goal : 0, kos: 0, downs: 0, dealt: 0,
+        landed: 0, blocked: 0, cmb: { n: 0, dmg: 0 }, sinceHit: 9, ai: aiNew(s), alive: true, h: f.hh, guardT: 0, guardCd: 0, check: { x, y: 6 } });
+    });
+    const humans = fs.filter(f => f.ctl !== "cpu");
+    battle = { cfg, fs, live: false, over: false, intro: cfg.kind === "training" ? 0.6 : 1.7, clock: cfg.time || 0, duo: fs.some(f => f.ctl === "p2"),
+               teams: !!cfg.teams, lead: humans[0] || fs[0], t: 0, endT: 0 };
+    player = battle.lead;
+    for (const k in keys) keys[k] = 0;
+    duoKeys.forEach(m => { for (const k in m) m[k] = 0; });
+    camX = W / 2; camY = 8; camD = 24; acc = 0; last = 0; stopT = 0; shake = 0;
+    const box = host.querySelector(".adv-3d");
+    if (box && R.domElement.parentNode !== box) box.appendChild(R.domElement);
+    R.domElement.__w = 0;
+    mode = "play"; paused = false;
+    host.querySelector(".adv-ov").innerHTML = "";
+    host.classList.add("playing");
+    buildBattleHud();
+    caption(cfg.kind === "training" ? "Training" : "Ready");
+    music();
+  }
+  /* the fighters off the stage: the world stays (a story scene goes on in front of it) */
+  function endBattle() {
+    if (!battle) return;
+    for (const f of battle.fs) for (const m of [f.spr, f.dust, f.aura, f.shCard, ...(f.spCards || [])]) if (m) world.group.remove(m);
+    battle = null; actor = null; input = INPUT0;
+    duoKeys.forEach(m => { for (const k in m) m[k] = 0; });
+    if (world) player = makePlayer(castOf(runnerId()));
+    const h = host && host.querySelector(".adv-hud"); if (h) { h.classList.remove("on"); h.innerHTML = ""; }
+  }
+  function battleTick(h) {
+    const B = battle, w = world;
+    w.t += h; B.t += h;
+    if (!B.live && !B.over) { B.intro -= h; if (B.intro <= 0) { B.live = true; if (B.cfg.kind !== "training") caption("Go!"); } }
+    if (B.live && !B.over && B.cfg.time && B.cfg.kind === "battle") { B.clock -= h; if (B.clock <= 0) { B.clock = 0; timeUp(); } }
+    if (B.over) {
+      B.endT -= h;
+      if (B.endT < 1.9 && !B.said) { B.said = true; caption(B.winner == null ? "Draw" : winnerLine(B.winner), true); SFX.goal(); }
+      if (B.endT <= 0) { battleOver(); return; }
+    }
+    for (const f of B.fs) {
+      f.alive = !f.ko && !f.out; f.h = f.hh; f.sinceHit += h;
+      if (f.out) continue;
+      if (f.ctl === "cpu") aiThink(f, h);
+      else if (B.live && !B.over) readInput(f.inp, f.ctl === "p2" ? 1 : 0);
+      else { const I = f.inp; I.L = I.R = I.U = I.D = I.J = I.Z = I.X = I.C = 0; }
+      if (B.cfg.kind === "training" && f.sinceHit > 1.6 && f.hp < f.hpMax) f.hp = Math.min(f.hpMax, f.hp + 40 * h);   // health comes back, between strings
+    }
+    for (const f of B.fs) { if (f.out) continue; player = f; input = f.inp; actor = f; step(h); }
+    actor = null; input = INPUT0; player = B.lead;
+    contacts(h);
+    worldStep(h);
+    for (const f of B.fs) { const I = f.inp; I.jp = I.zp = I.xp = I.cp = 0; I.dash = 0; }
+  }
+  /* each side's tally: KOs, lives and health left, fighters still in */
+  function sides() {
+    const m = new Map();
+    for (const f of battle.fs) {
+      const t = m.get(f.team) || { team: f.team, score: 0, lives: 0, hp: 0, alive: 0, fs: [] };
+      t.score += f.score; t.lives += f.elim ? 0 : f.lives; t.hp += f.out ? 0 : f.hp / f.hpMax; t.alive += f.elim ? 0 : 1; t.fs.push(f);
+      m.set(f.team, t);
+    }
+    return [...m.values()];
+  }
+  function checkWin() {
+    const B = battle; if (!B || B.over || B.cfg.kind === "training") return;
+    const S = sides();
+    if (B.cfg.rule === "stock") { const left = S.filter(t => t.alive > 0); if (left.length <= 1) winBattle(left.length ? left[0].team : null); }
+    else { const top = S.find(t => t.score >= B.cfg.goal); if (top) winBattle(top.team); }
+  }
+  /* time: the most KOs win; in Survival the most lives, then the most health; level is a draw */
+  function timeUp() {
+    caption("Time!");
+    const key = t => battle.cfg.rule === "stock" ? t.lives * 1000 + t.hp : t.score;
+    const S = sides().sort((a, b) => key(b) - key(a));
+    winBattle(S.length > 1 && key(S[0]) === key(S[1]) ? null : S[0].team);
+  }
+  function winBattle(team) {
+    const B = battle; B.over = true; B.live = false; B.winner = team; B.endT = 3.4;
+  }
+  function winnerLine(team) {
+    const fs = battle.fs.filter(f => f.team === team);
+    if (battle.teams) return (fs.length > 1 ? fs.map(f => f.c.name).join(" & ") + " win!" : fs[0].c.name + " wins!");
+    return fs[0].c.name + " wins!";
+  }
+
+  // ---------------------------------------------------------------- the CPU
+  /* A CPU fighter reads the fight a few times a second (Easy slowest, Hard quickest): far off it
+     closes in, dashing, or fires its shot across; nearer it jumps in with an air attack or
+     springs its aim attack; close up it turns to face its mark and strings jabs into a heavy,
+     an upper, its power or a trap. When a blow or a shot is coming it may see it in time and
+     guard; hurt and out of reach it may stop to heal. */
+  const AI_LV = [
+    { think: 0.5, guard: 0.12, sp: 0.1, combo: [1, 2], fin: 0.25, aim: 0.05, jumpIn: 0.15, air: 2 },
+    { think: 0.28, guard: 0.38, sp: 0.18, combo: [2, 3], fin: 0.55, aim: 0.1, jumpIn: 0.22, air: 5 },
+    { think: 0.15, guard: 0.62, sp: 0.24, combo: [3, 3], fin: 0.85, aim: 0.14, jumpIn: 0.26, air: 9 },
+  ];
+  const aiNew = s => ({ t: 0.4 + Math.random() * 0.4, q: [], qt: 0, dir: 0, hold: 0, D: 0, U: 0, mU: 0, mD: 0, mod: 0, jt: 0, ct: 0,
+                        dummy: s.dummy || null, wander: Math.random() < 0.5 ? -1 : 1, wt: 0 });
+  function press(f, a) {
+    const I = f.inp, A = f.ai;
+    if (a.U) { A.mU = 1; I.U = 1; } if (a.D) { A.mD = 1; I.D = 1; }
+    if (a.U || a.D) A.mod = 0.12;
+    if (a.k === "j") { I.jp = 1; I.J = 1; A.jt = a.hold || 0.2; }
+    else if (a.k === "z") { I.zp = 1; I.Z = 1; }
+    else if (a.k === "x") { I.xp = 1; I.X = 1; }
+    else if (a.k === "c") { I.cp = 1; I.C = 1; A.ct = a.hold || 0.05; }
+  }
+  function aiTarget(f) {
+    let best = null, bd = 1e9;
+    for (const q of battle.fs) if (rivals(f, q) && !q.ko && !q.out) { const d = Math.abs(q.x - f.x) + Math.abs(q.y - f.y) * 1.5 - (q === f.ai.tgt ? 2 : 0); if (d < bd) { bd = d; best = q; } }
+    return (f.ai.tgt = best);
+  }
+  /* a blow or a shot on its way to f */
+  function danger(f) {
+    for (const q of battle.fs) {
+      if (!rivals(q, f) || q.ko || q.out) continue;
+      const dx = f.x - q.x;
+      if (Math.abs(dx) < 2.7 && Math.abs(f.y - q.y) < 1.6 && sgn(dx) === q.face &&
+          (q.state === "atk" || q.state === "seek" || q.state === "special" || q.state === "tornado" || attacking(q))) return true;
+    }
+    for (const s of world.shots) if (!s.gone && s.owner && rivals(s.owner, f) && Math.abs(s.x - f.x) < 4 && sgn(f.x - s.x) === sgn(s.vx) && Math.abs(s.y - (f.y + 0.6)) < 1.6) return true;
+    return false;
+  }
+  function aiThink(f, dt) {
+    const I = f.inp, A = f.ai, B = battle, L = AI_LV[clamp(f.lvl, 0, 2)];
+    I.jp = I.zp = I.xp = I.cp = 0; I.dash = 0;
+    if (!B.live || B.over || f.ko) { I.L = I.R = I.U = I.D = I.J = I.Z = I.X = I.C = 0; A.q = []; A.hold = 0; return; }
+    if (A.hold > 0) A.hold -= dt; else { A.dir = 0; A.D = 0; A.U = 0; }
+    if (A.mod > 0) A.mod -= dt; else { A.mU = 0; A.mD = 0; }
+    if (A.jt > 0) A.jt -= dt;
+    if (A.ct > 0) A.ct -= dt;
+    I.L = A.dir < 0 ? 1 : 0; I.R = A.dir > 0 ? 1 : 0; I.U = A.U || A.mU ? 1 : 0; I.D = A.D || A.mD ? 1 : 0; I.J = A.jt > 0 ? 1 : 0;
+    I.Z = 0; I.X = 0; I.C = A.ct > 0 ? 1 : 0;
+    if (A.q.length) { A.qt += dt; while (A.q.length && A.qt >= A.q[0].at) press(f, A.q.shift()); }
+    const tgt = aiTarget(f);
+    if (A.dummy && A.dummy !== "fight") return dummyThink(f, dt);
+    if (!tgt) return;
+    const dx = tgt.x - f.x, dy = tgt.y - f.y, adx = Math.abs(dx), toward = sgn(dx) || f.face;
+    // a blow or a shot coming: it may see it in time and guard
+    const threat = danger(f);
+    if (threat && !A.seen) {
+      A.seen = true;
+      if (f.ground && f.state !== "atk" && f.state !== "special" && Math.random() < L.guard) { A.q = []; A.dir = 0; A.D = 1; A.hold = 0.42; A.t = 0.45; return; }
+    } else if (!threat) A.seen = false;
+    // in the air near its mark: the air attack
+    if (!f.ground && !f.airMove && f.state === "run" && adx < 1.9 && Math.abs(dy) < 1.4 && Math.random() < dt * L.air) press(f, { k: "z" });
+    // a wall in the way: over it
+    if (A.dir && f.ground && Math.abs(f.vx) < 0.5 && solid(tile(Math.floor(f.x + A.dir * (f.c.w / 2 + 0.3)), Math.floor(f.y + 0.5))) && !A.q.length) press(f, { k: "j", hold: 0.3 });
+    A.t -= dt;
+    if (A.t > 0 || A.q.length || A.hold > 0) return;
+    A.t = L.think * (0.7 + Math.random() * 0.6);
+    A.qt = 0;
+    const r = Math.random(), faced = f.face === toward, level = Math.abs(dy) < 1;
+    if (f.hp < f.hpMax * 0.3 && adx > 9 && f.ground && r < 0.35) { A.dir = 0; A.D = 1; A.hold = 1.4; return; }   // out of reach and hurt: heal
+    if (adx > 6) {
+      A.dir = toward; A.hold = A.t + 0.05;
+      if (f.ground && faced && level && r < L.sp) { A.dir = 0; A.q = [{ at: 0, k: "c" }]; }                  // a shot across the arena
+      else if (f.ground && r > 0.86) I.dash = toward;
+      if (dy > 1.5 && f.ground && !A.q.length) A.q = [{ at: 0, k: "j", hold: 0.3 }];
+    } else if (adx > 2.2) {
+      A.dir = toward; A.hold = A.t + 0.05;
+      if (r < L.aim && faced) A.q = [{ at: 0, k: "x", D: 1 }];                                                // the aim attack
+      else if (r < L.aim + L.jumpIn && f.ground) A.q = [{ at: 0, k: "j", hold: 0.3 }, { at: 0.3, k: "z" }];  // jump in
+      else if (r < L.aim + L.jumpIn + L.sp * 0.5 && faced && level) { A.dir = 0; A.q = [{ at: 0, k: "c" }]; }
+      else if (dy > 1.5 && f.ground) A.q = [{ at: 0, k: "j", hold: 0.3 }];
+    } else {
+      if (!faced) { A.dir = toward; A.hold = 0.04; A.t = 0.05; return; }                                      // turn to it first
+      A.dir = 0;
+      if (dy > 1.3) A.q = r < 0.6 ? [{ at: 0, k: "x", U: 1 }] : [{ at: 0, k: "j", hold: 0.25 }, { at: 0.22, k: "z" }];
+      else if (r < L.sp * 0.6) A.q = [{ at: 0, k: "c", U: 1 }];                                              // the power
+      else if (r < L.sp * 0.6 + 0.06) A.q = [{ at: 0, k: "c", D: 1 }];                                       // a trap
+      else {
+        const n = L.combo[0] + Math.floor(Math.random() * (L.combo[1] - L.combo[0] + 1));
+        for (let k = 0; k < n; k++) A.q.push({ at: k * 0.13, k: "z" });
+        if (n >= 3 || Math.random() < L.fin) A.q.push({ at: n * 0.13, k: "x", U: Math.random() < 0.3 ? 1 : 0 });
+      }
+    }
+  }
+  /* Training's dummy: stands, guards whatever comes, walks to and fro, jumps, or fights (as a
+     Normal CPU) */
+  const DUMMY = [["stand", "Stand"], ["guard", "Guard"], ["walk", "Walk"], ["jump", "Jump"], ["fight", "Fight"]];
+  function dummyThink(f, dt) {
+    const A = f.ai;
+    if (A.dummy === "guard") { if (danger(f) && f.ground && !(f.guardCd > 0) && f.state !== "crouch" && f.state !== "hurt") { A.D = 1; A.hold = 0.42; } }
+    else if (A.dummy === "walk") {
+      A.wt += dt;
+      if (A.wt > 2.4 || f.x < 5 || f.x > world.W - 5) { if (A.wt > 0.5) { A.wander = f.x < 5 ? 1 : f.x > world.W - 5 ? -1 : -A.wander; A.wt = 0; } }
+      A.dir = A.wander; A.hold = 0.05;
+    } else if (A.dummy === "jump") { A.wt += dt; if (A.wt > 1.1 && f.ground) { A.wt = 0; press(f, { k: "j", hold: 0.3 }); } }
+  }
+
+  // ---------------------------------------------------------------- the battle's picture and HUD
+  /* the camera frames everyone in the fight, backing off as they spread out, the floor kept
+     near the bottom of the picture */
+  let camD = CAM_D;
+  function battleView(aspect, dt) {
+    const fs = battle.fs.filter(f => !f.out);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const f of fs) { x0 = Math.min(x0, f.x); x1 = Math.max(x1, f.x); y0 = Math.min(y0, f.y); y1 = Math.max(y1, f.y + f.hh); }
+    if (!fs.length) { x0 = x1 = world.W / 2; y0 = 4; y1 = 5; }
+    const T = Math.tan(17 * PI / 180), W = world.W;
+    const want = clamp(Math.max(((x1 - x0) / 2 + 4.5) / (T * aspect), ((y1 - y0) / 2 + 3.2) / T, 12.5 / (2 * T * aspect)), CAM_D, 34);
+    camD = lerp(camD, want, 1 - Math.exp(-dt * 2.5));
+    const halfW = T * camD * aspect, halfH = T * camD;
+    const tx = halfW * 2 > W ? W / 2 : clamp((x0 + x1) / 2, halfW - 0.5, W - halfW + 0.5);
+    const ty = Math.max((y0 + y1) / 2 + 0.6, 4 + halfH * 0.62);
+    camX = lerp(camX, tx, 1 - Math.exp(-dt * 4)); camY = lerp(camY, ty, 1 - Math.exp(-dt * 3));
+    return camD;
+  }
+  /* each fighter's tag (1P, 2P, CPU) over their head, in their colour */
+  const TV = new THREE.Vector3();
+  function placeTags() {
+    const box = host.querySelector(".adv-3d"), wrap = host.querySelector(".adv-tags"); if (!box || !wrap) return;
+    camera.updateMatrixWorld();
+    const W = box.clientWidth, Hh = box.clientHeight;
+    battle.fs.forEach((f, i) => {
+      const el = wrap.children[i]; if (!el) return;
+      if (f.out || f.ko) { el.style.display = "none"; return; }
+      TV.set(f.x, f.y + f.hh + (f.c.lift || 0) + 0.3, 0).project(camera);
+      el.style.display = "";
+      el.style.transform = `translate(${Math.round((TV.x + 1) / 2 * W)}px,${Math.round((1 - TV.y) / 2 * Hh)}px) translate(-50%,-100%)`;
+    });
+  }
+  function padHtml() {
+    return `<div class="adv-pad">
+        <div class="adv-pad-l"><button data-t="U" class="up" aria-label="Up">${ico("down")}</button><button data-t="L" aria-label="Left">${ico("back")}</button><button data-t="D" class="dn-k" aria-label="Down">${ico("down")}</button><button data-t="R" aria-label="Right">${ico("next")}</button></div>
+        <div class="adv-pad-r"><button data-t="Z">Light</button><button data-t="X">Heavy</button><button data-t="C">Special</button><button data-t="J" class="jp">Jump</button></div>
+      </div>`;
+  }
+  function wirePad(el) {
+    el.querySelectorAll("[data-t]").forEach(b => {
+      const k = b.dataset.t, on = e => { e.preventDefault(); touch[k] = 1; b.classList.add("dn"); }, off = e => { e.preventDefault(); touch[k] = 0; b.classList.remove("dn"); };
+      b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off); b.addEventListener("pointercancel", off); b.addEventListener("pointerleave", off);
+    });
+  }
+  function buildBattleHud() {
+    const B = battle, h = host.querySelector(".adv-hud"), tr = B.cfg.kind === "training";
+    h.classList.add("on");
+    h.innerHTML = `
+      <div class="adv-fcards n${B.fs.length}">${B.fs.map((f, i) => `
+        <div class="adv-fc" data-i="${i}" style="--tc:${tagCol(f)}">
+          <canvas class="adv-fc-face" width="44" height="40"></canvas>
+          <div class="adv-fc-r">
+            <div class="adv-fc-nm"><b>${esc(f.c.name)}</b><i>${tagText(f)}</i></div>
+            <div class="adv-hp"><span></span></div>
+            <div class="adv-fc-sc"></div>
+          </div>
+        </div>`).join("")}</div>
+      <div class="adv-hr">
+        ${B.cfg.time && B.cfg.kind === "battle" ? `<span class="adv-clock num"></span>` : ""}
+        <button class="adv-pause" title="Pause (Enter)" aria-label="Pause">II</button>
+      </div>
+      ${tr ? `<div class="adv-combo"><b class="num"></b><i></i></div>` : ""}
+      <div class="adv-cap"></div>
+      <div class="adv-tags">${B.fs.map(f => `<span class="adv-tag" style="--tc:${tagCol(f)}">${tagText(f)}</span>`).join("")}</div>
+      ${TOUCH && B.fs.some(f => f.ctl === "p1") ? padHtml() : ""}`;
+    h.querySelectorAll(".adv-fc-face").forEach((cv, i) => paintCard(cv, B.fs[i].c.id, "portrait", 1));
+    h.querySelector(".adv-pause").onclick = () => togglePause();
+    wirePad(h);
+    hudCache = {};
+  }
+  function scoreHtml(f) {
+    const B = battle;
+    if (B.cfg.kind === "training") return `<b class="num">${Math.ceil(f.hp)}</b><i class="num">/${f.hpMax}</i>`;
+    if (B.cfg.rule === "stock") return `<span class="adv-lives">${Array.from({ length: B.cfg.goal }, (_, k) => `<em class="${k < f.lives ? "on" : ""}"></em>`).join("")}</span>`;
+    return `<b class="num">${f.score}</b><i class="num">/${B.cfg.goal}</i><small>KO</small>`;
+  }
+  function battleHud() {
+    const B = battle, h = host.querySelector(".adv-hud"); if (!h || !B) return;
+    const set = (key, val, fn) => { if (hudCache[key] !== val) { hudCache[key] = val; fn(val); } };
+    B.fs.forEach((f, i) => {
+      const card = h.querySelector(`.adv-fc[data-i="${i}"]`); if (!card) return;
+      const pct = Math.max(0, Math.round(f.hp / f.hpMax * 100));
+      set("hp" + i, pct, v => { card.querySelector(".adv-hp span").style.width = v + "%"; card.classList.toggle("low", v <= 30); });
+      set("sc" + i, scoreHtml(f), v => { card.querySelector(".adv-fc-sc").innerHTML = v; });
+      set("out" + i, !!f.out, v => card.classList.toggle("out", v));
+      set("heal" + i, !!f.healing, v => card.classList.toggle("heal", v));
+    });
+    const ck = h.querySelector(".adv-clock");
+    if (ck) set("clk", Math.ceil(B.clock), v => { ck.textContent = Math.floor(v / 60) + ":" + String(v % 60).padStart(2, "0"); ck.classList.toggle("low", v <= 10); });
+    const cb = h.querySelector(".adv-combo");
+    if (cb) {                                              // training: what the last string did
+      const me = B.lead, c = me.lastCmb, live = c && c.n >= 1 && B.fs.some(f => f !== me && f.sinceHit < 1.6);
+      set("cmb", live ? c.n + "|" + c.dmg : "", v => {
+        cb.classList.toggle("on", !!v);
+        if (v) { cb.querySelector("b").textContent = c.n > 1 ? c.n + " hits" : "1 hit"; cb.querySelector("i").textContent = c.dmg + " damage"; }
+      });
+    }
+  }
+  /* a word across the middle of the screen: Ready, Go!, KO!, Time!, who won */
+  function caption(text, stay) {
+    const c = host && host.querySelector(".adv-cap"); if (!c) return;
+    c.textContent = text || ""; c.classList.remove("on", "stay"); void c.offsetWidth;
+    if (text) c.classList.add(stay ? "stay" : "on");
+  }
+
+  // ---------------------------------------------------------------- the main menu
+  const runnerId = () => storyRun ? storyRun.ch.who : castId;
+  /* the menus glide over one of the stages, never an arena */
+  function ensureStageWorld() { if (!world || world.def !== actDef(stageIdx, actIdx)) load3d(stageIdx); }
+  function screenOn(m) {
+    endBattle();
+    mode = m; paused = false; parade = null; talk = null;
+    host.querySelector(".adv-hud").classList.remove("on");
+    host.classList.remove("playing");
+    return host.querySelector(".adv-ov");
+  }
+  function mainMenu() {
+    storyRun = null;
+    const ov = screenOn("main");
+    ensureStageWorld();
+    const list = STORY(), done = storyDone();
+    const items = [
+      ["story", "book", "Story", `The Red Star Rings: ${list.length} chapters, thirteen stages of its own, the whole cast`,
+        done >= list.length ? "Cleared" : done ? `Chapter ${done + 1}` : ""],
+      ["exhibition", "flag", "Free Exhibition", "Any runner in any zone you've opened, Act 1 or Act 2 and its boss: for time, rings and Red Star Rings",
+        `${stages().filter((st, i) => cleared(i)).length}/${stages().length}`],
+      ["battle", "trophy", "Battle", "Up to four fighters with health, players or CPUs, in any runner's arena", ""],
+      ["training", "dumbbell", "Training", "Every move on a dummy that does as it's told", ""],
+      ["options", "gear", "Options", "Music, sound, screen shake and the two-player keys", ""],
+      ["exit", "door", "Exit", "Back to the hall", ""],
+    ];
+    ov.innerHTML = `
+      <div class="adv-main pop">
+        <div class="adv-brand">
+          <div class="adv-kicker">POST PARADE</div>
+          <div class="adv-logo">ADVENTURE 2</div>
+        </div>
+        <div class="adv-mm">
+          ${items.map(([id, ic, t, sub, note], i) => `
+            <button class="adv-mi" data-mm="${id}" data-k="mm-${id}" ${i === 0 ? "data-focus" : ""}>
+              <span class="adv-mi-ic">${ico(ic)}</span>
+              <span class="adv-mi-tx"><b>${t}</b><i>${sub}</i></span>
+              ${note ? `<em>${note}</em>` : ""}
+            </button>`).join("")}
+        </div>
+        <button hidden data-back id="advMMBack"></button>
+      </div>`;
+    const go = { story: storyMenu, exhibition: () => { load3d(stageIdx); menu(); }, battle: () => battleSetup(true), training: () => trainingSetup(true), options: () => optionsScreen(true), exit: () => exit() };
+    ov.querySelectorAll("[data-mm]").forEach(b => b.onclick = () => go[b.dataset.mm]());
+    ov.querySelector("#advMMBack").onclick = () => title();
+    autoFocus();
+  }
+
+  // ---------------------------------------------------------------- the battle and training screens
+  /* The battle's setup, kept per trainer: up to four slots (a player, the second player, a CPU
+     at its level, or nobody), everyone for themselves or Red against Blue, the arena, and the
+     rules. A few ready-made matches set the slots in one go. */
+  const PRESETS = [
+    ["1P vs CPU", ["p1", "cpu", "off", "off"]],
+    ["1P vs 2P", ["p1", "p2", "off", "off"]],
+    ["CPU vs CPU", ["cpu", "cpu", "off", "off"]],
+    ["1P & 2P vs CPU", ["p1", "p2", "cpu", "off"], [0, 0, 1, 1]],
+    ["Three-way", ["p1", "cpu", "cpu", "off"]],
+    ["Four-way", ["p1", "cpu", "cpu", "cpu"]],
+    ["2 vs 2", ["p1", "cpu", "cpu", "cpu"], [0, 0, 1, 1]],
+  ];
+  const CTL_N = { p1: "Player 1", p2: "Player 2", cpu: "CPU", off: "Nobody" };
+  const LV_N = ["Easy", "Normal", "Hard"];
+  function bset() {
+    const d = { slots: [{ who: castId, ctl: "p1", lvl: 1, team: 0 }, { who: "shadow", ctl: "cpu", lvl: 1, team: 1 },
+                        { who: "knuckles", ctl: "off", lvl: 1, team: 0 }, { who: "amy", ctl: "off", lvl: 1, team: 1 }],
+                teams: false, arena: 0, rule: "ko", goal: 3, time: 180, hp: 100 };
+    const b = saveData.battle = Object.assign(d, saveData.battle || {});
+    b.slots = d.slots.map((s, i) => Object.assign({}, s, (b.slots || [])[i] || {}));
+    return b;
+  }
+  /* a row of choices, the picked one lit: Options' own segmented control */
+  const seg = (key, opts, cur) => `<div class="seg adv-seg">${opts.map(([v, l]) => `<button data-seg="${key}" data-v="${v}" data-k="${key}-${v}" class="${String(v) === String(cur) ? "sel" : ""}">${l}</button>`).join("")}</div>`;
+  const row = (label, help, control) => `<div class="setrow"><div class="setlab"><b>${label}</b>${help ? `<i>${help}</i>` : ""}</div>${control}</div>`;
+  const arrows = (key, label) => `<div class="adv-pick"><button class="adv-arr" data-arr="${key}" data-d="-1" data-k="${key}-prev" aria-label="Previous">${ico("back")}</button><b>${label}</b><button class="adv-arr" data-arr="${key}" data-d="1" data-k="${key}-next" aria-label="Next">${ico("next")}</button></div>`;
+  const cycle = (arr, cur, d) => arr[(arr.indexOf(cur) + d + arr.length) % arr.length];
+  function slotCard(s, i, o) {
+    const off = s.ctl === "off", col = o.teams ? TEAM_C[s.team] : SLOT_C[i];
+    return `
+      <div class="adv-slot ${off ? "off" : ""}" style="--tc:${col}">
+        <button class="adv-slot-ctl" data-ctl="${i}" data-k="ctl-${i}">${o.fixed ? o.fixed : off ? "Add a fighter" : CTL_N[s.ctl]}</button>
+        <div class="adv-slot-face"><canvas class="adv-spr" width="176" height="144" data-who="${off ? "" : s.who}"></canvas></div>
+        ${off ? "" : arrows("who" + i, esc(castOf(s.who).name))}
+        ${!off && s.ctl === "cpu" && !o.noLevel ? seg("lvl" + i, LV_N.map((l, k) => [k, l]), s.lvl) : ""}
+        ${!off && o.teams ? seg("team" + i, TEAM_N.map((l, k) => [k, l]), s.team) : ""}
+      </div>`;
+  }
+  function keysLine() {
+    const K = KEYMAP.p, f = (m, acts) => acts.map(a => m[a].map(keyName).join(" or ") || "none").join(" ");
+    return `<b>Player 1</b> ${f(K[0], ["U", "L", "D", "R"])} to move &middot; ${f(K[0], ["J"])} jump &middot; ${f(K[0], ["Z", "X", "C"])} light, heavy, special<br>
+            <b>Player 2</b> ${f(K[1], ["U", "L", "D", "R"])} to move &middot; ${f(K[1], ["J"])} jump &middot; ${f(K[1], ["Z", "X", "C"])} light, heavy, special`;
+  }
+  function battleSetup(first) {
+    const b = bset(), ov = screenOn("setup");
+    if (first) ensureStageWorld();
+    const n = b.slots.filter(s => s.ctl !== "off").length, duo = b.slots.some(s => s.ctl === "p2");
+    const preset = PRESETS.findIndex(([, ctl, tm]) => ctl.every((c, i) => b.slots[i].ctl === c) && !!tm === !!b.teams && (!tm || tm.every((t, i) => ctl[i] === "off" || b.slots[i].team === t)));
+    ov.innerHTML = `
+      <div class="adv-menu pop">
+        <div class="panel adv-panel adv-bset">
+          <div class="panel-hd">${ico("trophy")}Battle</div>
+          <div class="adv-presets">${PRESETS.map(([l], i) => `<button data-pre="${i}" data-k="pre-${i}" class="${i === preset ? "sel" : ""}">${l}</button>`).join("")}</div>
+          <div class="adv-slots">${b.slots.map((s, i) => slotCard(s, i, b)).join("")}</div>
+          <div class="adv-rules">
+            ${row("Sides", "", seg("teams", [[0, "Everyone for themselves"], [1, "Red against Blue"]], b.teams ? 1 : 0))}
+            ${row("Arena", esc(stages()[b.arena].sub), arenaPick(b.arena))}
+            ${row("Rule", b.rule === "stock" ? "Each fighter has lives; the last side standing wins." : "The first to so many KOs wins.", seg("rule", [["ko", "KO match"], ["stock", "Survival"]], b.rule))}
+            ${row(b.rule === "stock" ? "Lives" : "KOs to win", "", seg("goal", [[1, "1"], [3, "3"], [5, "5"]], b.goal))}
+            ${row("Time", "", seg("time", [[120, "2:00"], [180, "3:00"], [300, "5:00"], [0, "None"]], b.time))}
+            ${row("Health", "", seg("hp", [[60, "60"], [100, "100"], [150, "150"]], b.hp))}
+          </div>
+          <div class="adv-go">
+            <button class="btn lg" id="advFight" data-enter data-focus data-k="fight" ${n < 2 ? "disabled" : ""}>${ico("flag")}Fight</button>
+            <button class="btn ghost" id="advBSk" data-k="emskill">Emerl's Skills</button>
+            <button class="btn ghost" id="advBBack" data-back data-k="back">${ico("back")}Main menu</button>
+          </div>
+          <div class="adv-keys">${duo ? keysLine() + "<br>" : ""}<b>Down</b> guards, and held still heals &middot; Options sets the two players' keys</div>
+        </div>
+      </div>`;
+    paintSlots(ov); paintArena(ov);
+    const redo = () => { save(saveData); battleSetup(); };
+    ov.querySelectorAll("[data-pre]").forEach(el => el.onclick = () => {
+      const [, ctl, tm] = PRESETS[+el.dataset.pre];
+      b.slots.forEach((s, i) => { s.ctl = ctl[i]; if (tm) s.team = tm[i]; });
+      b.teams = !!tm; redo();
+    });
+    ov.querySelectorAll("[data-ctl]").forEach(el => el.onclick = () => {
+      const i = +el.dataset.ctl, s = b.slots[i];
+      const order = i < 2 ? ["p1", "p2", "cpu"] : ["p1", "p2", "cpu", "off"];
+      s.ctl = cycle(order, s.ctl, 1);
+      if (s.ctl === "p1" || s.ctl === "p2") b.slots.forEach((o, k) => { if (k !== i && o.ctl === s.ctl) o.ctl = "cpu"; });   // one of each player
+      redo();
+    });
+    ov.querySelectorAll("[data-arr]").forEach(el => el.onclick = () => {
+      const key = el.dataset.arr, d = +el.dataset.d;
+      if (key === "arena") b.arena = (b.arena + d + stages().length) % stages().length;
+      else { const s = b.slots[+key.slice(3)]; s.who = cycle(CAST.map(c => c.id), s.who, d); }
+      redo();
+    });
+    ov.querySelectorAll("[data-seg]").forEach(el => el.onclick = () => {
+      const key = el.dataset.seg, v = el.dataset.v;
+      if (key === "teams") b.teams = v === "1";
+      else if (key === "rule") b.rule = v;
+      else if (key === "goal" || key === "time" || key === "hp") b[key] = +v;
+      else if (key.startsWith("lvl")) b.slots[+key.slice(3)].lvl = +v;
+      else if (key.startsWith("team")) b.slots[+key.slice(4)].team = +v;
+      redo();
+    });
+    ov.querySelector("#advFight").onclick = () => {
+      let slots = b.slots.filter(s => s.ctl !== "off").map(s => Object.assign({}, s));
+      if (!slots.some(s => s.ctl === "p1")) { const p2 = slots.find(s => s.ctl === "p2"); if (p2) p2.ctl = "p1"; }   // a lone second player is the first
+      if (b.teams && new Set(slots.map(s => s.team)).size < 2) slots = slots.map((s, i) => Object.assign(s, { team: i % 2 }));
+      startBattle({ kind: "battle", slots, teams: b.teams, arena: b.arena, rule: b.rule, goal: b.goal, time: b.time, hp: b.hp });
+    };
+    ov.querySelector("#advBBack").onclick = () => mainMenu();
+    ov.querySelector("#advBSk").onclick = () => emerlSkills(() => battleSetup(true));
+    if (first) autoFocus();
+  }
+  function paintSlots(ov) { ov.querySelectorAll(".adv-slot canvas[data-who]").forEach(cv => { if (cv.dataset.who) paintCard(cv, cv.dataset.who); }); }
+
+  function tset() {
+    const d = { you: castId, dummy: "knuckles", act: "stand", arena: 0 };
+    return (saveData.training = Object.assign(d, saveData.training || {}));
+  }
+  function trainingSetup(first) {
+    const t = tset(), ov = screenOn("setup");
+    if (first) ensureStageWorld();
+    ov.innerHTML = `
+      <div class="adv-menu pop">
+        <div class="panel adv-panel adv-bset adv-tset">
+          <div class="panel-hd">${ico("dumbbell")}Training</div>
+          <div class="adv-slots">
+            ${slotCard({ who: t.you, ctl: "p1" }, 0, { fixed: "You" }).replace(/who0/g, "you")}
+            ${slotCard({ who: t.dummy, ctl: "cpu" }, 1, { fixed: "The dummy", noLevel: true }).replace(/who1/g, "dummy")}
+          </div>
+          <div class="adv-rules">
+            ${row("The dummy", "What it does while you practise. You can change it from the pause menu.", seg("act", DUMMY, t.act))}
+            ${row("Arena", esc(stages()[t.arena].sub), arenaPick(t.arena))}
+          </div>
+          <div class="adv-go">
+            <button class="btn lg" id="advTrain" data-enter data-focus data-k="train">${ico("flag")}Start training</button>
+            <button class="btn ghost" id="advTSk" data-k="emskill">Emerl's Skills</button>
+            <button class="btn ghost" id="advTBack2" data-back data-k="back">${ico("back")}Main menu</button>
+          </div>
+          <div class="adv-keys">Health comes back between strings, and nobody goes down for good. Pause for the move list.</div>
+        </div>
+      </div>`;
+    paintSlots(ov); paintArena(ov);
+    ov.querySelectorAll(".adv-slot-ctl").forEach(el => el.disabled = true);
+    const redo = () => { save(saveData); trainingSetup(); };
+    ov.querySelectorAll("[data-arr]").forEach(el => el.onclick = () => {
+      const key = el.dataset.arr, d = +el.dataset.d;
+      if (key === "arena") t.arena = (t.arena + d + stages().length) % stages().length;
+      else t[key] = cycle(CAST.map(c => c.id), t[key], d);
+      redo();
+    });
+    ov.querySelectorAll("[data-seg]").forEach(el => el.onclick = () => { t.act = el.dataset.v; redo(); });
+    ov.querySelector("#advTrain").onclick = () => startTraining();
+    ov.querySelector("#advTBack2").onclick = () => mainMenu();
+    ov.querySelector("#advTSk").onclick = () => emerlSkills(() => trainingSetup(true));
+    if (first) autoFocus();
+  }
+  function startTraining() {
+    const t = tset();
+    startBattle({ kind: "training", slots: [{ who: t.you, ctl: "p1", team: 0 }, { who: t.dummy, ctl: "cpu", lvl: 1, team: 1, dummy: t.act }],
+                  teams: true, arena: t.arena, rule: "ko", goal: 99, time: 0, hp: 100 });
+  }
+  /* the move list: the same buttons for everyone; what the air action and the moves are, the
+     runner's own */
+  const AIR_DESC = { ballet: "Sonic Ballet, a second jump that homes on anything near", fly: "flight: tap to climb, until tired",
+    glide: "a glide while held; glide into a wall to climb it", double: "a Double Jump", teleport: "Chaos Control, twice a jump",
+    float: "Chaos Flight, a little more height", jet: "a burst of the jet ahead, and a hover", psy: "the Air Psycho Dash; then hold Space to float down",
+    launch: "Shell Launch, straight up; against a wall, a wall jump" };
+  const airDesc = c => c.air === "hover" ? (c.id === "eggman" ? "Egg Hover: held up a while, then sinking slowly" : "Flight Mode: held up a while, sinking") : AIR_DESC[c.air] || "";
+  function movesHtml(c) {
+    const R = (k, t) => `<div class="adv-mv-r"><b>${k}</b><span>${t}</span></div>`;
+    return `<div class="adv-mlist">
+      <div class="adv-mv-hd"><b>${esc(c.name)}</b><i>${esc(c.moves)}</i></div>
+      ${R("Z", "Light attack: three in a row; X straight after for the heavy")}
+      ${R("X", "Heavy attack. Up + X upper, Down + X aim attack, dashing the dash attack")}
+      ${R("Z or X in the air", "Air attack" + (c.id === "shadow" ? " (Z: Homing Attack)" : ""))}
+      ${R("C", "Shot. Up + C power, Down + C trap (again to set it off); each has an air version")}
+      ${R("Space", "Jump; again in the air, " + airDesc(c))}
+      ${R("Twice left or right", "Dash")}
+      ${R("Down", "Guard (half a second); held still, heal")}
+      ${c.spinDash ? R("Down + Space", "Spin Dash: tap Space to rev, let go of Down") : ""}
+      <p>${esc(c.text)}</p>
+    </div>`;
+  }
+  function battlePause(ov) {
+    const B = battle, tr = B.cfg.kind === "training", story = B.cfg.kind === "story";
+    const dum = tr ? B.fs[1].ai.dummy : null;
+    ov.innerHTML = `
+      <div class="panel adv-small pop ${tr ? "adv-tpause" : ""}">
+        <div class="panel-hd">${ico("info")}Paused</div>
+        ${tr ? `<div class="adv-rules">${row("The dummy", "", seg("dum", DUMMY, dum))}</div>` : ""}
+        <div class="adv-btns">
+          <button class="btn" id="advRes" data-k="res">${ico("next")}Keep ${tr ? "training" : "fighting"}</button>
+          ${tr ? `<button class="btn ghost" id="advReset" data-k="reset">Start again from the corners</button>
+                  <button class="btn ghost" id="advMoves" data-k="moves">Move list</button>`
+               : `<button class="btn ghost" id="advRe" data-k="re">Start the ${story ? "battle" : "match"} again</button>`}
+          <button class="btn ghost" id="advSetup" data-k="setup">${story ? `${ico("book")}Story` : tr ? "Training setup" : "Battle setup"}</button>
+          ${story ? "" : `<button class="btn ghost" id="advMain" data-k="main">${ico("back")}Main menu</button>`}
+        </div>
+        <div class="adv-mwrap" hidden>${movesHtml(B.lead.c)}</div>
+      </div>`;
+    const q = s => ov.querySelector(s);
+    q("#advRes").onclick = () => togglePause();
+    if (q("#advRe")) q("#advRe").onclick = () => { paused = false; startBattle(B.cfg); };
+    if (q("#advReset")) q("#advReset").onclick = () => { paused = false; startBattle(B.cfg); };
+    if (q("#advMoves")) q("#advMoves").onclick = () => { const m = q(".adv-mwrap"); m.hidden = !m.hidden; };
+    q("#advSetup").onclick = () => { paused = false; if (story) storyMenu(); else if (tr) trainingSetup(true); else battleSetup(true); };
+    if (q("#advMain")) q("#advMain").onclick = () => { paused = false; mainMenu(); };
+    ov.querySelectorAll("[data-seg]").forEach(el => el.onclick = () => {
+      B.fs[1].ai.dummy = el.dataset.v; B.cfg.slots[1].dummy = el.dataset.v; tset().act = el.dataset.v; save(saveData);
+      ov.querySelectorAll("[data-seg]").forEach(x => x.classList.toggle("sel", x === el));
+    });
+    autoFocus();
+  }
+  /* the end of a match: who won, and everyone's numbers on the board */
+  function battleOver() {
+    const B = battle;
+    if (B.cfg.kind === "story") return storyBattleOver(B);
+    mode = "results";
+    host.querySelector(".adv-hud").classList.remove("on");
+    /* a player's Emerl on the winning side learns one move of someone else's (Sonic Battle's skill card) */
+    const won = B.winner != null && B.fs.some(f => f.team === B.winner && f.c.id === "emerl" && f.ctl !== "cpu");
+    const got = won && !B.taught ? (B.taught = emerlLearn() || "all") : null;
+    const order = B.fs.slice().sort((a, b) => (b.team === B.winner) - (a.team === B.winner) || b.score - a.score || b.lives - a.lives || b.dealt - a.dealt);
+    const ov = host.querySelector(".adv-ov");
+    ov.innerHTML = `
+      <div class="panel adv-small adv-bres pop">
+        <div class="panel-hd gold">${ico("trophy")}${B.winner == null ? "A draw" : esc(winnerLine(B.winner).replace(/!$/, ""))}</div>
+        ${got && got !== "all" ? `
+        <div class="adv-skill">
+          <canvas width="88" height="72" data-face="${got.src}"></canvas>
+          <div><em>New skill</em><b>${esc(got.name)}</b><i>${esc(castOf(got.src).name)}'s ${esc(got.slotName.toLowerCase())}: Emerl copied it. Set it in Emerl's Skills.</i></div>
+        </div>` : got === "all" ? `<p class="adv-note">Emerl knows every move there is to learn.</p>` : ""}
+        <div class="adv-board">
+          <div class="adv-row adv-bhd"><span></span><em>KOs</em><em>Down</em><em>Damage</em></div>
+          ${order.map(f => `
+            <div class="adv-row adv-frow ${f.team === B.winner ? "win" : ""}">
+              <span><canvas width="44" height="40" data-face="${f.c.id}"></canvas><b>${esc(f.c.name)}</b><i style="--tc:${tagCol(f)}">${tagText(f)}</i></span>
+              <b class="num">${f.kos}</b><b class="num">${f.downs}</b><b class="num">${Math.round(f.dealt)}</b>
+            </div>`).join("")}
+        </div>
+        <div class="adv-btns">
+          <button class="btn" id="advAgainB" data-focus data-k="again">${ico("flag")}Rematch</button>
+          ${got && got !== "all" ? `<button class="btn ghost" id="advBSkill" data-k="skill">Emerl's Skills</button>` : ""}
+          <button class="btn ghost" id="advBSet" data-k="set">Battle setup</button>
+          <button class="btn ghost" id="advBMain" data-back data-k="main">${ico("back")}Main menu</button>
+        </div>
+      </div>`;
+    ov.querySelectorAll("[data-face]").forEach(cv => paintCard(cv, cv.dataset.face, "portrait", 1));
+    ov.querySelector("#advAgainB").onclick = () => startBattle(B.cfg);
+    ov.querySelector("#advBSet").onclick = () => battleSetup(true);
+    ov.querySelector("#advBMain").onclick = () => mainMenu();
+    if (ov.querySelector("#advBSkill")) ov.querySelector("#advBSkill").onclick = () => emerlSkills(() => battleSetup(true));
+    setTimeout(autoFocus, 0);
+  }
+
+  /* Emerl's Skills: his slots, each set to his own move or one he has learned (Sonic Battle's skill
+     cards, without the points: any mix goes). The arrows go through what he knows for that slot. */
+  function emerlSkills(back) {
+    const e = emerlSave(), ov = screenOn("setup");
+    const all = emerlAll(), n = e.learned.length;
+    const opts = slot => ["emerl"].concat(EM_SRC.filter(src => e.learned.includes(src + "." + slot)));
+    const label = (slot, src) => src === "emerl" ? "His own" : `${EM.names[src][slot]} (${castOf(src).name})`;
+    ov.innerHTML = `
+      <div class="adv-menu pop">
+        <div class="panel adv-panel adv-opts adv-emsk">
+          <div class="panel-hd">${ico("cards")}Emerl's Skills</div>
+          <div class="adv-emtop">
+            <canvas width="88" height="72" data-face="emerl"></canvas>
+            <div><b class="sx-big">${n}<i>/${all.length}</i></b><span>moves learned. Each battle Emerl wins as a player's fighter teaches him one more, at random.</span></div>
+          </div>
+          <div class="adv-rules">
+            ${EM_SLOTS.map(([slot, nm]) => { const o = opts(slot), cur = e.loadout[slot] || "emerl";
+              return row(nm, o.length > 1 ? `${o.length - 1} learned` : "Nothing learned yet", o.length > 1 ? arrows("em-" + slot, esc(label(slot, cur))) : `<div class="adv-pick"><b>${esc(label(slot, cur))}</b></div>`); }).join("")}
+          </div>
+          <div class="adv-go">
+            <button class="btn lg" id="advEmDone" data-back data-focus data-k="done">${ico("check")}Done</button>
+            <button class="btn ghost" id="advEmOwn" data-k="own">All his own</button>
+          </div>
+        </div>
+      </div>`;
+    ov.querySelectorAll("[data-face]").forEach(cv => paintCard(cv, cv.dataset.face));
+    ov.querySelectorAll("[data-arr]").forEach(el => el.onclick = () => {
+      const slot = el.dataset.arr.slice(3), o = opts(slot), cur = e.loadout[slot] || "emerl";
+      const nx = o[(o.indexOf(cur) + +el.dataset.d + o.length) % o.length];
+      if (nx === "emerl") delete e.loadout[slot]; else e.loadout[slot] = nx;
+      save(saveData); emerlSkills(back);
+    });
+    ov.querySelector("#advEmOwn").onclick = () => { e.loadout = {}; save(saveData); emerlSkills(back); };
+    ov.querySelector("#advEmDone").onclick = () => back();
+    if (!kbFocus || !kbFocus.isConnected) autoFocus();
+  }
+
+  // ---------------------------------------------------------------- options
+  /* Options: the game's own music, sound, dialogue-speed and screen-shake settings (the same
+     ones the rest of Post Parade uses), and the keys two players share a keyboard with. A key is
+     set by picking it and pressing the new one (Esc leaves it as it was); a key does one thing,
+     so taking it from one place clears it from another. */
+  const KEYMAP_KEY = "postparade.adventure.keys";
+  const ACTS = [["L", "Left"], ["R", "Right"], ["U", "Up"], ["D", "Down"], ["J", "Jump"], ["Z", "Light"], ["X", "Heavy"], ["C", "Special"]];
+  const KEYS_DEF = () => ({
+    p: [{ L: ["KeyA"], R: ["KeyD"], U: ["KeyW"], D: ["KeyS"], J: ["Space"], Z: ["KeyV"], X: ["KeyB"], C: ["KeyN"] },
+        { L: ["ArrowLeft"], R: ["ArrowRight"], U: ["ArrowUp"], D: ["ArrowDown"], J: ["Numpad0", "Quote"], Z: ["Numpad1", "KeyK"], X: ["Numpad2", "KeyL"], C: ["Numpad3", "Semicolon"] }],
+    padSwap: false });
+  let KEYMAP = KEYS_DEF();
+  try { const k = JSON.parse(localStorage.getItem(KEYMAP_KEY)); if (k && k.p && k.p.length === 2) KEYMAP = Object.assign(KEYS_DEF(), k); } catch (e) {}
+  const saveKeys = () => { try { localStorage.setItem(KEYMAP_KEY, JSON.stringify(KEYMAP)); } catch (e) {} };
+  function duoKey(code) {
+    if (!code) return null;
+    for (let s = 0; s < 2; s++) for (const [a] of ACTS) if ((KEYMAP.p[s][a] || []).includes(code)) return [s, a];
+    return null;
+  }
+  const KEY_NAMES = { Space: "Space", ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", Semicolon: ";", Quote: "'", Comma: ",",
+    Period: ".", Slash: "/", Backslash: "\\", BracketLeft: "[", BracketRight: "]", Minus: "-", Equal: "=", Backquote: "`", ShiftLeft: "Left Shift",
+    ShiftRight: "Right Shift", ControlLeft: "Left Ctrl", ControlRight: "Right Ctrl", AltLeft: "Left Alt", AltRight: "Right Alt", Tab: "Tab", Backspace: "Backspace",
+    NumpadDecimal: "Num .", NumpadAdd: "Num +", NumpadSubtract: "Num -", NumpadMultiply: "Num *", NumpadDivide: "Num /" };
+  const keyName = c => KEY_NAMES[c] || (/^Key./.test(c) ? c.slice(3) : /^Digit./.test(c) ? c.slice(5) : /^Numpad\d$/.test(c) ? "Num " + c.slice(6) : c);
+  let rebind = null;
+  function takeRebind(e) {
+    const r = rebind; rebind = null;
+    if (e.key !== "Escape" && e.code && !/^(Enter|NumpadEnter|Escape)$/.test(e.code)) {
+      for (const m of KEYMAP.p) for (const [a] of ACTS) m[a] = (m[a] || []).filter(c => c !== e.code);
+      KEYMAP.p[r.slot][r.act] = [e.code];
+      saveKeys();
+    }
+    optionsScreen();
+  }
+  function optionsScreen(first) {
+    const ov = screenOn("options");
+    const S = root.Settings, def = id => S && S.DEFS.find(d => d.id === id);
+    const setSeg = id => { const d = def(id); return d ? seg("set:" + id, d.choices, S.get(id)) : ""; };
+    const K = KEYMAP.p;
+    ov.innerHTML = `
+      <div class="adv-menu pop">
+        <div class="panel adv-panel adv-opts">
+          <div class="panel-hd">${ico("gear")}Options</div>
+          <div class="adv-rules">
+            ${row("Music", "", setSeg("musicVolume"))}
+            ${row("Sound effects", "", setSeg("sfxVolume"))}
+            ${row("Dialogue speed", "How quickly the story's talk types out.", setSeg("textSpeed"))}
+            ${row("Screen shake", "The jolt when a heavy blow lands.", seg("set:shake", [[1, "On"], [0, "Off"]], S && S.get("shake") === false ? 0 : 1))}
+          </div>
+          <p class="adv-note">Music, sound, dialogue speed and screen shake are Post Parade's own settings: they change for the whole game.</p>
+          <div class="panel-hd adv-hd2">${ico("arcade")}Two players, one keyboard</div>
+          <div class="adv-kmap">
+            <div class="adv-kh"><span></span><b style="--tc:${SLOT_C[0]}">Player 1</b><b style="--tc:${SLOT_C[1]}">Player 2</b></div>
+            ${ACTS.map(([a, l]) => `
+              <div class="adv-kr"><span>${l}</span>
+                ${[0, 1].map(s => `<button data-key="${s}:${a}" data-k="key-${s}-${a}" class="${rebind && rebind.slot === s && rebind.act === a ? "wait" : ""}">${
+                  rebind && rebind.slot === s && rebind.act === a ? "Press a key" : (K[s][a] || []).map(keyName).join(" or ") || "None"}</button>`).join("")}
+              </div>`).join("")}
+          </div>
+          <div class="adv-rules">
+            ${row("Gamepads", "With two pads plugged in, which one is Player 1's.", seg("pad", [[0, "The first is Player 1's"], [1, "The first is Player 2's"]], KEYMAP.padSwap ? 1 : 0))}
+          </div>
+          <p class="adv-note">With one player the keys are always the arrows or W A S D, Space, Z, X and C. These are for a battle between two.</p>
+          <div class="adv-go">
+            <button class="btn lg" id="advODone" data-back data-focus data-k="done">${ico("check")}Done</button>
+            <button class="btn ghost" id="advOReset" data-k="reset">Put the keys back as they were</button>
+          </div>
+        </div>
+      </div>`;
+    ov.querySelectorAll("[data-seg]").forEach(el => el.onclick = () => {
+      const key = el.dataset.seg, v = el.dataset.v;
+      if (key === "pad") { KEYMAP.padSwap = v === "1"; saveKeys(); }
+      else if (key === "set:shake") S && S.set("shake", v === "1");
+      else if (S) { const d = def(key.slice(4)); const c = d && d.choices.find(c => String(c[0]) === v); if (c) S.set(d.id, c[0]); }
+      optionsScreen();
+    });
+    ov.querySelectorAll("[data-key]").forEach(el => el.onclick = () => {
+      const [s, a] = el.dataset.key.split(":");
+      rebind = { slot: +s, act: a }; optionsScreen();
+    });
+    ov.querySelector("#advOReset").onclick = () => { KEYMAP = KEYS_DEF(); saveKeys(); optionsScreen(); };
+    ov.querySelector("#advODone").onclick = () => { rebind = null; mainMenu(); };
+    if (first) autoFocus();
+    else if (kbUsed && rebind) { const el = ov.querySelector(`[data-k="key-${rebind.slot}-${rebind.act}"]`); if (el) setFocus(el); }
+  }
+
+  // ---------------------------------------------------------------- story
+  /* The story: chapters in adventure-story.js, each a scene of talk, then a stage to run (the
+     story's own) or a battle to win as one of the cast, then the talk after. Clearing one opens
+     the next; a cleared one can be played again. */
+  const STORY = () => (root.AdventureStory && AdventureStory.CHAPTERS) || [];
+  let storyRun = null, talk = null;
+  const storyDone = () => (saveData.story && saveData.story.done) || 0;
+  function chapterLine(ch) {
+    const who = castOf(ch.who).name;
+    if (ch.kind === "run") return `${who}: ${storyDef(ch).name}`;
+    const foes = ch.foes.map(f => castOf(f.who).name).join(" & "), with_ = (ch.allies || []).map(a => castOf(a).name);
+    return `${[who].concat(with_).join(" & ")} against ${foes}, at ${stages()[stageAt(ch.arena)].name}`;
+  }
+  function storyMenu() {
+    storyRun = null;
+    const ov = screenOn("story");
+    ensureStageWorld();
+    const list = STORY(), done = storyDone(), next = Math.min(done, list.length - 1);
+    ov.innerHTML = `
+      <div class="adv-menu pop">
+        <div class="panel adv-panel">
+          <div class="panel-hd">${ico("book")}Story: ${esc((root.AdventureStory && AdventureStory.TITLE) || "")}</div>
+          <div class="adv-stages adv-chs">
+            ${list.map((ch, i) => { const open = i <= done; return `
+              <button class="adv-st ${i === next ? "on" : ""} ${open ? "" : "locked"}" data-ch="${i}" data-k="ch-${i}" ${open ? "" : "disabled"}>
+                <span class="adv-n">${i + 1}</span>
+                <canvas class="adv-st-who" width="36" height="38" data-face="${ch.who}"></canvas>
+                <span class="adv-st-tx"><b>${esc(ch.title)}</b><i>${esc(chapterLine(ch))}</i></span>
+                <span class="adv-chk">${!open ? `${ico("lock")}Locked` : i < done ? `${ico("check")}Cleared` : ch.kind === "battle" ? "Battle" : "Stage"}</span>
+              </button>`; }).join("")}
+          </div>
+          <div class="adv-go">
+            <button class="btn lg" id="advCont" data-enter data-focus data-k="cont">${ico("book")}${done >= list.length ? `Play chapter ${list.length} again` : done ? `Go on: chapter ${next + 1}` : "Begin the story"}</button>
+            <button class="btn ghost" id="advSBack" data-back data-k="back">${ico("back")}Main menu</button>
+          </div>
+        </div>
+      </div>`;
+    ov.querySelectorAll("[data-face]").forEach(cv => paintCard(cv, cv.dataset.face, "idle", 1));
+    ov.querySelectorAll("[data-ch]").forEach(b => b.onclick = () => { if (+b.dataset.ch <= done) playChapter(+b.dataset.ch); });
+    ov.querySelector("#advCont").onclick = () => playChapter(next);
+    ov.querySelector("#advSBack").onclick = () => mainMenu();
+    autoFocus();
+    const on = ov.querySelector(".adv-st.on"); if (on) on.scrollIntoView({ block: "nearest" });
+  }
+  function playChapter(i) {
+    const ch = STORY()[i]; if (!ch) return;
+    endBattle();
+    storyRun = { i, ch };
+    if (ch.kind === "run") { storyRun.def = storyDef(ch); loadDef(storyRun.def); glideX = 12; camX = 15; }
+    else { disposeWorld(); world = buildWorld(arenaDef(stageAt(ch.arena))); player = makePlayer(castOf(ch.who)); glideX = world.W / 2; snapCamera(); }
+    music();
+    playScene(ch.before, () => storyAction(i));
+  }
+  function storyAction(i) {
+    const ch = STORY()[i];
+    if (ch.kind === "run") { play(); return; }
+    const slots = [{ who: ch.who, ctl: "p1", team: 0 }].concat((ch.allies || []).map(a => ({ who: a, ctl: "cpu", lvl: 1, team: 0 })),
+                  ch.foes.map(f => ({ who: f.who, ctl: "cpu", lvl: f.lvl == null ? 1 : f.lvl, team: 1 })));
+    startBattle({ kind: "story", slots, teams: true, arena: stageAt(ch.arena), rule: "stock", goal: 1, time: 0, hp: 100 });
+  }
+  const storyDef = ch => storyStages().find(s => s.id === ch.stage) || stages()[stageAt(ch.stage)];
+  /* A word from someone mid-run: a chapter's `beats` are [how far along (0 to 1), who, words];
+     each comes once a run, in a speech box up top, while the running goes on. */
+  function storyBeats(dt) {
+    const R = storyRun; if (!R || !R.ch.beats || !world || !world.goal || paused || mode !== "play") return;
+    const el = host.querySelector(".adv-comm"); if (!el) return;
+    R.said = R.said || {};
+    R.commT = Math.max(0, (R.commT || 0) - dt);
+    if (R.commT <= 0) el.classList.remove("on");
+    if (R.commT > 0.4 || world.t < 2.4) return;
+    const at = player.x / world.goal.x;
+    const k = R.ch.beats.findIndex((b, n) => !R.said[n] && at >= b[0]);
+    if (k < 0) return;
+    const [, who, text] = R.ch.beats[k];
+    R.said[k] = true;
+    paintCard(el.querySelector("canvas"), who);
+    el.style.setProperty("--tc", "#" + (HIT_C[who] || 0x4a9dff).toString(16).padStart(6, "0"));
+    el.querySelector("b").textContent = castOf(who).name; el.querySelector("span").textContent = text;
+    el.classList.add("on"); R.commT = 2.4 + text.length * 0.05;
+  }
+  function storyBattleOver(B) {
+    const won = B.winner === B.fs[0].team;
+    if (won) { storyAfter(storyRun.i); return; }
+    mode = "results";
+    host.querySelector(".adv-hud").classList.remove("on");
+    const ov = host.querySelector(".adv-ov");
+    ov.innerHTML = `
+      <div class="panel adv-small pop">
+        <div class="panel-hd">${ico("info")}Beaten</div>
+        <p class="adv-note">${esc(castOf(storyRun.ch.who).name)} is down. Down guards, and held still heals; the move list is in Training.</p>
+        <div class="adv-btns">
+          <button class="btn" id="advTry" data-focus data-k="try">${ico("flag")}Try again</button>
+          <button class="btn ghost" id="advSt" data-back data-k="st">${ico("book")}Story</button>
+        </div>
+      </div>`;
+    ov.querySelector("#advTry").onclick = () => startBattle(B.cfg);
+    ov.querySelector("#advSt").onclick = () => storyMenu();
+    setTimeout(autoFocus, 0);
+  }
+  /* the talk after a cleared chapter, over the stage or the arena it was won in */
+  function storyAfter(i) {
+    const ch = STORY()[i];
+    endBattle();
+    if (world && world.def.arena) glideX = world.W / 2;
+    else if (world) { glideX = Math.max(12, Math.min(world.W - 31, (world.goal ? world.goal.x : world.W) - 22)); camX = glideX + 3; }
+    playScene(ch.after, () => chapterClear(i));
+  }
+  function chapterClear(i) {
+    saveData.story = saveData.story || {};
+    saveData.story.done = Math.max(storyDone(), i + 1); save(saveData);
+    const list = STORY(), next = i + 1 < list.length ? i + 1 : -1, ch = list[i];
+    const ov = screenOn("story");
+    ov.innerHTML = `
+      <div class="panel adv-small pop">
+        <div class="panel-hd gold">${ico("check")}Chapter ${i + 1}: ${esc(ch.title)}</div>
+        <p class="adv-note">${next >= 0 ? `Next, chapter ${next + 1}: <b>${esc(list[next].title)}</b>. ${esc(chapterLine(list[next]))}.` : "The end of the story. Thank you for playing."}</p>
+        <div class="adv-btns">
+          ${next >= 0 ? `<button class="btn" id="advNextCh" data-focus data-enter data-k="next">${ico("next")}Chapter ${next + 1}</button>` : ""}
+          <button class="btn ${next >= 0 ? "ghost" : ""}" id="advToStory" data-back data-k="story" ${next >= 0 ? "" : "data-focus"}>${ico("book")}Story</button>
+        </div>
+      </div>`;
+    if (next >= 0) ov.querySelector("#advNextCh").onclick = () => playChapter(next);
+    ov.querySelector("#advToStory").onclick = () => storyMenu();
+    autoFocus();
+  }
+
+  /* A scene: the speaker's Sonic Battle portrait on their side (the first to speak on the
+     left, the next on the right; a third takes the place of whoever spoke longest ago), their
+     name, and their words typed out at the dialogue speed Options sets. Z, Enter or a tap goes
+     on (all of a line at once, then the next); X skips the rest. Narration has no portrait. */
+  const lineOf = x => Array.isArray(x) ? { who: x[0], text: x[1] } : x;
+  function playScene(lines, done) {
+    lines = (lines || []).map(lineOf);
+    if (!lines.length) { done(); return; }
+    const ov = screenOn("scene");
+    ov.innerHTML = `
+      <div class="adv-talk">
+        <canvas class="adv-tk-face l" width="176" height="144"></canvas>
+        <canvas class="adv-tk-face r" width="176" height="144"></canvas>
+        <div class="adv-tk-box">
+          <div class="adv-tk-name"></div>
+          <div class="adv-tk-text"></div>
+          <div class="adv-tk-hint">${TOUCH ? "Tap to go on" : "<b>Z</b> or <b>Enter</b> to go on &middot; <b>X</b> skips the scene"}</div>
+        </div>
+        <button class="btn ghost adv-tk-skip" data-k="skip">Skip</button>
+      </div>`;
+    talk = { lines, i: -1, done, shown: 0, t: 0, sides: { l: null, r: null }, last: "r", ov };
+    ov.querySelector(".adv-talk").onclick = e => { if (e.target.closest(".adv-tk-skip")) sceneSkip(); else sceneNext(); };
+    sceneNext();
+  }
+  const textMs = () => { const v = root.Settings && Settings.get("textSpeed"); return v == null ? 18 : v; };
+  function sceneNext() {
+    const T = talk; if (!T) return;
+    const L = T.lines[T.i];
+    if (L && T.shown < L.text.length) { T.shown = L.text.length; paintTalk(); return; }
+    T.i++;
+    if (T.i >= T.lines.length) { talk = null; T.done(); return; }
+    const n = T.lines[T.i];
+    T.shown = 0; T.t = 0;
+    if (n.who) {
+      let side = T.sides.l === n.who ? "l" : T.sides.r === n.who ? "r" : null;
+      if (!side) {
+        side = T.sides.l == null ? "l" : T.sides.r == null ? "r" : T.last === "l" ? "r" : "l";
+        T.sides[side] = n.who;
+        const cv = T.ov.querySelector(".adv-tk-face." + side); paintCard(cv, n.who); cv.classList.add("in");
+      }
+      T.last = side;
+    }
+    if (!textMs()) T.shown = n.text.length;
+    paintTalk();
+  }
+  function sceneTick(dt) {
+    const T = talk; if (!T) return;
+    const L = T.lines[T.i]; if (!L || T.shown >= L.text.length) return;
+    T.t += dt * 1000;
+    const n = Math.min(L.text.length, Math.floor(T.t / Math.max(1, textMs())));
+    if (n !== T.shown) { T.shown = n; paintTalk(); }
+  }
+  function paintTalk() {
+    const T = talk, L = T.lines[T.i], ov = T.ov;
+    const nm = ov.querySelector(".adv-tk-name"), tx = ov.querySelector(".adv-tk-text");
+    nm.textContent = L.who ? (L.name || castOf(L.who).name) : ""; nm.hidden = !L.who;
+    nm.style.setProperty("--tc", L.who ? "#" + (HIT_C[L.who] || 0xffffff).toString(16).padStart(6, "0") : "");
+    tx.textContent = L.text.slice(0, T.shown);
+    tx.classList.toggle("narr", !L.who);
+    const box = ov.querySelector(".adv-tk-box");
+    box.classList.toggle("done", T.shown >= L.text.length);
+    box.classList.toggle("tl", !!L.who && T.last === "l"); box.classList.toggle("tr", !!L.who && T.last === "r");
+    for (const s of ["l", "r"]) ov.querySelector(".adv-tk-face." + s).classList.toggle("talking", !!L.who && T.last === s && T.sides[s] === L.who);
+  }
+  function sceneSkip() { const T = talk; if (!T) return; talk = null; T.done(); }
+
   // ---------------------------------------------------------------- screens
   const fmt = t => { if (t == null) return "--:--.-"; const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
   /* open once the stage before it is cleared -- or once this one has been, so a stage added
      ahead of the others never locks what a player has already run */
   /* a stage that took the place of an older one (`was`) counts that one's clear */
-  const cleared = i => { const st = stages()[i]; return !!((saveData.stages[st.id] || {}).clear || (st.was && (saveData.stages[st.was] || {}).clear)); };
+  const cleared = i => actCleared(i, nActs(i) - 1);
   const unlocked = i => i === 0 || cleared(i - 1) || cleared(i);
 
-  function load3d(i) {
+  /* The zones' Acts. A zone (adventure-stages.js) is two: Act 1 ends at the goal signpost, Act 2
+     in Eggman's arena. An Act's def is the zone's with that Act's map, par and its own id
+     ("seabreeze-1"), which its record is kept under. */
+  let actIdx = 0;
+  const ACT_DEFS = {};
+  function actDef(i, a) {
+    const z = stages()[i]; if (!z || !z.acts) return z;
+    a = clamp(a | 0, 0, z.acts.length - 1);
+    const id = z.id + "-" + (a + 1);
+    return ACT_DEFS[id] || (ACT_DEFS[id] = Object.assign({}, z, z.acts[a], { id, zone: z, actN: a + 1, last: a === z.acts.length - 1, acts: null }));
+  }
+  const nActs = i => (stages()[i] && stages()[i].acts ? stages()[i].acts.length : 1);
+  /* an Act cleared -- or its whole zone, in a record from before the zones had Acts */
+  const actCleared = (i, a) => { const z = stages()[i]; return !!((saveData.stages[z.id + "-" + (a + 1)] || {}).clear || (saveData.stages[z.id] || {}).clear || (z.was && (saveData.stages[z.was] || {}).clear)); };
+  const actOpen = (i, a) => unlocked(i) && (a === 0 || actCleared(i, a - 1) || actCleared(i, a));
+  /* a zone's Red Star Rings got: across its Acts (or in an older record of the whole stage) */
+  const zoneShoes = i => { const z = stages()[i], old = ((saveData.stages[z.id] || {}).shoes || []).filter(Boolean).length;
+    let n = 0; for (let a = 0; a < nActs(i); a++) n += ((saveData.stages[z.id + "-" + (a + 1)] || {}).shoes || []).filter(Boolean).length;
+    return Math.max(old, n); };
+
+  /* the stage up now: a story chapter's own, or the Act picked on the stage select */
+  const storyStages = () => (root.AdventureStages && AdventureStages.STORY) || [];
+  const curDef = () => (storyRun && storyRun.def) || actDef(stageIdx, actIdx);
+  function load3d(i, a) { stageIdx = i; if (a != null) actIdx = a; actIdx = clamp(actIdx, 0, nActs(i) - 1); loadDef(actDef(i, actIdx)); }
+  function loadDef(def) {
     disposeWorld();
-    stageIdx = i;
-    world = buildWorld(stages()[i]);
-    player = makePlayer(castOf(castId));
+    world = buildWorld(def);
+    player = makePlayer(castOf(runnerId()));
     snapCamera();
     acc = 0; last = 0;
     const box = host.querySelector(".adv-3d");
@@ -4316,50 +6514,53 @@
   /* The title screen: the stage going by behind, slowly, from its start to its end and round
      again; the logo; Press Enter; the trainer's record on a little tote board; and along the
      bottom the whole cast in a post parade -- the thirteen of them going by in a line along
-     the rail on a strip of mown turf, each in their own running frames. */
+     a strip of checkered soil under grass, each in their own running frames. */
   let glideX = 12, parade = null;
   function title() {
-    if (mode !== "title" && world) { glideX = Math.max(12, world.start.x); camX = glideX + 3; }
+    endBattle(); storyRun = null; talk = null;
+    if (mode !== "title" && mode !== "main" && world) { glideX = Math.max(12, world.start.x); camX = glideX + 3; }
     mode = "title"; paused = false;
     const ov = host.querySelector(".adv-ov"), list = stages();
     host.querySelector(".adv-hud").classList.remove("on");
     host.classList.remove("playing");
-    const st = list.map(s => saveData.stages[s.id] || {});
     const clearedN = list.filter((s, i) => cleared(i)).length;
-    const shoes = st.reduce((n, r) => n + (r.shoes || []).filter(Boolean).length, 0);
-    const sGrades = st.filter(r => r.grade === "S").length;
+    const shoes = list.reduce((n, s, i) => n + zoneShoes(i), 0);
+    const sGrades = list.reduce((n, s, i) => { let k = 0; for (let a = 0; a < nActs(i); a++) if ((saveData.stages[s.id + "-" + (a + 1)] || {}).grade === "S") k++; return n + k; }, 0);
     ov.innerHTML = `
       <div class="adv-title pop">
         <div class="adv-brand">
-          <div class="uma-title adv-kicker">POST PARADE</div>
-          <div class="uma-title adv-logo">ADVENTURE 2</div>
+          <div class="adv-kicker">POST PARADE</div>
+          <div class="adv-logo">ADVENTURE 2</div>
         </div>
         <div class="adv-press">${TOUCH ? "Tap Start" : "Press Enter"}</div>
         <div class="adv-tgo">
-          <button class="btn lg" id="advTStart">${ico("flag")}Start</button>
-          <button class="btn ghost" id="advTBack">${ico("back")}Back to the hall</button>
+          <button class="btn lg" id="advTStart" data-enter>${ico("flag")}Start</button>
+          <button class="btn ghost" id="advTBack" data-back>${ico("back")}Back to the hall</button>
         </div>
         <div class="adv-tote">
-          <div><b class="num">${clearedN}<i>/${list.length}</i></b><small>Stages cleared</small></div>
-          <div><b class="num">${shoes}<i>/${list.length * 3}</i></b><small>Golden Horseshoes</small></div>
+          <div><b class="num">${clearedN}<i>/${list.length}</i></b><small>Zones cleared</small></div>
+          <div><b class="num">${shoes}<i>/${list.length * 3}</i></b><small>Red Star Rings</small></div>
           <div><b class="num">${sGrades}</b><small>S grades</small></div>
         </div>
       </div>
       <canvas class="adv-parade"></canvas>
       <div class="adv-legal">A fan-made cabinet, not affiliated with SEGA. Sonic and his friends, rivals and Dr. Eggman belong to SEGA.</div>`;
     parade = { cv: ov.querySelector(".adv-parade"), t: 0 };
-    ov.querySelector("#advTStart").onclick = () => { parade = null; load3d(stageIdx); menu(); };
+    ov.querySelector("#advTStart").onclick = () => mainMenu();
     ov.querySelector("#advTBack").onclick = () => exit();
     autoFocus();
   }
   /* the camera goes along the stage's low road on its own; nobody is there to see */
   function titleGlide(dt) {
     const p = player, w = world;
-    glideX += dt * 4.2;
-    if (glideX > w.W - 30) { glideX = Math.max(12, w.start.x); camX = glideX + 3; }   // round again, a cut
+    if (w.def.arena) glideX = w.W / 2 + Math.sin(w.t * 0.22) * (w.W / 2 - 12);         // an arena: to and fro across it
+    else {
+      glideX += dt * 4.2;
+      if (glideX > w.W - 30) { glideX = Math.max(12, w.start.x); camX = glideX + 3; }   // round again, a cut
+    }
     let y = 0;
     for (let j = 0; j < H; j++) { const c = tile(Math.floor(glideX), j); if (!solid(c) && c !== "~" && c !== "/" && c !== "\\") { y = j; break; } }
-    p.x = glideX; p.y = y; p.vx = 0; p.vy = 0; p.face = 1; p.state = "run"; p.inv = 99; p.dead = 0; p.hearts = 3;
+    p.x = glideX; p.y = y; p.vx = 0; p.vy = 0; p.face = 1; p.state = "run"; p.inv = 99; p.dead = 0;
   }
   /* the post parade along the bottom: everyone's running frames from their own atlas, crisp,
      at a whole number of times size; Eggman's Egg Mobile floats over the turf */
@@ -4373,17 +6574,18 @@
     const g = cv.getContext("2d");
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hh); g.imageSmoothingEnabled = false;
     const k = Hh >= 110 ? 2 : 1.5, track = Math.round(Hh * 0.3), top = Hh - track, t = parade.t;
-    // the turf: broad stripes of two greens, mown; the white rail along its far side
-    const stripe = 44;
-    for (let x = -((t * 18) % (stripe * 2)) - stripe * 2; x < W + stripe * 2; x += stripe * 2) {
-      g.fillStyle = "#2f8f3e"; g.fillRect(x, top, stripe, track);
-      g.fillStyle = "#45a852"; g.fillRect(x + stripe, top, stripe, track);
+    // the ground: checkered soil in two browns under a lip of grass, going by slowly
+    const sq = 12, o = (t * 24) % (sq * 2);
+    for (let r = 0, y = top + 8; y < Hh; r++, y += sq) for (let c = 0, x = -o - sq * 2; x < W + sq; c++, x += sq) {
+      g.fillStyle = (c + r) & 1 ? "#b8641e" : "#7a3e12"; g.fillRect(x, y, sq, sq);
     }
-    g.fillStyle = "#124a1d"; g.fillRect(0, top, W, 3);
-    g.fillStyle = "#f6f6f2"; g.fillRect(0, top - 9, W, 4);
-    for (let x = -((t * 18) % 60); x < W; x += 60) g.fillRect(x, top - 9, 3, 12);
+    g.fillStyle = "#2fb844"; g.fillRect(0, top, W, 6);
+    g.fillStyle = "#1c7a2a"; g.fillRect(0, top + 6, W, 3);
+    g.fillStyle = "#050a22"; g.fillRect(0, top + 9, W, 2);
+    g.fillStyle = "#2fb844";
+    for (let x = -((t * 24) % 16); x < W; x += 16) { g.fillRect(x, top - 3, 4, 3); g.fillRect(x + 9, top - 2, 3, 2); }
     // the parade
-    const gap = 46 * k, period = W + CAST.length * gap + 120, base = (t * 64) % period, feet = top + 12;   // (just inside the rail: the credit line runs along the turf below them)
+    const gap = 46 * k, period = W + CAST.length * gap + 120, base = (t * 64) % period, feet = top + 3;
     CAST.forEach((c, n) => {
       const A = SHEETS[c.id]; if (!A) return;
       const img = IMGS[c.id] || (IMGS[c.id] = Object.assign(new Image(), { src: A.url }));
@@ -4398,18 +6600,15 @@
   }
 
   function menu() {
+    endBattle(); storyRun = null; talk = null;
     mode = "menu"; paused = false; parade = null;
     const ov = host.querySelector(".adv-ov"), list = stages();
     host.querySelector(".adv-hud").classList.remove("on");
     host.classList.remove("playing");
     ov.innerHTML = `
       <div class="adv-menu pop">
-        <div class="adv-brand">
-          <div class="uma-title adv-kicker">POST PARADE</div>
-          <div class="uma-title adv-logo">ADVENTURE 2</div>
-        </div>
         <div class="panel adv-panel">
-          <div class="panel-hd">${ico("person")}Who runs</div>
+          <div class="panel-hd">${ico("person")}Free Exhibition: who runs</div>
           <div class="adv-cast">
             ${CAST.map(c => `
               <button class="adv-who ${c.id === castId ? "on" : ""}" data-cast="${c.id}">
@@ -4422,32 +6621,35 @@
                 </div>
               </button>`).join("")}
           </div>
-          <div class="panel-hd adv-hd2">${ico("flag")}Stage</div>
+          <div class="panel-hd adv-hd2">${ico("flag")}Zone</div>
+          <div class="adv-acts"></div>
           <div class="adv-stages">
             ${list.map((s, i) => {
-              const r = saveData.stages[s.id] || {}, open = unlocked(i), sh = r.shoes || [];
+              const recs = Array.from({ length: nActs(i) }, (_, a) => saveData.stages[s.id + "-" + (a + 1)] || {}), open = unlocked(i), got = zoneShoes(i);
+              const bests = recs.map(r => r.best), order = "CBAS", gr = recs.map(r => r.grade).filter(Boolean).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
+              const r = { best: bests.every(b => b != null) ? bests.reduce((a, b) => a + b, 0) : null, grade: gr }, sh = [0, 1, 2].map(k => k < got);
               return `
               <button class="adv-st ${i === stageIdx ? "on" : ""} ${open ? "" : "locked"}" data-st="${i}" ${open ? "" : "disabled"}>
-                <span class="adv-n" style="background:var(--w${(i % 8) + 1});${i === 0 || i === 4 ? "color:var(--ink)" : ""}">${i + 1}</span>
+                <span class="adv-n">${i + 1}</span>
                 ${s.who ? `<canvas class="adv-st-who" width="36" height="38" data-face="${s.who}" title="${esc(castOf(s.who).name)}'s stage"></canvas>` : ""}
                 <span class="adv-st-tx"><b>${esc(s.name)}</b><i>${esc(s.sub)}</i></span>
                 ${open ? `
-                  <span class="adv-shoes">${[0, 1, 2].map(k => `<em class="${sh[k] ? "got" : ""}">${ico("goldshoe")}</em>`).join("")}</span>
+                  <span class="adv-shoes">${[0, 1, 2].map(k => `<em class="${sh[k] ? "got" : ""}">${RED_I}</em>`).join("")}</span>
                   <span class="adv-best num">${r.best != null ? fmt(r.best) : "--:--.-"}</span>
                   <span class="adv-grade">${r.grade ? `<b class="g g${r.grade}">${r.grade}</b>` : ""}</span>`
-                : `<span class="adv-lock">${ico("lock")}Clear stage ${i} first</span>`}
+                : `<span class="adv-lock">${ico("lock")}Clear zone ${i} first</span>`}
               </button>`;
             }).join("")}
           </div>
           <div class="adv-go">
-            <button class="btn lg" id="advStart">${ico("flag")}Start</button>
-            <button class="btn ghost" id="advBack">${ico("back")}Title screen</button>
+            <button class="btn lg" id="advStart" data-enter>${ico("flag")}Start</button>
+            <button class="btn ghost" id="advBack" data-back>${ico("back")}Main menu</button>
           </div>
           <div class="adv-keys">${TOUCH ? "On screen: the pad moves, crouches and picks a move (Up or Down with Heavy or Special); Jump, Light, Heavy and Special." :
             `<b>&larr; &rarr;</b> run, twice to dash &middot; <b>Space</b> jump, again in the air &middot; <b>Z</b> light &middot; <b>X</b> heavy &middot; <b>C</b> special<br>
              <b>&uarr;</b> or <b>&darr;</b> with <b>X</b> or <b>C</b> for another move &middot; <b>&darr;</b> crouch &middot; <b>&darr; + Space</b> Spin Dash, or drop through &middot; <b>Enter</b> start, and pause<br>
              In the menus: <b>arrows</b> to choose &middot; <b>Z</b> to confirm &middot; <b>X</b> to go back`}</div>
-          <div class="adv-credit">Sonic and his friends, his rivals and Dr. Eggman belong to SEGA. Sonic, Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos and Chaos Gamma are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Knuckles' climbing and the Spin Dash rev, dust and blast effects are from Sonic Advance (2001), ripped by AsuharaMoon; all from The Spriters Resource. Dr. Eggman, Metal Sonic, Mighty and Silver are drawn in Sonic Battle's style by TheKnucklesMainG4 (DeviantArt). The badniks are from Sonic Advance, Sonic Advance 2 and Sonic Advance 3, ripped by SpitfyaUK and Techokami, Fatazz and SkyLights (The Spriters Resource), and from TheKnucklesMainG4's Modern Sonic Badniks sheet (DeviantArt).</div>
+          <div class="adv-credit">Sonic and his friends, his rivals and Dr. Eggman belong to SEGA. Sonic, Tails, Knuckles, Amy, Rouge, Shadow, Cream, Chaos and Chaos Gamma are from SEGA's Sonic Battle (Game Boy Advance, 2003), ripped by QuadFactor; Emerl, and every move he copies, re-ripped by Dinoshi 64 (some rips by Mr. C); Knuckles' climbing and the Spin Dash rev, dust and blast effects are from Sonic Advance (2001), ripped by AsuharaMoon; all from The Spriters Resource. Dr. Eggman, Metal Sonic, Mighty and Silver are drawn in Sonic Battle's style by TheKnucklesMainG4 (DeviantArt). The badniks are from Sonic Advance, Sonic Advance 2 and Sonic Advance 3, ripped by SpitfyaUK and Techokami, Fatazz and SkyLights (The Spriters Resource), and from TheKnucklesMainG4's Modern Sonic Badniks sheet (DeviantArt). The monitors and shields are Sonic Advance 3's, ripped by SpitfyaUK and Techokami (The Spriters Resource). Eggman's bosses, Gemerl and the capsule are from Sonic Advance, Sonic Advance 2 and Sonic Advance 3, ripped by SonicDash57, Flare, raidlandguy, SkyLights, Shade and Sonikku (The Spriters Resource).</div>
         </div>
       </div>`;
     ov.querySelectorAll(".adv-spr").forEach(cv => paintCard(cv, cv.dataset.who));
@@ -4461,34 +6663,52 @@
     ov.querySelectorAll("[data-st]").forEach(b => b.onclick = () => {
       const i = +b.dataset.st; if (!unlocked(i) || i === stageIdx) return;
       ov.querySelectorAll("[data-st]").forEach(x => x.classList.toggle("on", x === b));
-      load3d(i); music();
+      load3d(i, firstAct(i)); music(); paintActs(ov);
     });
+    paintActs(ov);
     ov.querySelector("#advStart").onclick = () => play();
-    ov.querySelector("#advBack").onclick = () => title();
+    ov.querySelector("#advBack").onclick = () => mainMenu();
     autoFocus();
   }
+  /* the zone's Acts, to pick from: each one's best time and grade; Act 2 opens once Act 1 is cleared */
+  const firstAct = i => { for (let a = 0; a < nActs(i); a++) if (!actCleared(i, a)) return a; return 0; };
+  function paintActs(ov) {
+    const el = ov.querySelector(".adv-acts"); if (!el) return;
+    const z = stages()[stageIdx];
+    el.innerHTML = Array.from({ length: nActs(stageIdx) }, (_, a) => {
+      const r = saveData.stages[z.id + "-" + (a + 1)] || {}, open = actOpen(stageIdx, a), last = a === nActs(stageIdx) - 1;
+      return `<button class="adv-act ${a === actIdx ? "on" : ""}" data-act="${a}" data-k="act-${a}" ${open ? "" : "disabled"}>
+        <b>Act ${a + 1}</b><i>${esc(z.name)}<br>${last ? "Eggman's " + esc(BOSS[z.boss] ? BOSS[z.boss].name : "boss") : "To the goal signpost"}</i>
+        <span class="num">${open ? (r.best != null ? fmt(r.best) : "--:--.-") : ""}</span>${open ? (r.grade ? `<b class="g g${r.grade}">${r.grade}</b>` : "") : ico("lock")}
+      </button>`;
+    }).join("");
+    el.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
+      const a = +b.dataset.act; if (!actOpen(stageIdx, a) || a === actIdx) return;
+      load3d(stageIdx, a); music(); paintActs(ov);
+    });
+  }
   function music() {
-    const T = THEMES[stages()[stageIdx].theme] || THEMES.cape;
+    const T = THEMES[world && world.def ? world.def.theme : stages()[stageIdx].theme] || THEMES.cape;
     try { if (root.Sound && Sound.play) Sound.play(T.music); } catch (e) {}
   }
 
   function play() {
     // the stage the menu has standing is fresh: run it; anything already played is built again
-    if (world && world.def === stages()[stageIdx] && !world.played) {
+    if (world && world.def === curDef() && !world.played) {
       world.group.remove(player.spr); if (player.dust) world.group.remove(player.dust);
-      world.t = 0; player = makePlayer(castOf(castId)); snapCamera(); acc = 0; last = 0;
-    } else load3d(stageIdx);
+      world.t = 0; player = makePlayer(castOf(runnerId())); snapCamera(); acc = 0; last = 0;
+    } else loadDef(curDef());
     world.played = true;
+    if (storyRun) { storyRun.said = {}; storyRun.commT = 0; }
     mode = "play"; paused = false;
     host.querySelector(".adv-ov").innerHTML = "";
     host.classList.add("playing");
-    const st = stages()[stageIdx];
+    const st = curDef();
     const hudEl = host.querySelector(".adv-hud");
     hudEl.classList.add("on");
     hudEl.innerHTML = `
       <div class="adv-hl">
-        <span class="adv-hearts"></span>
-        <span class="adv-car">${ico("carrot")}<b class="num">0</b><i class="num">/${world.total}</i></span>
+        <span class="adv-car">${RING_I}<b class="num">0</b><i class="num">/${world.total}</i></span>
         <span class="adv-hs"></span>
       </div>
       <div class="adv-air"><i>Air</i><b class="num"></b></div>
@@ -4497,28 +6717,25 @@
         <button class="adv-pause" title="Pause (Esc)" aria-label="Pause">II</button>
       </div>
       <div class="adv-toast"></div>
-      <div class="adv-name"><b>${esc(st.name)}</b><i>${esc(st.sub)}</i></div>
-      ${TOUCH ? `<div class="adv-pad">
-        <div class="adv-pad-l"><button data-t="U" class="up" aria-label="Up">${ico("down")}</button><button data-t="L" aria-label="Left">${ico("back")}</button><button data-t="D" class="dn-k" aria-label="Down">${ico("down")}</button><button data-t="R" aria-label="Right">${ico("next")}</button></div>
-        <div class="adv-pad-r"><button data-t="Z">Light</button><button data-t="X">Heavy</button><button data-t="C">Special</button><button data-t="J" class="jp">Jump</button></div>
-      </div>` : ""}`;
+      <div class="adv-name"><b>${esc(st.name)}</b>${st.actN ? `<em class="num">Act ${st.actN}</em>` : ""}<i>${esc(st.sub)}</i></div>
+      ${storyRun && storyRun.ch.beats ? `<div class="adv-comm"><canvas width="88" height="72"></canvas><div><b></b><span></span></div></div>` : ""}
+      ${TOUCH ? padHtml() : ""}`;
     hudEl.querySelector(".adv-pause").onclick = () => togglePause();
-    hudEl.querySelectorAll("[data-t]").forEach(b => {
-      const k = b.dataset.t, on = e => { e.preventDefault(); touch[k] = 1; b.classList.add("dn"); }, off = e => { e.preventDefault(); touch[k] = 0; b.classList.remove("dn"); };
-      b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off); b.addEventListener("pointercancel", off); b.addEventListener("pointerleave", off);
-    });
+    wirePad(hudEl);
     hudCache = {};
     setTimeout(() => { const n = host && host.querySelector(".adv-name"); if (n) n.classList.add("off"); }, 2600);
     music();
   }
 
+  /* the cabinet's own icons: a gold ring (the counter) and a Red Star Ring */
+  const RING_I = `<svg class="ico sx-ring" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.6" fill="none" stroke="#050a22" stroke-width="4.6"/><circle cx="8" cy="8" r="5.6" fill="none" stroke="#ffd21a" stroke-width="2.6"/><path d="M3.6 6.2A5 5 0 0 1 6.4 3.1" fill="none" stroke="#fff6b0" stroke-width="1.3"/></svg>`;
+  const RED_I = `<svg class="ico sx-ring" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="#050a22" stroke-width="4"/><circle cx="8" cy="8" r="6" fill="none" stroke="#e42630" stroke-width="2.2"/><path d="M8 4.6l1 2.2 2.3.2-1.8 1.5.6 2.3L8 9.6l-2.1 1.2.6-2.3-1.8-1.5 2.3-.2z" fill="#ffd21a" stroke="#050a22" stroke-width=".6"/></svg>`;
   let hudCache = {};
   function hud() {
     const h = host.querySelector(".adv-hud"); if (!h || !player) return;
     const p = player, set = (key, val, fn) => { if (hudCache[key] !== val) { hudCache[key] = val; fn(val); } };
-    set("hearts", p.hearts, v => h.querySelector(".adv-hearts").innerHTML = [0, 1, 2].map(i => `<em class="${i < v ? "" : "off"}">${ico("heart")}</em>`).join(""));
-    set("car", p.carrots, v => h.querySelector(".adv-car b").textContent = v);
-    set("hs", p.shoes.join(), () => h.querySelector(".adv-hs").innerHTML = p.shoes.map(b => `<em class="${b ? "got" : ""}">${ico("goldshoe")}</em>`).join(""));
+    set("car", p.carrots, v => { const c = h.querySelector(".adv-car"); c.querySelector("b").textContent = v; c.classList.toggle("zero", !v); });   // none: the counter flashes red
+    set("hs", p.shoes.join(), () => h.querySelector(".adv-hs").innerHTML = p.shoes.map(b => `<em class="${b ? "got" : ""}">${RED_I}</em>`).join(""));
     set("clock", fmt(world.t), v => h.querySelector(".adv-clock").textContent = v);
     const under = p.air < AIR - 0.05;
     set("air", under ? Math.ceil(p.air) : -1, v => {
@@ -4530,25 +6747,26 @@
     const t = host && host.querySelector(".adv-toast"); if (!t) return;
     t.textContent = text; t.classList.remove("on"); void t.offsetWidth; t.classList.add("on");
   }
-  function flashHud() { const h = host && host.querySelector(".adv-hearts"); if (h) { h.classList.remove("hit"); void h.offsetWidth; h.classList.add("hit"); } }
+  function flashHud() { const h = host && host.querySelector(".adv-car"); if (h) { h.classList.remove("hit"); void h.offsetWidth; h.classList.add("hit"); } }
 
   function togglePause() {
     if (mode !== "play") return;
     paused = !paused;
     const ov = host.querySelector(".adv-ov");
     if (!paused) { ov.innerHTML = ""; last = 0; return; }
+    if (battle) return battlePause(ov);
     ov.innerHTML = `
       <div class="panel adv-small pop">
         <div class="panel-hd">${ico("info")}Paused</div>
         <div class="adv-btns">
           <button class="btn" id="advRes">${ico("next")}Keep going</button>
           <button class="btn ghost" id="advRe">Start the stage again</button>
-          <button class="btn ghost" id="advQuit">${ico("back")}Stage select</button>
+          <button class="btn ghost" id="advQuit">${ico("back")}${storyRun ? "Story" : "Stage select"}</button>
         </div>
       </div>`;
     ov.querySelector("#advRes").onclick = () => togglePause();
     ov.querySelector("#advRe").onclick = () => { paused = false; play(); };
-    ov.querySelector("#advQuit").onclick = () => { paused = false; load3d(stageIdx); menu(); };
+    ov.querySelector("#advQuit").onclick = () => { paused = false; if (storyRun) storyMenu(); else { load3d(stageIdx); menu(); } };
     autoFocus();
   }
 
@@ -4556,31 +6774,34 @@
     if (!host) return;
     mode = "results";
     host.querySelector(".adv-hud").classList.remove("on");
-    const list = stages(), next = stageIdx + 1 < list.length ? stageIdx + 1 : -1;
+    const list = stages(), moreActs = !storyRun && actIdx + 1 < nActs(stageIdx);
+    const next = moreActs ? stageIdx : stageIdx + 1 < list.length ? stageIdx + 1 : -1, nextAct = moreActs ? actIdx + 1 : 0;
     const ov = host.querySelector(".adv-ov");
     ov.innerHTML = `
       <div class="panel adv-small adv-res pop">
-        <div class="panel-hd gold">${ico("trophy")}${esc(list[stageIdx].name)}: clear</div>
+        <div class="panel-hd gold">${ico("trophy")}${esc(curDef().name)}${curDef().actN ? " Act " + curDef().actN : ""}: clear</div>
         <div class="adv-board">
           <div class="adv-row"><span>Time</span><b class="num">${fmt(r.time)}</b>${r.best ? `<em>Best</em>` : ""}</div>
-          <div class="adv-row"><span>Carrots</span><b class="num">${r.carrots}<i>/${r.total}</i></b></div>
-          <div class="adv-row"><span>Golden Horseshoes</span><b class="adv-hs">${r.shoes.map(b => `<em class="${b ? "got" : ""}">${ico("goldshoe")}</em>`).join("")}</b></div>
+          <div class="adv-row"><span>Rings</span><b class="num">${r.carrots}<i>/${r.total}</i></b></div>
+          <div class="adv-row"><span>Red Star Rings</span><b class="adv-hs">${r.shoes.map(b => `<em class="${b ? "got" : ""}">${RED_I}</em>`).join("")}</b></div>
           <div class="adv-row"><span>Falls</span><b class="num">${r.falls}</b></div>
           <div class="adv-row adv-big"><span>Grade</span><b class="g g${r.grade}">${r.grade}</b></div>
         </div>
         ${r.earned ? `<div class="adv-pay">${ico("carrot")}<b class="num">+${r.earned}</b> carrots to your stable</div>` : ""}
         <div class="adv-btns">
-          ${next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All thirteen cleared</button>`}
+          ${storyRun ? `<button class="btn" id="advSCont" data-focus>${ico("book")}Go on with the story</button>`
+            : next >= 0 ? `<button class="btn" id="advNext">${ico("next")}Next: ${esc(list[next].name)} Act ${nextAct + 1}</button>` : `<button class="btn" id="advMenu">${ico("flag")}All thirteen zones cleared</button>`}
           <button class="btn ghost" id="advAgain">Run it again</button>
-          <button class="btn ghost" id="advSel">${ico("back")}Stage select</button>
+          <button class="btn ghost" id="advSel" data-back>${ico("back")}${storyRun ? "Story" : "Stage select"}</button>
         </div>
       </div>`;
     const go = id => { const b = ov.querySelector(id); return b; };
-    if (go("#advNext")) go("#advNext").onclick = () => { stageIdx = next; play(); };
+    if (go("#advNext")) go("#advNext").onclick = () => { stageIdx = next; actIdx = nextAct; play(); };
     if (go("#advMenu")) go("#advMenu").onclick = () => { load3d(stageIdx); menu(); };
     setTimeout(autoFocus, 0);
     go("#advAgain").onclick = () => play();
-    go("#advSel").onclick = () => { if (next >= 0) stageIdx = next; load3d(stageIdx); menu(); };
+    go("#advSel").onclick = () => { if (storyRun) { storyMenu(); return; } if (next >= 0) { stageIdx = next; actIdx = nextAct; } load3d(stageIdx); menu(); };
+    if (go("#advSCont")) go("#advSCont").onclick = () => storyAfter(storyRun.i);
   }
 
   // ---------------------------------------------------------------- open / close
@@ -4591,13 +6812,16 @@
       return false;
     }
     host = el; opts0 = opts || {};
+    battle = null; storyRun = null; talk = null; rebind = null; actor = null; input = INPUT0;
     saveData = load();
+    emerlImgs();                                         // Emerl's sheets, ready for when he is picked
     castId = CAST.some(c => c.id === saveData.cast) ? saveData.cast : "sonic";
     const list = stages();
     if (!list.length) return false;
     stageIdx = 0;
     for (let i = list.length - 1; i >= 0; i--) if (unlocked(i)) { stageIdx = i; break; }
-    if ((saveData.stages[list[stageIdx].id] || {}).clear && stageIdx + 1 < list.length && unlocked(stageIdx + 1)) stageIdx++;
+    if (cleared(stageIdx) && stageIdx + 1 < list.length && unlocked(stageIdx + 1)) stageIdx++;
+    actIdx = firstAct(stageIdx);
     el.innerHTML = `<div class="adv"><div class="adv-3d"></div><div class="adv-hud"></div><div class="adv-ov"></div></div>`;
     host = el.querySelector(".adv");
     host.addEventListener("pointerdown", () => { kbUsed = false; if (kbFocus) kbFocus.classList.remove("kb"); kbFocus = null; });
@@ -4617,6 +6841,8 @@
     removeEventListener("keydown", kd); removeEventListener("keyup", ku);
     for (const k in keys) keys[k] = 0;
     for (const k in touch) touch[k] = 0;
+    duoKeys.forEach(m => { for (const k in m) m[k] = 0; });
+    battle = null; storyRun = null; talk = null; rebind = null; actor = null; input = INPUT0;
     disposeWorld(); player = null;
     if (R && R.domElement.parentNode) R.domElement.parentNode.removeChild(R.domElement);
     host = null;
@@ -4624,5 +6850,8 @@
 
   root.Adventure = { ok: true, open, close, CAST, THEMES,
     _debug: { get world() { return world; }, get player() { return player; }, step: (s, n) => { for (let k = 0; k < (n || 1); k++) { readInput(); step(s); worldStep(s); input.jp = input.zp = input.xp = input.cp = 0; } },
-              play: (i, id) => { if (id) castId = id; if (i != null) stageIdx = i; play(); }, draw: dt => draw(dt || 1 / 60), input, keys, touch, parse } };
+              play: (i, id, a) => { if (id) castId = id; if (i != null) stageIdx = i; actIdx = a || 0; play(); }, draw: dt => draw(dt || 1 / 60), input: INPUT0, keys, touch, parse,
+              get battle() { return battle; }, get mode() { return mode; }, get talk() { return talk; }, startBattle, mainMenu, storyMenu, playChapter, battleSetup,
+              trainingSetup, optionsScreen, arenaDef, emerlLearn, emerlSkills, emerlCast, get saveData() { return saveData; },
+              bossWeak: () => world && world.boss && BRAIN[world.boss.key].weak(world.boss), tick: (n, h) => { for (let k = 0; k < (n || 1); k++) { if (battle) battleTick(h || 1 / 120); } } } };
 })(typeof globalThis !== "undefined" ? globalThis : this);
