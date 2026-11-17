@@ -5858,6 +5858,10 @@
   function ensureStageWorld() { if (!world || world.def !== actDef(stageIdx, actIdx)) load3d(stageIdx); }
   function screenOn(m) {
     endBattle();
+    /* a screen drawn again (a setting changed on it) stays where it was scrolled to; another
+       screen starts at its top */
+    const old = host.querySelector(".adv-ov .adv-panel"), keep = old && old.scrollTop ? { cls: old.className, y: old.scrollTop } : null;
+    if (keep) queueMicrotask(() => { const p = host && host.querySelector(".adv-ov .adv-panel"); if (p && p.className === keep.cls) p.scrollTop = keep.y; });
     mode = m; paused = false; parade = null; talk = null;
     host.querySelector(".adv-hud").classList.remove("on");
     host.classList.remove("playing");

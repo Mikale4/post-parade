@@ -2099,7 +2099,8 @@
 
 /* ---- lists: stages and chapters */
 .adv-menu{display:flex;flex-direction:column;align-items:center;gap:8px;width:min(1000px,100%);max-height:100%}
-.adv-panel{width:100%;overflow:auto;min-height:0}
+/* (.adv .panel clips its corners with overflow:hidden; a menu's panel must still scroll, by wheel and touch too) */
+.adv .panel.adv-panel{width:100%;overflow:auto;overscroll-behavior:contain;min-height:0}
 .adv-stages{display:flex;flex-direction:column;gap:6px;padding:10px 12px 12px}
 .adv-st{display:flex;align-items:center;gap:12px;padding:6px 12px 6px 8px;border:3px solid var(--sx-ink);border-radius:9px;background:var(--sx-navy2);color:#fff;text-align:left;cursor:pointer;font:inherit;
   box-shadow:inset 0 0 0 2px rgba(74,157,255,.45),0 3px 0 var(--sx-ink)}
